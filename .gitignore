@@ -1,0 +1,74 @@
+# ==========================================
+# .NET / C# Build Outputs & Artifacts
+# ==========================================
+**/bin/
+**/obj/
+**/out/
+*.user
+*.userprefs
+*.usertasks
+*.suo
+*.userosscache
+*.sln.docstates
+*.nupkg
+*.snupkg
+*.pfx
+*.publishsettings
+project.lock.json
+project.fragment.lock.json
+artifacts/
+TestResults/
+[Dd]ebug/
+[Rr]elease/
+
+# ==========================================
+# Node / Frontend (React / Vite)
+# ==========================================
+**/node_modules/
+**/dist/
+**/dist-ssr/
+*.local
+.env.local
+.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.eslintcache
+
+# ==========================================
+# IDEs & Editors
+# ==========================================
+.vs/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ==========================================
+# Docker & Local Data Mounts
+# ==========================================
+pgdata/
+redisdata/
+miniodata/
+data/
+*.log
+
+# ==========================================
+# OS Generated Files
+# ==========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini

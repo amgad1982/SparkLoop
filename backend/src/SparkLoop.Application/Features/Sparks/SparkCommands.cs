@@ -1,0 +1,202 @@
+using FluentValidation;
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using SparkLoop.Application.DTOs;
+using SparkLoop.Application.Interfaces;
+using SparkLoop.Domain.Aggregates.SparkAggregate;
+using SparkLoop.Domain.Exceptions;
+
+namespace SparkLoop.Application.Features.Sparks;
+
+public record CreateDailySparkCommand(
+    string Title,
+    string Prompt,
+    string Category,
+    TimeSpan? Duration = null
+) : IRequest<SparkDto>;
+
+public class CreateDailySparkCommandHandler : IRequestHandler<CreateDailySparkCommand, SparkDto>
+{
+    private readonly IAppDbContext _dbContext;
+
+    public CreateDailySparkCommandHandler(IAppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<SparkDto> Handle(CreateDailySparkCommand request, CancellationToken cancellationToken)
+    {
+        var spark = Spark.Create(
+            Guid.NewGuid(),
+            request.Title,
+            request.Prompt,
+            request.Category,
+            DateTime.UtcNow,
+            request.Duration ?? TimeSpan.FromHours(24));
+
+        _dbContext.Sparks.Add(spark);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return SparkQueries.MapToDto(spark, null);
+    }
+}
+
+public record SubmitSparkEntryCommand(
+    Guid SparkId,
+    string? MediaUrl,
+    string Caption
+) : IRequest<SparkSubmissionDto>;
+
+public class SubmitSparkEntryCommandValidator : AbstractValidator<SubmitSparkEntryCommand>
+{
+    public SubmitSparkEntryCommandValidator()
+    {
+        RuleFor(x => x.SparkId).NotEmpty();
+        RuleFor(x => x.Caption).MaximumLength(280);
+    }
+}
+
+public class SubmitSparkEntryCommandHandler : IRequestHandler<SubmitSparkEntryCommand, SparkSubmissionDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public SubmitSparkEntryCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<SparkSubmissionDto> Handle(SubmitSparkEntryCommand request, CancellationToken cancellationToken)
+    {
+        var spark = await _dbContext.Sparks
+            .Include(s => s.Submissions)
+            .FirstOrDefaultAsync(s => s.Id == request.SparkId, cancellationToken)
+            ?? throw new NotFoundException("Spark", request.SparkId);
+
+        var userId = _currentUserService.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var username = _currentUserService.Username ?? "sparkcreator";
+        var displayName = _currentUserService.DisplayName ?? username;
+        var avatarUrl = _currentUserService.AvatarUrl;
+
+        var submission = spark.SubmitEntry(
+            Guid.NewGuid(),
+            userId,
+            username,
+            displayName,
+            avatarUrl,
+            request.MediaUrl,
+            request.Caption);
+
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        user?.AddReputation(15);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new SparkSubmissionDto(
+            submission.Id,
+            submission.SparkId,
+            submission.AuthorId,
+            submission.AuthorUsername,
+            submission.AuthorDisplayName ?? submission.AuthorUsername,
+            submission.AuthorAvatarUrl,
+            submission.MediaUrl,
+            submission.Caption,
+            submission.VoteCount,
+            false,
+            submission.CreatedAtUtc
+        );
+    }
+}
+
+public record VoteSparkSubmissionCommand(
+    Guid SparkId,
+    Guid SubmissionId
+) : IRequest<SparkSubmissionDto>;
+
+public class VoteSparkSubmissionCommandHandler : IRequestHandler<VoteSparkSubmissionCommand, SparkSubmissionDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public VoteSparkSubmissionCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<SparkSubmissionDto> Handle(VoteSparkSubmissionCommand request, CancellationToken cancellationToken)
+    {
+        var spark = await _dbContext.Sparks
+            .Include(s => s.Submissions)
+                .ThenInclude(sub => sub.Votes)
+            .FirstOrDefaultAsync(s => s.Id == request.SparkId, cancellationToken)
+            ?? throw new NotFoundException("Spark", request.SparkId);
+
+        var userId = _currentUserService.UserId ?? Guid.Parse("33333333-3333-3333-3333-333333333333");
+
+        spark.VoteForSubmission(request.SubmissionId, userId);
+
+        var submission = spark.Submissions.First(s => s.Id == request.SubmissionId);
+
+        // Award reputation to author on receiving a vote
+        var author = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == submission.AuthorId, cancellationToken);
+        author?.AddReputation(5);
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new SparkSubmissionDto(
+            submission.Id,
+            submission.SparkId,
+            submission.AuthorId,
+            submission.AuthorUsername,
+            submission.AuthorDisplayName ?? submission.AuthorUsername,
+            submission.AuthorAvatarUrl,
+            submission.MediaUrl,
+            submission.Caption,
+            submission.VoteCount,
+            submission.HasUserVoted(userId),
+            submission.CreatedAtUtc
+        );
+    }
+}
+
+public record ResolveDailySparkWinnerCommand(Guid SparkId) : IRequest<SparkDto>;
+
+public class ResolveDailySparkWinnerCommandHandler : IRequestHandler<ResolveDailySparkWinnerCommand, SparkDto>
+{
+    private readonly IAppDbContext _dbContext;
+
+    public ResolveDailySparkWinnerCommandHandler(IAppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    public async Task<SparkDto> Handle(ResolveDailySparkWinnerCommand request, CancellationToken cancellationToken)
+    {
+        var spark = await _dbContext.Sparks
+            .Include(s => s.Submissions)
+                .ThenInclude(sub => sub.Votes)
+            .FirstOrDefaultAsync(s => s.Id == request.SparkId, cancellationToken)
+            ?? throw new NotFoundException("Spark", request.SparkId);
+
+        var winner = spark.SelectWinner();
+
+        if (winner is not null)
+        {
+            var user = await _dbContext.Users
+                .Include(u => u.Badges)
+                .FirstOrDefaultAsync(u => u.Id == winner.AuthorId, cancellationToken);
+
+            if (user is not null)
+            {
+                user.AwardBadge("Spark Champion", "Winner of the 24h Synchronized Daily Spark Challenge", "🏆");
+                user.AddReputation(100);
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return SparkQueries.MapToDto(spark, null);
+    }
+}

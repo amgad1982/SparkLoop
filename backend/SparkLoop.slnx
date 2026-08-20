@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SparkLoop.Api/SparkLoop.Api.csproj" />
+    <Project Path="src/SparkLoop.Application/SparkLoop.Application.csproj" />
+    <Project Path="src/SparkLoop.Domain/SparkLoop.Domain.csproj" />
+    <Project Path="src/SparkLoop.Infrastructure/SparkLoop.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SparkLoop.Domain.UnitTests/SparkLoop.Domain.UnitTests.csproj" />
+  </Folder>
+</Solution>

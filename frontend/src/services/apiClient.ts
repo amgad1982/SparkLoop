@@ -1,0 +1,142 @@
+import { useAuthStore } from '../stores/useAuthStore';
+import { useThemeStore } from '../stores/useThemeStore';
+import {
+  AuthResultDto,
+  ChainDto,
+  CentrifugoTokenDto,
+  MoodPodDto,
+  PodMessageDto,
+  PostDto,
+  SparkDto,
+  SparkSubmissionDto,
+  UserDto,
+} from '../types/api';
+
+const BASE_URL = 'http://localhost:5000/api';
+
+async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise<T> {
+  const currentPersona = useAuthStore.getState().currentPersona;
+  const locale = useThemeStore.getState().locale;
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-User-Id': currentPersona.id,
+    'X-Username': currentPersona.username,
+    'X-DisplayName': currentPersona.displayName,
+    'X-Avatar-Url': currentPersona.avatarUrl,
+    'X-App-Locale': locale,
+    ...(options.headers as Record<string, string>),
+  };
+
+  const response = await fetch(`${BASE_URL}${url}`, {
+    ...options,
+    headers,
+  });
+
+  if (!response.ok) {
+    let errorDetail = 'An error occurred';
+    try {
+      const errorJson = await response.json();
+      errorDetail = errorJson.detail || errorJson.title || JSON.stringify(errorJson);
+    } catch {
+      errorDetail = response.statusText;
+    }
+    throw new Error(errorDetail);
+  }
+
+  return response.json() as Promise<T>;
+}
+
+export const api = {
+  // Auth & Personas
+  getCentrifugoToken: (userId?: string, username?: string) =>
+    fetchWithAuth<CentrifugoTokenDto>(
+      `/auth/centrifugo-token?userId=${encodeURIComponent(userId || '')}&username=${encodeURIComponent(username || '')}`
+    ),
+  getPersonas: () => fetchWithAuth<UserDto[]>('/auth/personas'),
+  login: (username: string) =>
+    fetchWithAuth<AuthResultDto>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username }),
+    }),
+
+  // Sparks
+  getActiveSpark: () => fetchWithAuth<SparkDto>('/sparks/active'),
+  submitSparkEntry: (sparkId: string, caption: string, mediaUrl?: string) =>
+    fetchWithAuth<SparkSubmissionDto>('/sparks/submit', {
+      method: 'POST',
+      body: JSON.stringify({ sparkId, caption, mediaUrl }),
+    }),
+  voteSparkSubmission: (sparkId: string, submissionId: string) =>
+    fetchWithAuth<SparkSubmissionDto>(`/sparks/${sparkId}/submissions/${submissionId}/vote`, {
+      method: 'POST',
+    }),
+  resolveSparkWinner: (sparkId: string) =>
+    fetchWithAuth<SparkDto>(`/sparks/${sparkId}/resolve-winner`, {
+      method: 'POST',
+    }),
+
+  // Chains
+  getActiveChains: () => fetchWithAuth<ChainDto[]>('/chains'),
+  getChainById: (id: string) => fetchWithAuth<ChainDto>(`/chains/${id}`),
+  createChain: (title: string, theme: string, maxSteps: number, initialContent: string, initialAudioUrl?: string) =>
+    fetchWithAuth<ChainDto>('/chains', {
+      method: 'POST',
+      body: JSON.stringify({ title, theme, maxSteps, initialContent, initialAudioUrl }),
+    }),
+  submitChainStep: (chainId: string, content: string, audioUrl?: string, durationSeconds?: number, expectedVersion?: number) =>
+    fetchWithAuth<ChainDto>(`/chains/${chainId}/step`, {
+      method: 'POST',
+      body: JSON.stringify({ chainId, content, audioUrl, durationSeconds, expectedVersion }),
+    }),
+  getCompletedChains: () => fetchWithAuth<ChainDto[]>('/chains/completed'),
+
+  // Posts
+  getFeed: (page = 1) => fetchWithAuth<PostDto[]>(`/posts?page=${page}`),
+  createPost: (content: string, mediaUrl?: string, mediaType?: string, width?: number, height?: number) =>
+    fetchWithAuth<PostDto>('/posts', {
+      method: 'POST',
+      body: JSON.stringify({ content, mediaUrl, mediaType, mediaWidth: width, mediaHeight: height }),
+    }),
+  reactToPost: (postId: string, type: string) =>
+    fetchWithAuth<PostDto>(`/posts/${postId}/react`, {
+      method: 'POST',
+      body: JSON.stringify({ type }),
+    }),
+
+  // Mood Pods
+  getActivePods: () => fetchWithAuth<MoodPodDto[]>('/moodpods'),
+  getPodById: (id: string) => fetchWithAuth<MoodPodDto>(`/moodpods/${id}`),
+  createPod: (title: string, moodEmoji: string, backgroundTheme: string) =>
+    fetchWithAuth<MoodPodDto>('/moodpods', {
+      method: 'POST',
+      body: JSON.stringify({ title, moodEmoji, backgroundTheme }),
+    }),
+  sendPodMessage: (podId: string, text: string, emojiReaction?: string) =>
+    fetchWithAuth<PodMessageDto>(`/moodpods/${podId}/message`, {
+      method: 'POST',
+      body: JSON.stringify({ podId, text, emojiReaction }),
+    }),
+  sendPodReaction: (podId: string, emoji: string, intensity = 1) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/react`, {
+      method: 'POST',
+      body: JSON.stringify({ emoji, intensity }),
+    }),
+
+  // Media Upload
+  uploadMedia: async (file: File | Blob, filename = 'meme.webp'): Promise<{ url: string; contentType: string }> => {
+    const formData = new FormData();
+    formData.append('file', file, filename);
+
+    const response = await fetch(`${BASE_URL}/media/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error('Media upload failed');
+    }
+
+    return response.json();
+  },
+};
