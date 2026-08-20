@@ -5,6 +5,7 @@ using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.UserAggregate;
 using SparkLoop.Domain.Exceptions;
+using SparkLoop.Domain.ValueObjects;
 
 namespace SparkLoop.Application.Features.Auth;
 
@@ -40,7 +41,7 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, A
     public async Task<AuthResultDto> Handle(RegisterUserCommand request, CancellationToken cancellationToken)
     {
         var existing = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Username.Value == request.Username.ToLowerInvariant() || u.Email == request.Email.ToLowerInvariant(), cancellationToken);
+            .FirstOrDefaultAsync(u => u.Username == Username.Create(request.Username) || u.Email == request.Email.ToLowerInvariant(), cancellationToken);
 
         if (existing is not null)
         {
@@ -108,9 +109,10 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, AuthRes
     public async Task<AuthResultDto> Handle(LoginUserCommand request, CancellationToken cancellationToken)
     {
         var normalized = request.Username.Trim().ToLowerInvariant();
+        var targetUsername = Username.Create(normalized);
         var user = await _dbContext.Users
             .Include(u => u.Badges)
-            .FirstOrDefaultAsync(u => u.Username.Value == normalized, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Username == targetUsername, cancellationToken);
 
         if (user is null)
         {
@@ -176,7 +178,7 @@ public class GetPersonasQueryHandler : IRequestHandler<GetPersonasQuery, IReadOn
     {
         var users = await _dbContext.Users
             .Include(u => u.Badges)
-            .OrderByDescending(u => u.RepScore.Value)
+            .OrderByDescending(u => u.RepScore)
             .Take(10)
             .ToListAsync(cancellationToken);
 

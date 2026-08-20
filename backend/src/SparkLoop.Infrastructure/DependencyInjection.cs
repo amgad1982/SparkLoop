@@ -14,21 +14,33 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Persistence - PostgreSQL
-        var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!";
+        var provider = configuration["DatabaseProvider"] ?? "Sqlite";
 
         services.AddDbContext<AppDbContext>(options =>
         {
-            // If PostgreSQL is unavailable during initial local startup/tests, EF Core InMemory or standard Npgsql
-            options.UseNpgsql(connectionString, npgsqlOptions =>
+            if (provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
             {
-                npgsqlOptions.EnableRetryOnFailure(3);
-                npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-            });
+                var connectionString = configuration.GetConnectionString("DefaultConnection")
+                    ?? "Host=localhost;Port=5432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!";
+
+                options.UseNpgsql(connectionString, npgsqlOptions =>
+                {
+                    npgsqlOptions.EnableRetryOnFailure(3);
+                    npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                });
+            }
+            else
+            {
+                // Zero-config SQLite provider for seamless instant local testing & offline development
+                var sqliteConn = configuration.GetConnectionString("Sqlite") ?? "Data Source=sparkloop.db";
+                options.UseSqlite(sqliteConn, sqliteOptions =>
+                {
+                    sqliteOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                });
+            }
         });
 
-        services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IAppDbContext>(p => p.GetRequiredService<AppDbContext>());
 
         // Centrifugo RealTime
         services.AddHttpClient<ICentrifugoService, CentrifugoService>();
