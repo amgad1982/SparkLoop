@@ -50,7 +50,6 @@ var app = builder.Build();
 
 // 5. Configure Middleware Pipeline
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
-app.UseMiddleware<RTLContextMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -59,6 +58,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowFrontend");
+
+app.UseMiddleware<RTLContextMiddleware>();
 
 app.UseAuthentication();
 app.UseAuthorization();

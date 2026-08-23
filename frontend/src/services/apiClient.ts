@@ -13,7 +13,7 @@ import {
   UserProfileDto,
 } from '../types/api';
 
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5195/api';
 
 function safeHeaderValue(val?: string | null): string {
   if (!val) return '';
@@ -146,6 +146,21 @@ export const api = {
     fetchWithAuth<boolean>(`/moodpods/${podId}/react`, {
       method: 'POST',
       body: JSON.stringify({ emoji, intensity }),
+    }),
+  sendPodSignal: (podId: string, signalType: string, payload?: unknown, targetUserId?: string) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/signal`, {
+      method: 'POST',
+      body: JSON.stringify({ signalType, payload, targetUserId }),
+    }),
+  sendPodSoundEffect: (podId: string, effectName: string) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/sound-effect`, {
+      method: 'POST',
+      body: JSON.stringify({ effectName }),
+    }),
+  sendPodAudioChunk: (podId: string, audioBase64: string, chunkIndex: number, durationMs?: number) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/audio-chunk`, {
+      method: 'POST',
+      body: JSON.stringify({ audioBase64, chunkIndex, durationMs }),
     }),
 
   // Media Upload

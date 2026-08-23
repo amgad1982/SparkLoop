@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { usePodStore } from '../../stores/usePodStore';
 import { MoodPodDto, PodMessageDto, PodSpeaker } from '../../types/api';
 import { useCentrifugo } from '../../hooks/useCentrifugo';
+import { usePodVoiceEngine } from '../../hooks/usePodVoiceEngine';
 import { FloatingReactions } from './FloatingReactions';
 import { PodAudioPlayer } from './PodAudioPlayer';
 import { PodAudioStage } from './PodAudioStage';
@@ -13,14 +14,15 @@ import {
   Clock,
   Flame,
   Mic,
+  Music,
   Radio,
   Send,
   Sparkles,
-  Square,
   Trash2,
   Users,
   Volume2,
   VolumeX,
+  Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -31,6 +33,15 @@ interface MoodPodRoomProps {
 
 const BURST_EMOJIS = ['🔥', '💖', '🚀', '😂', '⚡', '🤯', '🌙', '✨', '🎧', '☕', '🍿', '💯'];
 
+const SOUNDBOARD_EFFECTS = [
+  { id: 'applause', name: 'Applause', emoji: '👏', arName: 'تصفيق' },
+  { id: 'airhorn', name: 'Airhorn', emoji: '📢', arName: 'هورن DJ' },
+  { id: 'drumroll', name: 'Drumroll', emoji: '🥁', arName: 'طبول' },
+  { id: 'cheer', name: 'Cheering', emoji: '🥳', arName: 'هتاف' },
+  { id: 'laugh', name: 'Laughter', emoji: '😂', arName: 'ضحك' },
+  { id: 'magic', name: 'Magic', emoji: '✨', arName: 'سحر' },
+];
+
 export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) => {
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
@@ -39,11 +50,12 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
 
   const [pod, setPod] = useState<MoodPodDto>(initialPod);
   const [messages, setMessages] = useState<PodMessageDto[]>(initialPod.recentMessages || []);
-  const [speakers, setSpeakers] = useState<PodSpeaker[]>([]);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.3);
+  const [ambientVolume, setAmbientVolume] = useState(0.25);
+  const [activeSoundBanner, setActiveSoundBanner] = useState<{ effect: string; senderName: string } | null>(null);
+  const [showSoundboard, setShowSoundboard] = useState(false);
 
   // Voice note recording states
   const [isRecording, setIsRecording] = useState(false);
@@ -53,15 +65,32 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const gainNodeRef = useRef<GainNode | null>(null);
-  const oscillatorsRef = useRef<OscillatorNode[]>([]);
+  const ambientAudioCtxRef = useRef<AudioContext | null>(null);
+  const ambientGainNodeRef = useRef<GainNode | null>(null);
+  const ambientOscillatorsRef = useRef<OscillatorNode[]>([]);
 
   // Update pod state when initialPod changes
   useEffect(() => {
     setPod(initialPod);
     setMessages(initialPod.recentMessages || []);
   }, [initialPod.id]);
+
+  // Voice Engine (WebRTC Mesh, Audio Chunks, Mic level, Soundboard, Hand Raises)
+  const voiceEngine = usePodVoiceEngine({
+    podId: pod.id,
+    hostUsername: pod.hostUsername,
+    onSoundEffectReceived: (effect, senderName) => {
+      const match = SOUNDBOARD_EFFECTS.find((s) => s.id === effect);
+      setActiveSoundBanner({
+        effect: match ? `${match.emoji} ${isArabic ? match.arName : match.name}` : effect,
+        senderName,
+      });
+      setTimeout(() => setActiveSoundBanner(null), 3000);
+    },
+    onReactionReceived: (emoji) => {
+      addReaction(emoji);
+    },
+  });
 
   // Real-Time Centrifugo Subscription for `pod:{podId}`
   useCentrifugo(`pod:${pod.id}`, (data) => {
@@ -71,41 +100,9 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
         if (prev.some((m) => m.id === newMsg.id)) return prev;
         return [...prev, newMsg];
       });
-    } else if (data.type === 'SPEAKING_STATUS') {
-      const status = data as unknown as {
-        userId: string;
-        username: string;
-        displayName: string;
-        avatarUrl?: string;
-        isSpeaking: boolean;
-        isMuted: boolean;
-      };
-      setSpeakers((prev) => {
-        const exists = prev.some((s) => s.userId === status.userId);
-        if (exists) {
-          return prev.map((s) =>
-            s.userId === status.userId
-              ? { ...s, isSpeaking: status.isSpeaking, isMuted: status.isMuted }
-              : s
-          );
-        } else {
-          return [
-            ...prev,
-            {
-              userId: status.userId,
-              username: status.username,
-              displayName: status.displayName,
-              avatarUrl: status.avatarUrl,
-              isSpeaking: status.isSpeaking,
-              isMuted: status.isMuted,
-              joinedAtUtc: Date.now(),
-            },
-          ];
-        }
-      });
-    } else if (data.type === 'REACTION_BURST') {
-      const { emoji } = data as unknown as { emoji: string };
-      addReaction(emoji);
+    } else {
+      // Forward WebRTC signals, audio chunks, sound effects, and speaking events to voiceEngine
+      voiceEngine.handleIncomingData(data);
     }
   });
 
@@ -120,14 +117,14 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AudioCtx();
-      audioCtxRef.current = ctx;
+      ambientAudioCtxRef.current = ctx;
 
       const masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(volume, ctx.currentTime);
+      masterGain.gain.setValueAtTime(ambientVolume, ctx.currentTime);
       masterGain.connect(ctx.destination);
-      gainNodeRef.current = masterGain;
+      ambientGainNodeRef.current = masterGain;
 
-      // Create a lush 4-voice soothing ambient chord: F3 (174.61Hz), A3 (220.00Hz), C4 (261.63Hz), E4 (329.63Hz)
+      // Lush 4-voice ambient chord
       const freqs = [174.61, 220.0, 261.63, 329.63];
       const oscs: OscillatorNode[] = [];
 
@@ -141,7 +138,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
         filter.frequency.setValueAtTime(450, ctx.currentTime);
 
         const voiceGain = ctx.createGain();
-        voiceGain.gain.setValueAtTime(0.2, ctx.currentTime);
+        voiceGain.gain.setValueAtTime(0.18, ctx.currentTime);
 
         osc.connect(filter);
         filter.connect(voiceGain);
@@ -151,7 +148,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
         oscs.push(osc);
       });
 
-      oscillatorsRef.current = oscs;
+      ambientOscillatorsRef.current = oscs;
       setIsAudioPlaying(true);
     } catch (err) {
       console.warn('Web Audio Ambient error:', err);
@@ -159,16 +156,16 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
   };
 
   const stopAmbientSound = () => {
-    oscillatorsRef.current.forEach((osc) => {
+    ambientOscillatorsRef.current.forEach((osc) => {
       try {
         osc.stop();
         osc.disconnect();
       } catch {}
     });
-    oscillatorsRef.current = [];
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(() => {});
-      audioCtxRef.current = null;
+    ambientOscillatorsRef.current = [];
+    if (ambientAudioCtxRef.current) {
+      ambientAudioCtxRef.current.close().catch(() => {});
+      ambientAudioCtxRef.current = null;
     }
     setIsAudioPlaying(false);
   };
@@ -182,12 +179,15 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
   };
 
   useEffect(() => {
-    if (gainNodeRef.current && audioCtxRef.current) {
-      gainNodeRef.current.gain.setValueAtTime(volume, audioCtxRef.current.currentTime);
+    if (ambientGainNodeRef.current && ambientAudioCtxRef.current) {
+      ambientGainNodeRef.current.gain.setValueAtTime(
+        ambientVolume,
+        ambientAudioCtxRef.current.currentTime
+      );
     }
-  }, [volume]);
+  }, [ambientVolume]);
 
-  // Clean up sound and recording on unmount
+  // Clean up sound on unmount
   useEffect(() => {
     return () => {
       stopAmbientSound();
@@ -302,7 +302,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
   };
 
   const handleReactionBurst = async (emoji: string) => {
-    addReaction(emoji); // Instant local particle animation
+    addReaction(emoji);
     try {
       await api.sendPodReaction(pod.id, emoji, 1);
     } catch (err) {
@@ -340,8 +340,24 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
       {/* Floating Emoji Particle Canvas */}
       <FloatingReactions />
 
+      {/* Live Sound Effect Notification Pill */}
+      <AnimatePresence>
+        {activeSoundBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.9 }}
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-2 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 rounded-2xl text-white font-bold text-xs shadow-2xl flex items-center gap-2 border border-white/20"
+          >
+            <Sparkles className="w-4 h-4 animate-spin text-amber-300" />
+            <span>{activeSoundBanner.senderName} {isArabic ? 'شغّل:' : 'played:'}</span>
+            <span className="font-extrabold text-amber-200">{activeSoundBanner.effect}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Pod Room Header */}
-      <div className="p-3.5 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-xl flex items-center justify-between z-10 gap-3">
+      <div className="p-3.5 border-b border-zinc-800/80 bg-zinc-950/75 backdrop-blur-xl flex items-center justify-between z-10 gap-3">
         <div className="flex items-center gap-3 min-w-0">
           {onBack && (
             <button
@@ -380,8 +396,23 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
           </div>
         </div>
 
-        {/* Ambient Audio Toggle & Live Chip */}
+        {/* Ambient Audio Toggle & Live Soundboard Opener */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={() => setShowSoundboard(!showSoundboard)}
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
+              showSoundboard
+                ? 'bg-fuchsia-600/30 text-fuchsia-300 border-fuchsia-500/50 shadow-lg shadow-fuchsia-500/20'
+                : 'bg-zinc-900 text-zinc-300 border-zinc-800 hover:text-white'
+            }`}
+            title="Interactive Live Soundboard"
+          >
+            <Music className="w-3.5 h-3.5 text-fuchsia-400" />
+            <span className="hidden sm:inline">
+              {isArabic ? 'المؤثرات الصوتية 🎵' : 'Soundboard 🎵'}
+            </span>
+          </button>
+
           <button
             onClick={toggleAmbientAudio}
             className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
@@ -392,29 +423,77 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
             title={isAudioPlaying ? 'Mute Ambient Sound' : 'Play Ambient Lo-Fi & Synth'}
           >
             {isAudioPlaying ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5" />}
-            <span className="hidden sm:inline">
-              {isAudioPlaying ? (isArabic ? 'صوت محيطي 🎵' : 'Lo-Fi Audio 🎵') : (isArabic ? 'تشغيل الصوت' : 'Ambient')}
+            <span className="hidden md:inline">
+              {isAudioPlaying ? (isArabic ? 'صوت محيطي' : 'Ambient Lo-Fi') : (isArabic ? 'محيطي' : 'Ambient')}
             </span>
           </button>
-
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-fuchsia-500/20 text-fuchsia-300 rounded-full border border-fuchsia-500/30 text-[10px] font-black uppercase">
-            <Radio className="w-3 h-3 text-fuchsia-400 animate-pulse" />
-            <span className="hidden xs:inline">LIVE</span>
-          </div>
         </div>
       </div>
 
-      {/* Live Audio Stage (Speakers holding the Mic) */}
+      {/* Live Voice Stage (Full WebRTC P2P Voice Mesh + Audio Visualizer) */}
       <div className="px-3 pt-3 z-10">
         <PodAudioStage
           podId={pod.id}
           hostUsername={pod.hostUsername}
           hostDisplayName={pod.hostDisplayName}
           hostAvatarUrl={pod.hostAvatarUrl}
-          speakers={speakers}
-          onSpeakersChange={setSpeakers}
+          speakers={voiceEngine.speakers}
+          isOnStage={voiceEngine.isOnStage}
+          isMuted={voiceEngine.isMuted}
+          micLevel={voiceEngine.micLevel}
+          isHandRaised={voiceEngine.isHandRaised}
+          handRaisedUsers={voiceEngine.handRaisedUsers}
+          roomVolume={voiceEngine.roomVolume}
+          isAudioMuted={voiceEngine.isAudioMuted}
+          onJoinStage={voiceEngine.handleJoinStage}
+          onLeaveStage={voiceEngine.handleLeaveStage}
+          onToggleMute={voiceEngine.toggleMute}
+          onToggleHandRaise={voiceEngine.toggleHandRaise}
+          onInviteUser={voiceEngine.inviteUserToStage}
+          onVolumeChange={voiceEngine.setRoomVolume}
+          onToggleAudioMute={() => voiceEngine.setIsAudioMuted(!voiceEngine.isAudioMuted)}
         />
       </div>
+
+      {/* Interactive Soundboard Drawer */}
+      <AnimatePresence>
+        {showSoundboard && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="px-3 py-2 border-b border-zinc-800/80 bg-zinc-950/90 backdrop-blur-xl z-20 overflow-hidden"
+          >
+            <div className="flex items-center justify-between pb-1.5">
+              <span className="text-[11px] font-bold text-zinc-300 flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                <span>{isArabic ? 'لوحة المؤثرات الحية (يسمعها الجميع فورا):' : 'Live Room Soundboard (Audible to Everyone):'}</span>
+              </span>
+              <button
+                onClick={() => setShowSoundboard(false)}
+                className="text-[10px] text-zinc-500 hover:text-zinc-300"
+              >
+                {isArabic ? 'إغلاق ✕' : 'Close ✕'}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {SOUNDBOARD_EFFECTS.map((eff) => (
+                <button
+                  key={eff.id}
+                  onClick={() => voiceEngine.triggerSoundEffect(eff.id)}
+                  className="px-2.5 py-2 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800/90 hover:border-fuchsia-500/50 flex flex-col items-center gap-1 shadow-md transition-all active:scale-95 group"
+                >
+                  <span className="text-xl group-hover:scale-125 transition-transform">{eff.emoji}</span>
+                  <span className="text-[10px] font-bold text-zinc-300 group-hover:text-fuchsia-300 truncate w-full text-center">
+                    {isArabic ? eff.arName : eff.name}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages & Audio Stream */}
       <div className="flex-1 p-3.5 overflow-y-auto space-y-3 no-scrollbar z-10">
@@ -423,8 +502,8 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
             <Radio className="w-8 h-8 text-zinc-600 animate-pulse" />
             <p className="text-xs font-semibold">
               {isArabic
-                ? 'الحجرة هادئة حالياً. انضم للمسرح الصوتي أو سجل رسالة بصوتك!'
-                : 'Room is quiet. Step on the live voice stage or drop a voice note!'}
+                ? 'الحجرة هادئة حالياً. افتح المايك للتحدث لايف أو شغل مؤثرات صوتية!'
+                : 'Room is quiet. Open your mic to speak live or drop a voice note!'}
             </p>
           </div>
         ) : (
@@ -546,8 +625,8 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
               onChange={(e) => setInputText(e.target.value)}
               placeholder={
                 isArabic
-                  ? 'اكتب رسالة أو اضغط على المايك للتسجيل...'
-                  : 'Drop a thought or click mic to talk...'
+                  ? 'اكتب رسالة أو افتح المايك للتحدث...'
+                  : 'Drop a thought or open mic to talk live...'
               }
               className="flex-1 px-3.5 py-2.5 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs text-white focus:outline-none focus:border-cyan-500"
             />
@@ -565,5 +644,3 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
     </div>
   );
 };
-
-

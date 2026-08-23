@@ -275,8 +275,32 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("{id:guid}/signal")]
+    public async Task<ActionResult<bool>> SendSignal(Guid id, [FromBody] PodSignalRequest request)
+    {
+        var result = await _mediator.Send(new SendPodSignalCommand(id, request.SignalType, request.Payload, request.TargetUserId));
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/sound-effect")]
+    public async Task<ActionResult<bool>> SendSoundEffect(Guid id, [FromBody] PodSoundEffectRequest request)
+    {
+        var result = await _mediator.Send(new SendPodSoundEffectCommand(id, request.EffectName));
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/audio-chunk")]
+    public async Task<ActionResult<bool>> SendAudioChunk(Guid id, [FromBody] PodAudioChunkRequest request)
+    {
+        var result = await _mediator.Send(new SendPodAudioChunkCommand(id, request.AudioBase64, request.ChunkIndex, request.DurationMs));
+        return Ok(result);
+    }
+
     public record PodReactRequest(string Emoji, int Intensity = 1);
     public record PodSpeakingRequest(bool IsSpeaking, bool IsMuted);
+    public record PodSignalRequest(string SignalType, object? Payload = null, string? TargetUserId = null);
+    public record PodSoundEffectRequest(string EffectName);
+    public record PodAudioChunkRequest(string AudioBase64, int ChunkIndex, int? DurationMs = null);
 }
 
 [ApiController]

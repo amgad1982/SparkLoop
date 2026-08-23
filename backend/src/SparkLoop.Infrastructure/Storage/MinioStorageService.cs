@@ -103,7 +103,7 @@ public class MinioStorageService : IBlobStorageService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "MinIO upload failed ({Message}). Returning local mock media URL.", ex.Message);
-            return $"http://localhost:5000/media/{sanitizedFileName}";
+            return $"http://localhost:5195/media/{sanitizedFileName}";
         }
     }
 

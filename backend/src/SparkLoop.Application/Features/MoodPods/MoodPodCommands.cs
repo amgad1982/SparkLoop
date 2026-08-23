@@ -186,3 +186,130 @@ public class SendPodReactionCommandHandler : IRequestHandler<SendPodReactionComm
         return true;
     }
 }
+
+public record SendPodSignalCommand(
+    Guid PodId,
+    string SignalType,
+    object? Payload = null,
+    string? TargetUserId = null
+) : IRequest<bool>;
+
+public class SendPodSignalCommandHandler : IRequestHandler<SendPodSignalCommand, bool>
+{
+    private readonly ICentrifugoService _centrifugoService;
+    private readonly ICurrentUserService _currentUserService;
+
+    public SendPodSignalCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService)
+    {
+        _centrifugoService = centrifugoService;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<bool> Handle(SendPodSignalCommand request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId?.ToString() ?? "22222222-2222-2222-2222-222222222222";
+        var username = _currentUserService.Username ?? "sparkguest";
+        var displayName = _currentUserService.DisplayName ?? username;
+        var avatarUrl = _currentUserService.AvatarUrl;
+
+        var channel = $"pod:{request.PodId}";
+        var signalEvent = new
+        {
+            type = "WEBRTC_SIGNAL",
+            podId = request.PodId,
+            signalType = request.SignalType,
+            senderId = userId,
+            senderUsername = username,
+            senderDisplayName = displayName,
+            senderAvatarUrl = avatarUrl,
+            targetUserId = request.TargetUserId,
+            payload = request.Payload,
+            timestamp = DateTime.UtcNow
+        };
+
+        await _centrifugoService.PublishAsync(channel, signalEvent, cancellationToken);
+        return true;
+    }
+}
+
+public record SendPodSoundEffectCommand(
+    Guid PodId,
+    string EffectName
+) : IRequest<bool>;
+
+public class SendPodSoundEffectCommandHandler : IRequestHandler<SendPodSoundEffectCommand, bool>
+{
+    private readonly ICentrifugoService _centrifugoService;
+    private readonly ICurrentUserService _currentUserService;
+
+    public SendPodSoundEffectCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService)
+    {
+        _centrifugoService = centrifugoService;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<bool> Handle(SendPodSoundEffectCommand request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId?.ToString() ?? "22222222-2222-2222-2222-222222222222";
+        var username = _currentUserService.Username ?? "sparkguest";
+        var displayName = _currentUserService.DisplayName ?? username;
+
+        var channel = $"pod:{request.PodId}";
+        var effectEvent = new
+        {
+            type = "SOUND_EFFECT",
+            podId = request.PodId,
+            effect = request.EffectName,
+            senderId = userId,
+            senderUsername = username,
+            senderDisplayName = displayName,
+            timestamp = DateTime.UtcNow
+        };
+
+        await _centrifugoService.PublishAsync(channel, effectEvent, cancellationToken);
+        return true;
+    }
+}
+
+public record SendPodAudioChunkCommand(
+    Guid PodId,
+    string AudioBase64,
+    int ChunkIndex,
+    int? DurationMs = null
+) : IRequest<bool>;
+
+public class SendPodAudioChunkCommandHandler : IRequestHandler<SendPodAudioChunkCommand, bool>
+{
+    private readonly ICentrifugoService _centrifugoService;
+    private readonly ICurrentUserService _currentUserService;
+
+    public SendPodAudioChunkCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService)
+    {
+        _centrifugoService = centrifugoService;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<bool> Handle(SendPodAudioChunkCommand request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId?.ToString() ?? "22222222-2222-2222-2222-222222222222";
+        var username = _currentUserService.Username ?? "sparkguest";
+        var displayName = _currentUserService.DisplayName ?? username;
+
+        var channel = $"pod:{request.PodId}";
+        var chunkEvent = new
+        {
+            type = "AUDIO_CHUNK",
+            podId = request.PodId,
+            senderId = userId,
+            senderUsername = username,
+            senderDisplayName = displayName,
+            chunkIndex = request.ChunkIndex,
+            durationMs = request.DurationMs,
+            audioBase64 = request.AudioBase64,
+            timestamp = DateTime.UtcNow
+        };
+
+        await _centrifugoService.PublishAsync(channel, chunkEvent, cancellationToken);
+        return true;
+    }
+}
