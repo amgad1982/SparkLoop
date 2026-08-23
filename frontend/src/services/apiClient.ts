@@ -10,9 +10,15 @@ import {
   SparkDto,
   SparkSubmissionDto,
   UserDto,
+  UserProfileDto,
 } from '../types/api';
 
 const BASE_URL = 'http://localhost:5000/api';
+
+function safeHeaderValue(val?: string | null): string {
+  if (!val) return '';
+  return encodeURIComponent(val);
+}
 
 async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise<T> {
   const currentPersona = useAuthStore.getState().currentPersona;
@@ -20,11 +26,11 @@ async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'X-User-Id': currentPersona.id,
-    'X-Username': currentPersona.username,
-    'X-DisplayName': currentPersona.displayName,
-    'X-Avatar-Url': currentPersona.avatarUrl,
-    'X-App-Locale': locale,
+    'X-User-Id': safeHeaderValue(currentPersona?.id),
+    'X-Username': safeHeaderValue(currentPersona?.username),
+    'X-DisplayName': safeHeaderValue(currentPersona?.displayName),
+    'X-Avatar-Url': safeHeaderValue(currentPersona?.avatarUrl),
+    'X-App-Locale': safeHeaderValue(locale),
     ...(options.headers as Record<string, string>),
   };
 
@@ -49,15 +55,29 @@ async function fetchWithAuth<T>(url: string, options: RequestInit = {}): Promise
 
 export const api = {
   // Auth & Personas
+  register: (data: { username: string; email: string; displayName: string; password?: string; avatarUrl?: string; bio?: string }) =>
+    fetchWithAuth<AuthResultDto>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
   getCentrifugoToken: (userId?: string, username?: string) =>
     fetchWithAuth<CentrifugoTokenDto>(
       `/auth/centrifugo-token?userId=${encodeURIComponent(userId || '')}&username=${encodeURIComponent(username || '')}`
     ),
   getPersonas: () => fetchWithAuth<UserDto[]>('/auth/personas'),
-  login: (username: string) =>
+  login: (username: string, password?: string) =>
     fetchWithAuth<AuthResultDto>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username }),
+      body: JSON.stringify({ username, password }),
+    }),
+
+  // User Profile
+  getUserProfile: (username?: string) =>
+    fetchWithAuth<UserProfileDto>(username ? `/users/profile/${encodeURIComponent(username)}` : '/users/me'),
+  updateProfile: (data: { displayName: string; bio?: string; avatarUrl?: string }) =>
+    fetchWithAuth<UserDto>('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
     }),
 
   // Sparks
@@ -112,10 +132,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ title, moodEmoji, backgroundTheme }),
     }),
-  sendPodMessage: (podId: string, text: string, emojiReaction?: string) =>
+  sendPodMessage: (podId: string, text: string, emojiReaction?: string, audioUrl?: string, durationSeconds?: number) =>
     fetchWithAuth<PodMessageDto>(`/moodpods/${podId}/message`, {
       method: 'POST',
-      body: JSON.stringify({ podId, text, emojiReaction }),
+      body: JSON.stringify({ podId, text, emojiReaction, audioUrl, durationSeconds }),
+    }),
+  setPodSpeakingStatus: (podId: string, isSpeaking: boolean, isMuted: boolean) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/speaking`, {
+      method: 'POST',
+      body: JSON.stringify({ isSpeaking, isMuted }),
     }),
   sendPodReaction: (podId: string, emoji: string, intensity = 1) =>
     fetchWithAuth<boolean>(`/moodpods/${podId}/react`, {
@@ -125,11 +150,20 @@ export const api = {
 
   // Media Upload
   uploadMedia: async (file: File | Blob, filename = 'meme.webp'): Promise<{ url: string; contentType: string }> => {
+    const currentPersona = useAuthStore.getState().currentPersona;
+    const locale = useThemeStore.getState().locale;
     const formData = new FormData();
     formData.append('file', file, filename);
 
     const response = await fetch(`${BASE_URL}/media/upload`, {
       method: 'POST',
+      headers: {
+        'X-User-Id': safeHeaderValue(currentPersona?.id),
+        'X-Username': safeHeaderValue(currentPersona?.username),
+        'X-DisplayName': safeHeaderValue(currentPersona?.displayName),
+        'X-Avatar-Url': safeHeaderValue(currentPersona?.avatarUrl),
+        'X-App-Locale': safeHeaderValue(locale),
+      },
       body: formData,
     });
 

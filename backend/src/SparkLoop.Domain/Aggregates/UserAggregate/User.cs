@@ -32,13 +32,14 @@ public class User : AggregateRoot<Guid>
     public string DisplayName { get; private set; } = string.Empty;
     public string? AvatarUrl { get; private set; }
     public string? Bio { get; private set; }
+    public string? PasswordHash { get; private set; }
     public RepScore RepScore { get; private set; } = RepScore.Zero;
     public DateTime CreatedAtUtc { get; private set; }
     public IReadOnlyCollection<Badge> Badges => _badges.AsReadOnly();
 
     private User() : base() { }
 
-    public static User Create(Guid id, string username, string email, string displayName, string? avatarUrl = null, string? bio = null)
+    public static User Create(Guid id, string username, string email, string displayName, string? avatarUrl = null, string? bio = null, string? passwordHash = null)
     {
         var user = new User
         {
@@ -48,11 +49,31 @@ public class User : AggregateRoot<Guid>
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? username : displayName.Trim(),
             AvatarUrl = avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={username}",
             Bio = bio,
+            PasswordHash = passwordHash,
             RepScore = RepScore.Zero,
             CreatedAtUtc = DateTime.UtcNow
         };
 
         return user;
+    }
+
+    public void SetPassword(string passwordHash)
+    {
+        PasswordHash = passwordHash;
+    }
+
+    public void UpdateProfile(string displayName, string? bio, string? avatarUrl)
+    {
+        if (!string.IsNullOrWhiteSpace(displayName))
+        {
+            DisplayName = displayName.Trim();
+        }
+
+        Bio = bio;
+        if (!string.IsNullOrWhiteSpace(avatarUrl))
+        {
+            AvatarUrl = avatarUrl;
+        }
     }
 
     public void AddReputation(int points)

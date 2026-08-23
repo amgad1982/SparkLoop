@@ -117,7 +117,19 @@ export interface PodMessageDto {
   senderAvatarUrl?: string;
   text: string;
   emojiReaction?: string;
+  audioUrl?: string;
+  durationSeconds?: number;
   createdAtUtc: string;
+}
+
+export interface PodSpeaker {
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarUrl?: string;
+  isSpeaking: boolean;
+  isMuted: boolean;
+  joinedAtUtc: number;
 }
 
 export interface MoodPodDto {
@@ -148,3 +160,22 @@ export interface CentrifugoTokenDto {
   websocketUrl: string;
   userId: string;
 }
+
+export interface UserProfileDto {
+  id: string;
+  username: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string;
+  bio?: string;
+  repScore: number;
+  badges: BadgeDto[];
+  createdAtUtc: string;
+  postsCount: number;
+  totalReactionsReceived: number;
+  chainsCount: number;
+  sparksWonCount: number;
+  recentPosts: PostDto[];
+  recentChains: ChainDto[];
+}
+

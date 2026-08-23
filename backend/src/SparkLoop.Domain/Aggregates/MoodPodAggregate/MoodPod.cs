@@ -23,6 +23,8 @@ public class PodMessage : Entity<Guid>
     public string? SenderAvatarUrl { get; private set; }
     public string Text { get; private set; } = string.Empty;
     public string? EmojiReaction { get; private set; }
+    public string? AudioUrl { get; private set; }
+    public int? DurationSeconds { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
 
     private PodMessage() : base() { }
@@ -35,7 +37,9 @@ public class PodMessage : Entity<Guid>
         string? senderDisplayName,
         string? senderAvatarUrl,
         string text,
-        string? emojiReaction) : base(id)
+        string? emojiReaction,
+        string? audioUrl = null,
+        int? durationSeconds = null) : base(id)
     {
         PodId = podId;
         SenderId = senderId;
@@ -44,6 +48,8 @@ public class PodMessage : Entity<Guid>
         SenderAvatarUrl = senderAvatarUrl;
         Text = text?.Trim() ?? string.Empty;
         EmojiReaction = emojiReaction;
+        AudioUrl = audioUrl;
+        DurationSeconds = durationSeconds;
         CreatedAtUtc = DateTime.UtcNow;
     }
 }
@@ -116,11 +122,13 @@ public class MoodPod : AggregateRoot<Guid>
         string? senderDisplayName,
         string? senderAvatarUrl,
         string text,
-        string? emojiReaction = null)
+        string? emojiReaction = null,
+        string? audioUrl = null,
+        int? durationSeconds = null)
     {
         CheckActive();
 
-        if (string.IsNullOrWhiteSpace(text) && string.IsNullOrWhiteSpace(emojiReaction))
+        if (string.IsNullOrWhiteSpace(text) && string.IsNullOrWhiteSpace(emojiReaction) && string.IsNullOrWhiteSpace(audioUrl))
         {
             throw new DomainRuleException("Pod message cannot be empty.", "EMPTY_MESSAGE");
         }
@@ -133,7 +141,9 @@ public class MoodPod : AggregateRoot<Guid>
             senderDisplayName,
             senderAvatarUrl,
             text,
-            emojiReaction);
+            emojiReaction,
+            audioUrl,
+            durationSeconds);
 
         _messages.Add(message);
 
@@ -143,9 +153,25 @@ public class MoodPod : AggregateRoot<Guid>
             senderId,
             senderUsername,
             message.Text,
-            message.EmojiReaction));
+            message.EmojiReaction,
+            message.AudioUrl,
+            message.DurationSeconds));
 
         return message;
+    }
+
+    public void BroadcastSpeakingStatus(Guid userId, string username, string displayName, string? avatarUrl, bool isSpeaking, bool isMuted)
+    {
+        CheckActive();
+
+        AddDomainEvent(new MoodPodSpeakingStatusEvent(
+            Id,
+            userId,
+            username,
+            displayName,
+            avatarUrl,
+            isSpeaking,
+            isMuted));
     }
 
     public void BurstReaction(Guid userId, string username, string emoji, int intensity = 1)

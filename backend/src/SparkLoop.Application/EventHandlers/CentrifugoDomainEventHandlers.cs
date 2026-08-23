@@ -180,7 +180,8 @@ public class SparkDomainEventsHandler :
 // ==========================================
 public class MoodPodDomainEventsHandler :
     INotificationHandler<MoodPodMessageSentEvent>,
-    INotificationHandler<MoodPodReactionBurstedEvent>
+    INotificationHandler<MoodPodReactionBurstedEvent>,
+    INotificationHandler<MoodPodSpeakingStatusEvent>
 {
     private readonly ICentrifugoService _centrifugoService;
     private readonly ILogger<MoodPodDomainEventsHandler> _logger;
@@ -206,8 +207,30 @@ public class MoodPodDomainEventsHandler :
                 senderUsername = notification.SenderUsername,
                 text = notification.Text,
                 emojiReaction = notification.EmojiReaction,
+                audioUrl = notification.AudioUrl,
+                durationSeconds = notification.DurationSeconds,
                 createdAtUtc = notification.OccurredOnUtc
             }
+        };
+
+        await _centrifugoService.PublishAsync(channel, payload, cancellationToken);
+    }
+
+    public async Task Handle(MoodPodSpeakingStatusEvent notification, CancellationToken cancellationToken)
+    {
+        var channel = $"pod:{notification.PodId}";
+
+        var payload = new
+        {
+            type = "SPEAKING_STATUS",
+            podId = notification.PodId,
+            userId = notification.UserId,
+            username = notification.Username,
+            displayName = notification.DisplayName,
+            avatarUrl = notification.AvatarUrl,
+            isSpeaking = notification.IsSpeaking,
+            isMuted = notification.IsMuted,
+            timestamp = notification.OccurredOnUtc
         };
 
         await _centrifugoService.PublishAsync(channel, payload, cancellationToken);

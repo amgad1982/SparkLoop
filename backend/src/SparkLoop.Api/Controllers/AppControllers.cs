@@ -52,6 +52,39 @@ public class AuthController : ControllerBase
 
 [ApiController]
 [Route("api/[controller]")]
+public class UsersController : ControllerBase
+{
+    private readonly IMediator _mediator;
+
+    public UsersController(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
+
+    [HttpGet("profile/{username}")]
+    public async Task<ActionResult<UserProfileDto>> GetUserProfile(string username)
+    {
+        var result = await _mediator.Send(new GetUserProfileQuery(Username: username));
+        return Ok(result);
+    }
+
+    [HttpGet("me")]
+    public async Task<ActionResult<UserProfileDto>> GetCurrentUserProfile()
+    {
+        var result = await _mediator.Send(new GetUserProfileQuery());
+        return Ok(result);
+    }
+
+    [HttpPut("profile")]
+    public async Task<ActionResult<UserDto>> UpdateProfile([FromBody] UpdateUserProfileCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+}
+
+[ApiController]
+[Route("api/[controller]")]
 public class SparksController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -235,7 +268,15 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("{id:guid}/speaking")]
+    public async Task<ActionResult<bool>> SetSpeakingStatus(Guid id, [FromBody] PodSpeakingRequest request)
+    {
+        var result = await _mediator.Send(new SendPodSpeakingStatusCommand(id, request.IsSpeaking, request.IsMuted));
+        return Ok(result);
+    }
+
     public record PodReactRequest(string Emoji, int Intensity = 1);
+    public record PodSpeakingRequest(bool IsSpeaking, bool IsMuted);
 }
 
 [ApiController]

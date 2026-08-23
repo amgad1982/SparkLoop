@@ -24,6 +24,8 @@ public static class MoodPodQueries
                 m.SenderAvatarUrl,
                 m.Text,
                 m.EmojiReaction,
+                m.AudioUrl,
+                m.DurationSeconds,
                 m.CreatedAtUtc
             )).ToList();
 

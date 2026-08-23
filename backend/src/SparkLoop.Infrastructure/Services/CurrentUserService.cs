@@ -42,7 +42,8 @@ public class CurrentUserService : ICurrentUserService
             var headerUsername = _httpContextAccessor.HttpContext?.Request.Headers["X-Username"].FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(headerUsername))
             {
-                return headerUsername.Trim();
+                try { return Uri.UnescapeDataString(headerUsername.Trim()); }
+                catch { return headerUsername.Trim(); }
             }
 
             return _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Name)?.Value
@@ -57,7 +58,8 @@ public class CurrentUserService : ICurrentUserService
             var headerDisplayName = _httpContextAccessor.HttpContext?.Request.Headers["X-DisplayName"].FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(headerDisplayName))
             {
-                return headerDisplayName.Trim();
+                try { return Uri.UnescapeDataString(headerDisplayName.Trim()); }
+                catch { return headerDisplayName.Trim(); }
             }
 
             return Username;
@@ -71,7 +73,8 @@ public class CurrentUserService : ICurrentUserService
             var headerAvatar = _httpContextAccessor.HttpContext?.Request.Headers["X-Avatar-Url"].FirstOrDefault();
             if (!string.IsNullOrWhiteSpace(headerAvatar))
             {
-                return headerAvatar.Trim();
+                try { return Uri.UnescapeDataString(headerAvatar.Trim()); }
+                catch { return headerAvatar.Trim(); }
             }
 
             return Username != null ? $"https://api.dicebear.com/7.x/bottts/svg?seed={Username}" : null;

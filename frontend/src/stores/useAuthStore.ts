@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { UserDto } from '../types/api';
 
 export interface Persona {
@@ -7,6 +8,7 @@ export interface Persona {
   displayName: string;
   avatarUrl: string;
   role: string;
+  isCustom?: boolean;
 }
 
 export const PRESET_PERSONAS: Persona[] = [
@@ -42,18 +44,40 @@ export const PRESET_PERSONAS: Persona[] = [
 
 interface AuthState {
   currentPersona: Persona;
+  customPersonas: Persona[];
   currentUser: UserDto | null;
   centrifugoToken: string | null;
   setPersona: (persona: Persona) => void;
+  addCustomPersona: (persona: Persona) => void;
   setUser: (user: UserDto) => void;
   setCentrifugoToken: (token: string) => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  currentPersona: PRESET_PERSONAS[0],
-  currentUser: null,
-  centrifugoToken: null,
-  setPersona: (persona) => set({ currentPersona: persona }),
-  setUser: (user) => set({ currentUser: user }),
-  setCentrifugoToken: (token) => set({ centrifugoToken: token }),
-}));
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      currentPersona: PRESET_PERSONAS[0],
+      customPersonas: [],
+      currentUser: null,
+      centrifugoToken: null,
+      setPersona: (persona) => set({ currentPersona: persona }),
+      addCustomPersona: (persona) =>
+        set((state) => ({
+          customPersonas: [
+            persona,
+            ...state.customPersonas.filter((p) => p.id !== persona.id && p.username !== persona.username),
+          ],
+          currentPersona: persona,
+        })),
+      setUser: (user) => set({ currentUser: user }),
+      setCentrifugoToken: (token) => set({ centrifugoToken: token }),
+    }),
+    {
+      name: 'sparkloop-auth-storage',
+      partialize: (state) => ({
+        currentPersona: state.currentPersona,
+        customPersonas: state.customPersonas,
+      }),
+    }
+  )
+);

@@ -11,7 +11,10 @@ interface TopHeaderProps {
 export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true }) => {
   const { currentPersona } = useAuthStore();
   const { locale, toggleLocale } = useThemeStore();
-  const [isPersonaOpen, setIsPersonaOpen] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{ isOpen: boolean; tab: 'switch' | 'register' }>({
+    isOpen: false,
+    tab: 'switch',
+  });
   const isArabic = locale === 'ar';
 
   return (
@@ -59,8 +62,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true }) => {
 
             {/* Persona Avatar Switcher Trigger */}
             <button
-              onClick={() => setIsPersonaOpen(true)}
+              onClick={() => setModalConfig({ isOpen: true, tab: 'switch' })}
               className="flex items-center gap-2 p-1 pr-2.5 rtl:pr-1 rtl:pl-2.5 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-fuchsia-500/50 transition-all text-xs"
+              title={isArabic ? 'تبديل الشخصية أو تسجيل حساب جديد' : 'Switch persona or register account'}
             >
               <img
                 src={currentPersona.avatarUrl}
@@ -75,7 +79,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true }) => {
         </div>
       </header>
 
-      <PersonaSwitcher isOpen={isPersonaOpen} onClose={() => setIsPersonaOpen(false)} />
+      <PersonaSwitcher
+        key={modalConfig.tab}
+        isOpen={modalConfig.isOpen}
+        initialTab={modalConfig.tab}
+        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+      />
     </>
   );
 };

@@ -1,6 +1,18 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
-import { Download, Image as ImageIcon, Paintbrush, Send, Sparkles, Trash2, Type, Undo } from 'lucide-react';
+import {
+  Download,
+  Image as ImageIcon,
+  Move,
+  Paintbrush,
+  Plus,
+  Send,
+  Sparkles,
+  Trash2,
+  Type,
+  Undo2,
+  Upload,
+} from 'lucide-react';
 import { api } from '../../services/apiClient';
 
 interface MemeCanvasEditorProps {
@@ -8,38 +20,90 @@ interface MemeCanvasEditorProps {
   onPublishSpark?: (mediaUrl: string, caption: string) => void;
 }
 
-const MEME_TEMPLATES = [
-  {
-    id: 'cyber',
-    name: 'Cyberpunk 2099',
-    url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'retro',
-    name: 'Neon Grid',
-    url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'matrix',
-    name: 'Glitch Stream',
-    url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 'space',
-    name: 'Deep Cosmos',
-    url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=600&auto=format&fit=crop&q=80',
-  },
-];
+export interface TextLayer {
+  id: string;
+  text: string;
+  x: number;
+  y: number;
+  fontSize: number;
+  color: string;
+  strokeColor: string;
+  strokeWidth: number;
+  hasShadow: boolean;
+  fontFamily: string;
+  isUppercase: boolean;
+  bgHighlight: boolean;
+}
 
-const STICKERS = ['🔥', '😂', '🚀', '💎', '👑', '⚡', '🌟', '💀', '🤖', '✨', '🧠', '👀'];
-
-interface StickerItem {
+export interface StickerLayer {
   id: string;
   emoji: string;
   x: number;
   y: number;
   size: number;
 }
+
+const TEMPLATE_CATEGORIES = [
+  {
+    id: 'viral',
+    name: 'Viral Memes',
+    nameAr: 'ميمز مشهورة',
+    templates: [
+      { id: 'v1', name: 'Cyber Cat', url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80' },
+      { id: 'v2', name: 'Shocked Doge', url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600&auto=format&fit=crop&q=80' },
+      { id: 'v3', name: 'Neon City Night', url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=600&auto=format&fit=crop&q=80' },
+      { id: 'v4', name: 'Space Explorer', url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80' },
+    ],
+  },
+  {
+    id: 'cyber',
+    name: 'Cyberpunk & Tech',
+    nameAr: 'سايبر بانك وبرمجة',
+    templates: [
+      { id: 'c1', name: 'Matrix Rain', url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80' },
+      { id: 'c2', name: 'Cyberpunk Glitch', url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80' },
+      { id: 'c3', name: 'Retro Grid Synth', url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=600&auto=format&fit=crop&q=80' },
+    ],
+  },
+  {
+    id: 'abstract',
+    name: 'Gradients & Cards',
+    nameAr: 'تدرجات وخلفيات',
+    templates: [
+      { id: 'a1', name: 'Deep Cosmos', url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=600&auto=format&fit=crop&q=80' },
+      { id: 'a2', name: 'Sunset Waves', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80' },
+    ],
+  },
+];
+
+const FONTS = [
+  { id: 'Impact', name: 'Impact (Classic Meme)', css: 'Impact, sans-serif' },
+  { id: 'Cairo', name: 'Cairo (Arabic & Modern)', css: "'Cairo', 'Segoe UI', sans-serif" },
+  { id: 'Inter', name: 'Inter (Clean Tech)', css: "'Inter', sans-serif" },
+  { id: 'Montserrat', name: 'Montserrat (Bold)', css: "'Montserrat', sans-serif" },
+  { id: 'Courier', name: 'Monospace Code', css: "'Courier Prime', monospace" },
+];
+
+const STICKER_PACKS = [
+  { category: '🔥 Viral', emojis: ['🔥', '😂', '🚀', '💎', '💀', '🤖', '👀', '🧠', '⚡', '🌟'] },
+  { category: '🕶️ Memes', emojis: ['🕶️', '👑', '🏆', '💯', '💥', '💬', '🗯️', '🚨', '🎯', '🍕'] },
+  { category: '✨ Magic', emojis: ['✨', '🦄', '🌈', '🔮', '🎉', '🍿', '💡', '🎨', '🎸', '🕹️'] },
+];
+
+const FILTERS = [
+  { id: 'normal', name: 'Normal', nameAr: 'عادي', filter: 'none' },
+  { id: 'cyber', name: 'Cyber Glow', nameAr: 'توهج سايبر', filter: 'contrast(1.3) saturate(1.8) hue-rotate(15deg)' },
+  { id: 'deepfry', name: 'Deep Fried', nameAr: 'مشبع جداً', filter: 'contrast(2) saturate(2.5)' },
+  { id: 'noir', name: 'Noir B&W', nameAr: 'أبيض وأسود', filter: 'grayscale(1) contrast(1.2)' },
+  { id: 'sepia', name: 'Vintage Sepia', nameAr: 'كلاسيكي قديم', filter: 'sepia(0.8) contrast(1.1)' },
+];
+
+const ASPECT_RATIOS = [
+  { id: '1:1', name: 'Square (1:1)', width: 400, height: 400 },
+  { id: '4:3', name: 'Classic (4:3)', width: 400, height: 300 },
+  { id: '16:9', name: 'Landscape (16:9)', width: 480, height: 270 },
+  { id: '9:16', name: 'Story (9:16)', width: 360, height: 500 },
+];
 
 export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
   onPublishPost,
@@ -49,158 +113,300 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
   const isArabic = locale === 'ar';
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(MEME_TEMPLATES[0].url);
-  const [topText, setTopText] = useState('WHEN YOU DEPLOY TO PROD');
-  const [bottomText, setBottomText] = useState('AND EVERYTHING WORKS FIRST TRY');
-  const [fontSize, setFontSize] = useState(28);
-  const [textColor, setTextColor] = useState('#FFFFFF');
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [isPenActive, setIsPenActive] = useState(false);
-  const [penColor, setPenColor] = useState('#d946ef');
-  const [penSize, setPenSize] = useState(4);
-  const [stickers, setStickers] = useState<StickerItem[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [aspectRatio, setAspectRatio] = useState(ASPECT_RATIOS[0]);
+  const [bgImage, setBgImage] = useState<string>(TEMPLATE_CATEGORIES[0].templates[0].url);
+  const [activeFilter, setActiveFilter] = useState(FILTERS[0]);
+  const [templateCategory, setTemplateCategory] = useState('viral');
+
+  const [textLayers, setTextLayers] = useState<TextLayer[]>([
+    {
+      id: 'text-1',
+      text: isArabic ? 'عندما ينجح الكود من أول محاولة' : 'WHEN THE CODE COMPILES FIRST TRY',
+      x: 200,
+      y: 45,
+      fontSize: 26,
+      color: '#FFFFFF',
+      strokeColor: '#000000',
+      strokeWidth: 4,
+      hasShadow: true,
+      fontFamily: isArabic ? 'Cairo' : 'Impact',
+      isUppercase: !isArabic,
+      bgHighlight: false,
+    },
+    {
+      id: 'text-2',
+      text: isArabic ? 'بدون أي أخطاء في الإنتاج 🚀' : 'WITHOUT ANY PRODUCTION BUGS 🚀',
+      x: 200,
+      y: 365,
+      fontSize: 24,
+      color: '#FACC15',
+      strokeColor: '#000000',
+      strokeWidth: 4,
+      hasShadow: true,
+      fontFamily: isArabic ? 'Cairo' : 'Impact',
+      isUppercase: !isArabic,
+      bgHighlight: false,
+    },
+  ]);
+  const [selectedTextId, setSelectedTextId] = useState<string>('text-1');
+
+  const [stickers, setStickers] = useState<StickerLayer[]>([
+    { id: 'stk-1', emoji: '🔥', x: 355, y: 55, size: 36 },
+  ]);
+  const [selectedStickerId, setSelectedStickerId] = useState<string | null>(null);
+
+  const [isBrushMode, setIsBrushMode] = useState(false);
+  const [brushColor, setBrushColor] = useState('#d946ef');
+  const [brushSize, setBrushSize] = useState(6);
+  const [brushType, setBrushType] = useState<'pen' | 'glow' | 'eraser'>('pen');
+  const [brushStrokes, setBrushStrokes] = useState<
+    Array<{ points: Array<{ x: number; y: number }>; color: string; size: number; isGlow: boolean }>
+  >([]);
+  const isDrawing = useRef(false);
+  const currentStroke = useRef<Array<{ x: number; y: number }>>([]);
+
+  const isDragging = useRef<string | null>(null);
+  const dragStart = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number } | null>(null);
+
   const [caption, setCaption] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
-  const drawHistory = useRef<ImageData[]>([]);
-  const isMouseDown = useRef(false);
-
-  // Redraw full canvas
-  const renderCanvas = () => {
+  const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    canvas.width = aspectRatio.width;
+    canvas.height = aspectRatio.height;
+
     const img = new Image();
     img.crossOrigin = 'anonymous';
-    img.src = selectedTemplate;
+    img.src = bgImage;
     img.onload = () => {
-      // Clear and draw background image
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.filter = activeFilter.filter;
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      ctx.filter = 'none';
 
-      // Draw Top Text
-      if (topText.trim()) {
-        drawMemeText(ctx, topText, canvas.width / 2, fontSize + 15, fontSize, textColor, canvas.width);
-      }
+      brushStrokes.forEach((stroke) => {
+        if (stroke.points.length < 2) return;
+        ctx.beginPath();
+        ctx.strokeStyle = stroke.color;
+        ctx.lineWidth = stroke.size;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        if (stroke.isGlow) {
+          ctx.shadowColor = stroke.color;
+          ctx.shadowBlur = 12;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+        ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+        for (let i = 1; i < stroke.points.length; i++) {
+          ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      });
 
-      // Draw Bottom Text
-      if (bottomText.trim()) {
-        drawMemeText(ctx, bottomText, canvas.width / 2, canvas.height - 25, fontSize, textColor, canvas.width);
-      }
-
-      // Draw Stickers
       stickers.forEach((s) => {
         ctx.font = `${s.size}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(s.emoji, s.x, s.y);
+        if (s.id === selectedStickerId) {
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(s.x - s.size / 2 - 4, s.y - s.size / 2 - 4, s.size + 8, s.size + 8);
+        }
+      });
+
+      textLayers.forEach((layer) => {
+        if (!layer.text.trim()) return;
+        const fontObj = FONTS.find((f) => f.id === layer.fontFamily) || FONTS[0];
+        const displayText = layer.isUppercase ? layer.text.toUpperCase() : layer.text;
+
+        ctx.font = `900 ${layer.fontSize}px ${fontObj.css}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        if (layer.bgHighlight) {
+          const metrics = ctx.measureText(displayText);
+          const padX = 12;
+          const padY = 8;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+          ctx.fillRect(
+            layer.x - metrics.width / 2 - padX,
+            layer.y - layer.fontSize / 2 - padY,
+            metrics.width + padX * 2,
+            layer.fontSize + padY * 2
+          );
+        }
+
+        if (layer.hasShadow) {
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
+        if (layer.strokeWidth > 0) {
+          ctx.strokeStyle = layer.strokeColor;
+          ctx.lineWidth = layer.strokeWidth;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(displayText, layer.x, layer.y, canvas.width - 24);
+        }
+
+        ctx.fillStyle = layer.color;
+        ctx.fillText(displayText, layer.x, layer.y, canvas.width - 24);
+        ctx.shadowBlur = 0;
+
+        if (layer.id === selectedTextId && !isBrushMode) {
+          const metrics = ctx.measureText(displayText);
+          ctx.strokeStyle = '#d946ef';
+          ctx.lineWidth = 1.5;
+          ctx.setLineDash([4, 4]);
+          ctx.strokeRect(
+            layer.x - metrics.width / 2 - 8,
+            layer.y - layer.fontSize / 2 - 6,
+            metrics.width + 16,
+            layer.fontSize + 12
+          );
+          ctx.setLineDash([]);
+        }
       });
     };
-  };
-
-  const drawMemeText = (
-    ctx: CanvasRenderingContext2D,
-    text: string,
-    x: number,
-    y: number,
-    size: number,
-    color: string,
-    maxWidth: number
-  ) => {
-    ctx.font = `900 ${size}px 'Inter', 'Cairo', Impact, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillStyle = color;
-    ctx.strokeStyle = '#000000';
-    ctx.lineWidth = size / 6;
-    ctx.lineJoin = 'round';
-
-    ctx.strokeText(text, x, y, maxWidth - 30);
-    ctx.fillText(text, x, y, maxWidth - 30);
-  };
+  }, [aspectRatio, bgImage, activeFilter, textLayers, stickers, brushStrokes, selectedTextId, selectedStickerId, isBrushMode]);
 
   useEffect(() => {
     renderCanvas();
-  }, [selectedTemplate, topText, bottomText, fontSize, textColor, stickers]);
+  }, [renderCanvas]);
 
-  // Touch & Mouse Drawing Handling
-  const handleStartDraw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isPenActive) return;
-    isMouseDown.current = true;
+  const getCanvasCoords = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
+    if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
 
-    const x = ((clientX - rect.left) / rect.width) * canvas.width;
-    const y = ((clientY - rect.top) / rect.height) * canvas.height;
-
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.strokeStyle = penColor;
-    ctx.lineWidth = penSize;
-    ctx.lineCap = 'round';
-  };
-
-  const handleDrawMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isPenActive || !isMouseDown.current) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-
-    const x = ((clientX - rect.left) / rect.width) * canvas.width;
-    const y = ((clientY - rect.top) / rect.height) * canvas.height;
-
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-
-  const handleEndDraw = () => {
-    isMouseDown.current = false;
-  };
-
-  const addSticker = (emoji: string) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const newSticker: StickerItem = {
-      id: Math.random().toString(),
-      emoji,
-      x: canvas.width / 2 + (Math.random() * 80 - 40),
-      y: canvas.height / 2 + (Math.random() * 80 - 40),
-      size: 40,
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY,
     };
-    setStickers([...stickers, newSticker]);
   };
 
-  const clearCanvasStickers = () => {
-    setStickers([]);
-    renderCanvas();
+  const handlePointerDown = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const { x, y } = getCanvasCoords(e);
+    if (isBrushMode) {
+      isDrawing.current = true;
+      const actualColor = brushType === 'eraser' ? '#09090b' : brushColor;
+      currentStroke.current = [{ x, y }];
+      setBrushStrokes((prev) => [
+        ...prev,
+        { points: [{ x, y }], color: actualColor, size: brushSize, isGlow: brushType === 'glow' },
+      ]);
+      return;
+    }
+    for (let i = stickers.length - 1; i >= 0; i--) {
+      const s = stickers[i];
+      if (Math.hypot(s.x - x, s.y - y) <= s.size) {
+        setSelectedStickerId(s.id);
+        setSelectedTextId('');
+        isDragging.current = `sticker:${s.id}`;
+        dragStart.current = { mouseX: x, mouseY: y, startX: s.x, startY: s.y };
+        return;
+      }
+    }
+    for (let i = textLayers.length - 1; i >= 0; i--) {
+      const t = textLayers[i];
+      if (Math.abs(t.y - y) <= t.fontSize + 10 && Math.abs(t.x - x) <= aspectRatio.width / 2) {
+        setSelectedTextId(t.id);
+        setSelectedStickerId(null);
+        isDragging.current = `text:${t.id}`;
+        dragStart.current = { mouseX: x, mouseY: y, startX: t.x, startY: t.y };
+        return;
+      }
+    }
+  };
+
+  const handlePointerMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const { x, y } = getCanvasCoords(e);
+    if (isBrushMode && isDrawing.current) {
+      setBrushStrokes((prev) => {
+        const updated = [...prev];
+        const last = updated[updated.length - 1];
+        if (last) last.points.push({ x, y });
+        return updated;
+      });
+      return;
+    }
+    if (isDragging.current && dragStart.current) {
+      const dx = x - dragStart.current.mouseX;
+      const dy = y - dragStart.current.mouseY;
+      if (isDragging.current.startsWith('text:')) {
+        const layerId = isDragging.current.replace('text:', '');
+        setTextLayers((prev) => prev.map((l) => l.id === layerId ? { ...l, x: Math.max(20, Math.min(aspectRatio.width - 20, dragStart.current!.startX + dx)), y: Math.max(20, Math.min(aspectRatio.height - 20, dragStart.current!.startY + dy)) } : l));
+      } else if (isDragging.current.startsWith('sticker:')) {
+        const stickerId = isDragging.current.replace('sticker:', '');
+        setStickers((prev) => prev.map((s) => s.id === stickerId ? { ...s, x: Math.max(10, Math.min(aspectRatio.width - 10, dragStart.current!.startX + dx)), y: Math.max(10, Math.min(aspectRatio.height - 10, dragStart.current!.startY + dy)) } : s));
+      }
+    }
+  };
+
+  const handlePointerUp = () => {
+    isDrawing.current = false;
+    isDragging.current = null;
+    dragStart.current = null;
+  };
+
+  const handleAddTextLayer = () => {
+    const newId = `text-${Date.now()}`;
+    const newLayer: TextLayer = { id: newId, text: isArabic ? 'نص جديد' : 'NEW TEXT', x: aspectRatio.width / 2, y: aspectRatio.height / 2, fontSize: 22, color: '#FFFFFF', strokeColor: '#000000', strokeWidth: 4, hasShadow: true, fontFamily: isArabic ? 'Cairo' : 'Impact', isUppercase: !isArabic, bgHighlight: false };
+    setTextLayers((prev) => [...prev, newLayer]);
+    setSelectedTextId(newId);
+    setIsBrushMode(false);
+  };
+
+  const handleDeleteSelectedText = () => {
+    if (textLayers.length <= 1) return;
+    setTextLayers((prev) => prev.filter((l) => l.id !== selectedTextId));
+    setSelectedTextId(textLayers[0]?.id || '');
+  };
+
+  const handleAddSticker = (emoji: string) => {
+    const newSticker: StickerLayer = { id: `stk-${Date.now()}`, emoji, x: aspectRatio.width / 2, y: aspectRatio.height / 2, size: 40 };
+    setStickers((prev) => [...prev, newSticker]);
+    setSelectedStickerId(newSticker.id);
+    setIsBrushMode(false);
+  };
+
+  const handleCustomImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => { if (typeof event.target?.result === 'string') setBgImage(event.target.result); };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUndo = () => {
+    if (brushStrokes.length > 0) setBrushStrokes((prev) => prev.slice(0, -1));
+    else if (stickers.length > 0) setStickers((prev) => prev.slice(0, -1));
   };
 
   const exportWebPBlob = (): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const canvas = canvasRef.current;
-      if (!canvas) return reject(new Error('Canvas not found'));
-
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('WebP conversion failed'));
-        },
-        'image/webp',
-        0.92
-      );
+      if (!canvas) return reject(new Error('Canvas unavailable'));
+      canvas.toBlob((blob) => { if (blob) resolve(blob); else reject(new Error('Export failed')); }, 'image/webp', 0.92);
     });
   };
 
@@ -210,229 +416,98 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `sparkloop_meme_${Date.now()}.webp`;
+      a.download = `meme_${Date.now()}.webp`;
       a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Download failed:', err);
-    }
+    } catch (err) { console.error(err); }
   };
 
   const handlePublish = async (destination: 'feed' | 'spark') => {
     setIsUploading(true);
-    setStatusMessage(isArabic ? 'جاري تصدير الميم بصيغة WebP ورفعه...' : 'Exporting WebP & uploading...');
-
     try {
       const blob = await exportWebPBlob();
       const uploadRes = await api.uploadMedia(blob, `meme_${Date.now()}.webp`);
-
-      const finalCaption = caption.trim() || `${topText} - ${bottomText}`;
-
+      const finalCaption = caption.trim() || textLayers.map((l) => l.text).join(' - ');
       if (destination === 'feed') {
-        await api.createPost(finalCaption, uploadRes.url, 'MemeWebP', 400, 400);
-        setStatusMessage(isArabic ? 'تم نشر الميم في الصفحة الرئيسية! 🎉' : 'Published to Feed! 🎉');
+        await api.createPost(finalCaption, uploadRes.url, 'MemeWebP', aspectRatio.width, aspectRatio.height);
+        setStatusMessage(isArabic ? 'تم النشر! 🎉' : 'Published! 🎉');
         if (onPublishPost) onPublishPost(uploadRes.url, finalCaption);
       } else {
         const activeSpark = await api.getActiveSpark();
         await api.submitSparkEntry(activeSpark.id, finalCaption, uploadRes.url);
-        setStatusMessage(isArabic ? 'تمت المشاركة في تحدي اليوم! 🏆' : 'Submitted to Daily Spark! 🏆');
+        setStatusMessage(isArabic ? 'تمت المشاركة! 🏆' : 'Submitted! 🏆');
         if (onPublishSpark) onPublishSpark(uploadRes.url, finalCaption);
       }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Upload failed';
-      setStatusMessage(`Error: ${msg}`);
-    } finally {
-      setIsUploading(false);
-    }
+    } catch (err) { setStatusMessage('Upload failed'); } finally { setIsUploading(false); }
   };
 
+  const selectedTextLayer = textLayers.find((l) => l.id === selectedTextId) || textLayers[0];
+
   return (
-    <div className="space-y-4 text-white">
-      {/* Editor Header */}
-      <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+    <div className="space-y-5 text-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-800">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-fuchsia-600 to-cyan-500 p-0.5 flex items-center justify-center">
+            <Sparkles className="w-4 h-4 text-white" />
+          </div>
+          <div>
+            <h2 className="font-black text-base tracking-tight">{isArabic ? 'استوديو الميمز' : 'Meme Studio'}</h2>
+          </div>
+        </div>
         <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-fuchsia-400" />
-          <h2 className="font-bold text-base tracking-tight">
-            {isArabic ? 'مختبر الميمز والرسم التفاعلي' : 'Interactive Meme & WebP Canvas'}
-          </h2>
-        </div>
-        <button
-          onClick={handleDownload}
-          className="p-2 text-zinc-300 hover:text-white bg-zinc-900 border border-zinc-800 rounded-xl hover:bg-zinc-800 transition-colors"
-          title="Download WebP"
-        >
-          <Download className="w-4 h-4" />
-        </button>
-      </div>
-
-      {/* Canvas Viewport */}
-      <div className="flex justify-center">
-        <div className="relative rounded-2xl overflow-hidden border-2 border-zinc-800 shadow-2xl bg-zinc-900 touch-none">
-          <canvas
-            ref={canvasRef}
-            width={400}
-            height={400}
-            className="w-[320px] h-[320px] sm:w-[360px] sm:h-[360px] cursor-crosshair block"
-            onMouseDown={handleStartDraw}
-            onMouseMove={handleDrawMove}
-            onMouseUp={handleEndDraw}
-            onMouseLeave={handleEndDraw}
-            onTouchStart={handleStartDraw}
-            onTouchMove={handleDrawMove}
-            onTouchEnd={handleEndDraw}
-          />
+          <select value={aspectRatio.id} onChange={(e) => { const found = ASPECT_RATIOS.find((r) => r.id === e.target.value); if (found) setAspectRatio(found); }} className="bg-zinc-900 border border-zinc-800 rounded-xl px-2.5 py-1.5 text-xs">
+            {ASPECT_RATIOS.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+          </select>
+          <button onClick={handleUndo} className="p-2 bg-zinc-900 border border-zinc-800 rounded-xl"><Undo2 className="w-4 h-4" /></button>
+          <button onClick={handleDownload} className="px-3 py-1.5 bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold flex items-center gap-1.5"><Download className="w-4 h-4" /> Export</button>
         </div>
       </div>
 
-      {/* Template Selector Carousel */}
-      <div className="space-y-1.5">
-        <span className="text-xs font-semibold text-zinc-400">
-          {isArabic ? 'قوالب سريعة' : 'Viral Templates'}
-        </span>
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-          {MEME_TEMPLATES.map((tmpl) => (
-            <button
-              key={tmpl.id}
-              onClick={() => setSelectedTemplate(tmpl.url)}
-              className={`relative flex-shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 transition-all ${
-                selectedTemplate === tmpl.url
-                  ? 'border-fuchsia-500 scale-105 ring-2 ring-fuchsia-500/50'
-                  : 'border-zinc-800 opacity-70 hover:opacity-100'
-              }`}
-            >
-              <img src={tmpl.url} alt={tmpl.name} className="w-full h-full object-cover" />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Text Overlay Controls */}
-      <div className="space-y-2.5 p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
-        <div className="flex items-center gap-2 text-xs font-bold text-fuchsia-400">
-          <Type className="w-4 h-4" />
-          <span>{isArabic ? 'النصوص العلوية والسفلية' : 'Text Overlays'}</span>
-        </div>
-
-        <input
-          type="text"
-          value={topText}
-          onChange={(e) => setTopText(e.target.value)}
-          placeholder={isArabic ? 'النص العلوي...' : 'TOP TEXT...'}
-          className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs font-bold text-white uppercase focus:outline-none focus:border-fuchsia-500"
-        />
-
-        <input
-          type="text"
-          value={bottomText}
-          onChange={(e) => setBottomText(e.target.value)}
-          placeholder={isArabic ? 'النص السفلي...' : 'BOTTOM TEXT...'}
-          className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs font-bold text-white uppercase focus:outline-none focus:border-fuchsia-500"
-        />
-
-        <div className="flex items-center justify-between gap-4 pt-1">
-          <div className="flex items-center gap-2 flex-1">
-            <span className="text-[11px] text-zinc-400">{isArabic ? 'الحجم' : 'Size'}</span>
-            <input
-              type="range"
-              min={18}
-              max={44}
-              value={fontSize}
-              onChange={(e) => setFontSize(Number(e.target.value))}
-              className="w-full accent-fuchsia-500"
-            />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-6 flex flex-col items-center gap-4">
+          <div className="relative rounded-2xl overflow-hidden border-2 border-zinc-700 bg-zinc-950">
+            <canvas ref={canvasRef} className="cursor-crosshair block" onMouseDown={handlePointerDown} onMouseMove={handlePointerMove} onMouseUp={handlePointerUp} onMouseLeave={handlePointerUp} onTouchStart={handlePointerDown} onTouchMove={handlePointerMove} onTouchEnd={handlePointerUp} />
           </div>
-
-          <div className="flex items-center gap-1.5">
-            {['#FFFFFF', '#FACC15', '#06B6D4', '#EF4444'].map((color) => (
-              <button
-                key={color}
-                onClick={() => setTextColor(color)}
-                className={`w-5 h-5 rounded-full border ${
-                  textColor === color ? 'border-white ring-2 ring-fuchsia-500' : 'border-transparent'
-                }`}
-                style={{ backgroundColor: color }}
-              />
-            ))}
+          <div className="flex gap-2">
+            <button onClick={() => setIsBrushMode(false)} className={`px-4 py-2 rounded-xl text-xs font-bold ${!isBrushMode ? 'bg-fuchsia-600' : 'bg-zinc-900'}`}>Move</button>
+            <button onClick={() => setIsBrushMode(true)} className={`px-4 py-2 rounded-xl text-xs font-bold ${isBrushMode ? 'bg-fuchsia-600' : 'bg-zinc-900'}`}>Draw</button>
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleCustomImageUpload} className="hidden" />
+            <button onClick={() => fileInputRef.current?.click()} className="px-4 py-2 bg-zinc-900 rounded-xl text-xs">Upload</button>
           </div>
         </div>
-      </div>
 
-      {/* Sticker Tray & Pen Brush */}
-      <div className="space-y-2 p-3 rounded-2xl bg-zinc-900/80 border border-zinc-800">
-        <div className="flex items-center justify-between">
-          <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
-            <span>🎨</span> {isArabic ? 'الملصقات وأداة الرسم' : 'Stickers & Drawing Pen'}
-          </span>
-          <button
-            onClick={() => setIsPenActive(!isPenActive)}
-            className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 border transition-colors ${
-              isPenActive
-                ? 'bg-fuchsia-500 text-white border-fuchsia-400'
-                : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
-            }`}
-          >
-            <Paintbrush className="w-3.5 h-3.5" />
-            <span>{isPenActive ? (isArabic ? 'القلم نشط' : 'Pen Active') : (isArabic ? 'رسم حر' : 'Draw')}</span>
-          </button>
-        </div>
-
-        {/* Sticker Tray */}
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-          {STICKERS.map((emoji) => (
-            <button
-              key={emoji}
-              onClick={() => addSticker(emoji)}
-              className="text-xl p-2 bg-zinc-950 border border-zinc-800 hover:border-zinc-600 rounded-xl active:scale-90 transition-transform"
-            >
-              {emoji}
-            </button>
-          ))}
-          {stickers.length > 0 && (
-            <button
-              onClick={clearCanvasStickers}
-              className="p-2 bg-rose-950/40 text-rose-400 border border-rose-800/40 rounded-xl"
-              title="Clear stickers"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Caption & Publish Action Bar */}
-      <div className="space-y-3 pt-1">
-        <textarea
-          rows={2}
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          placeholder={isArabic ? 'اكتب تعليقاً على هذا الميم (اختياري)...' : 'Write an optional post caption...'}
-          className="w-full px-3 py-2 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs text-white resize-none focus:outline-none focus:border-fuchsia-500"
-        />
-
-        {statusMessage && (
-          <div className="p-2.5 rounded-xl bg-zinc-900 border border-fuchsia-500/40 text-xs font-semibold text-fuchsia-300 text-center">
-            {statusMessage}
+        <div className="lg:col-span-6 space-y-4">
+          <div className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-fuchsia-400">Text Layers</span>
+              <button onClick={handleAddTextLayer} className="text-xs font-bold text-fuchsia-300">Add Text</button>
+            </div>
+            {selectedTextLayer && (
+              <div className="space-y-2">
+                <input type="text" value={selectedTextLayer.text} onChange={(e) => setTextLayers((prev) => prev.map((l) => (l.id === selectedTextLayer.id ? { ...l, text: e.target.value } : l)))} className="w-full px-3 py-2 bg-zinc-950 rounded-xl text-xs" />
+                <div className="flex gap-2">
+                  <select value={selectedTextLayer.fontFamily} onChange={(e) => setTextLayers((prev) => prev.map((l) => (l.id === selectedTextLayer.id ? { ...l, fontFamily: e.target.value } : l)))} className="bg-zinc-950 px-2 py-1 text-xs rounded-lg">
+                    {FONTS.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                  <input type="range" min={14} max={48} value={selectedTextLayer.fontSize} onChange={(e) => setTextLayers((prev) => prev.map((l) => (l.id === selectedTextLayer.id ? { ...l, fontSize: Number(e.target.value) } : l)))} />
+                </div>
+              </div>
+            )}
           </div>
-        )}
 
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            disabled={isUploading}
-            onClick={() => handlePublish('feed')}
-            className="py-3 px-4 rounded-2xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 shadow-lg"
-          >
-            <Send className="w-4 h-4 text-cyan-400" />
-            <span>{isArabic ? 'نشر في الرئيسية' : 'Post to Feed'}</span>
-          </button>
+          <div className="p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {STICKER_PACKS.flatMap((p) => p.emojis).map((emoji, idx) => (
+                <button key={idx} onClick={() => handleAddSticker(emoji)} className="text-xl p-2 bg-zinc-950 rounded-xl">{emoji}</button>
+              ))}
+            </div>
+          </div>
 
-          <button
-            disabled={isUploading}
-            onClick={() => handlePublish('spark')}
-            className="py-3 px-4 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-xs flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50 spark-glow"
-          >
-            <Sparkles className="w-4 h-4 text-amber-300" />
-            <span>{isArabic ? 'مشاركة بتحدي اليوم' : 'Submit to Spark 24h'}</span>
-          </button>
+          <textarea value={caption} onChange={(e) => setCaption(e.target.value)} className="w-full p-3 bg-zinc-900 rounded-2xl text-xs" placeholder="Caption..." />
+          
+          <div className="grid grid-cols-2 gap-3">
+            <button onClick={() => handlePublish('feed')} className="py-3 bg-zinc-800 rounded-2xl text-xs font-bold">Post to Feed</button>
+            <button onClick={() => handlePublish('spark')} className="py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 rounded-2xl text-xs font-bold">Submit to Spark</button>
+          </div>
         </div>
       </div>
     </div>

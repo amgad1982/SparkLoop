@@ -6,8 +6,9 @@ import { FeedView } from './components/posts/FeedView';
 import { SparkHeroCard } from './components/sparks/SparkHeroCard';
 import { PassTheMicChainCard } from './components/chains/PassTheMicChainCard';
 import { CreateChainModal } from './components/chains/CreateChainModal';
-import { MoodPodRoom } from './components/pods/MoodPodRoom';
+import { MoodPodsView } from './components/pods/MoodPodsView';
 import { MemeCanvasEditor } from './components/meme-canvas/MemeCanvasEditor';
+import { ProfileView } from './components/profile/ProfileView';
 import { useCentrifugo } from './hooks/useCentrifugo';
 import { useThemeStore } from './stores/useThemeStore';
 import { api } from './services/apiClient';
@@ -47,16 +48,13 @@ export const App: React.FC = () => {
     queryFn: () => api.getActivePods(),
   });
 
-  // Selected pod for room view
-  const activePod = selectedPodId
-    ? pods.find((p) => p.id === selectedPodId) || pods[0]
-    : pods[0];
-
   return (
     <MobileAppShell
       activeTab={activeTab}
       onTabChange={setActiveTab}
       isConnected={isConnected}
+      activeSpark={spark}
+      pods={pods}
     >
       {/* 1. Feed Tab */}
       {activeTab === 'feed' && (
@@ -121,29 +119,12 @@ export const App: React.FC = () => {
 
       {/* 4. Ephemeral Mood Pods Tab */}
       {activeTab === 'pods' && (
-        <div className="space-y-3">
-          {/* Pod Selector Chips if multiple */}
-          {pods.length > 1 && (
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-              {pods.map((pod) => (
-                <button
-                  key={pod.id}
-                  onClick={() => setSelectedPodId(pod.id)}
-                  className={`px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 border transition-all flex-shrink-0 ${
-                    (selectedPodId === pod.id || (!selectedPodId && pods[0]?.id === pod.id))
-                      ? 'bg-fuchsia-500/20 border-fuchsia-500 text-fuchsia-300'
-                      : 'bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-                  }`}
-                >
-                  <span>{pod.moodEmoji}</span>
-                  <span className="truncate max-w-[120px]">{pod.title}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {activePod && <MoodPodRoom initialPod={activePod} />}
-        </div>
+        <MoodPodsView
+          pods={pods}
+          onRefreshPods={refetchPods}
+          selectedPodId={selectedPodId}
+          onSelectPodId={setSelectedPodId}
+        />
       )}
 
       {/* 5. Meme Canvas Editor Tab */}
@@ -158,6 +139,11 @@ export const App: React.FC = () => {
             setActiveTab('sparks');
           }}
         />
+      )}
+
+      {/* 6. User Profile & XP Portfolio Tab */}
+      {activeTab === 'profile' && (
+        <ProfileView onOpenCanvas={() => setActiveTab('create')} />
       )}
     </MobileAppShell>
   );

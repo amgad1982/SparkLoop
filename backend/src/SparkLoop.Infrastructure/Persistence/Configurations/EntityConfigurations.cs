@@ -39,6 +39,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Bio)
             .HasMaxLength(300);
 
+        builder.Property(u => u.PasswordHash)
+            .HasMaxLength(500);
+
         builder.Property(u => u.RepScore)
             .HasConversion(r => r.Value, v => RepScore.From(v))
             .IsRequired();
@@ -230,6 +233,9 @@ public class MoodPodConfiguration : IEntityTypeConfiguration<MoodPod>
             .HasForeignKey(m => m.PodId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.Navigation(p => p.Messages)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasIndex(p => p.ExpiresAtUtc);
         builder.HasIndex(p => p.IsActive);
     }
@@ -247,6 +253,7 @@ public class PodMessageConfiguration : IEntityTypeConfiguration<PodMessage>
         builder.Property(m => m.SenderAvatarUrl).HasMaxLength(500);
         builder.Property(m => m.Text).HasMaxLength(500);
         builder.Property(m => m.EmojiReaction).HasMaxLength(20);
+        builder.Property(m => m.AudioUrl).HasMaxLength(1000);
 
         builder.HasIndex(m => new { m.PodId, m.CreatedAtUtc });
     }

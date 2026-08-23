@@ -88,7 +88,19 @@ public sealed record MoodPodMessageSentEvent(
     Guid SenderId,
     string SenderUsername,
     string Text,
-    string? EmojiReaction
+    string? EmojiReaction,
+    string? AudioUrl = null,
+    int? DurationSeconds = null
+) : BaseDomainEvent;
+
+public sealed record MoodPodSpeakingStatusEvent(
+    Guid PodId,
+    Guid UserId,
+    string Username,
+    string DisplayName,
+    string? AvatarUrl,
+    bool IsSpeaking,
+    bool IsMuted
 ) : BaseDomainEvent;
 
 public sealed record MoodPodReactionBurstedEvent(

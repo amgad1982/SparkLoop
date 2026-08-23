@@ -125,6 +125,8 @@ public record PodMessageDto(
     string? SenderAvatarUrl,
     string Text,
     string? EmojiReaction,
+    string? AudioUrl,
+    int? DurationSeconds,
     DateTime CreatedAtUtc
 );
 
@@ -156,3 +158,22 @@ public record CentrifugoTokenDto(
     string WebsocketUrl,
     string UserId
 );
+
+public record UserProfileDto(
+    Guid Id,
+    string Username,
+    string Email,
+    string DisplayName,
+    string? AvatarUrl,
+    string? Bio,
+    int RepScore,
+    IReadOnlyList<BadgeDto> Badges,
+    DateTime CreatedAtUtc,
+    int PostsCount,
+    int TotalReactionsReceived,
+    int ChainsCount,
+    int SparksWonCount,
+    IReadOnlyList<PostDto> RecentPosts,
+    IReadOnlyList<ChainDto> RecentChains
+);
+

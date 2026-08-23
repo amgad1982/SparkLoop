@@ -73,21 +73,28 @@ public class SparkRotationWorker : BackgroundService
         {
             _logger.LogInformation("Active Spark {SparkId} has expired. Resolving winner...", activeSpark.Id);
 
-            var winner = activeSpark.SelectWinner();
-            if (winner is not null)
+            try
             {
-                var winnerUser = await dbContext.Users
-                    .Include(u => u.Badges)
-                    .FirstOrDefaultAsync(u => u.Id == winner.AuthorId, cancellationToken);
-
-                if (winnerUser is not null)
+                var winner = activeSpark.SelectWinner();
+                if (winner is not null)
                 {
-                    winnerUser.AwardBadge("Spark Champion", "Winner of the 24h Synchronized Daily Spark Challenge", "🏆");
-                    winnerUser.AddReputation(100);
-                }
-            }
+                    var winnerUser = await dbContext.Users
+                        .Include(u => u.Badges)
+                        .FirstOrDefaultAsync(u => u.Id == winner.AuthorId, cancellationToken);
 
-            await dbContext.SaveChangesAsync(cancellationToken);
+                    if (winnerUser is not null)
+                    {
+                        winnerUser.AwardBadge("Spark Champion", "Winner of the 24h Synchronized Daily Spark Challenge", "🏆");
+                        winnerUser.AddReputation(100);
+                    }
+                }
+
+                await dbContext.SaveChangesAsync(cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not resolve winner for spark {SparkId}: {Message}", activeSpark.Id, ex.Message);
+            }
 
             // Create next daily spark
             var sparkCount = await dbContext.Sparks.CountAsync(cancellationToken);

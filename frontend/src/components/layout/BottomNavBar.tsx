@@ -1,8 +1,8 @@
 import React from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
-import { Flame, GitBranch, MessageSquare, Palette, Radio } from 'lucide-react';
+import { Flame, GitBranch, MessageSquare, Palette, Radio, User } from 'lucide-react';
 
-export type TabType = 'feed' | 'sparks' | 'chains' | 'pods' | 'create';
+export type TabType = 'feed' | 'sparks' | 'chains' | 'pods' | 'create' | 'profile';
 
 interface BottomNavBarProps {
   activeTab: TabType;
@@ -33,18 +33,18 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onTabChan
     },
     {
       id: 'chains' as TabType,
-      label: isArabic ? 'سلاسل المايك' : 'Chains',
+      label: isArabic ? 'سلاسل' : 'Chains',
       icon: GitBranch,
     },
     {
-      id: 'pods' as TabType,
-      label: isArabic ? 'حجرات المزاج' : 'Pods',
-      icon: Radio,
+      id: 'profile' as TabType,
+      label: isArabic ? 'حسابي' : 'Profile',
+      icon: User,
     },
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-zinc-800/90 pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-zinc-800/90 pb-safe">
       <div className="max-w-md mx-auto px-3 py-2 flex items-center justify-around">
         {tabs.map((tab) => {
           const Icon = tab.icon;

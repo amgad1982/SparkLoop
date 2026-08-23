@@ -61,7 +61,9 @@ public class CreateMoodPodCommandHandler : IRequestHandler<CreateMoodPodCommand,
 public record SendPodMessageCommand(
     Guid PodId,
     string Text,
-    string? EmojiReaction = null
+    string? EmojiReaction = null,
+    string? AudioUrl = null,
+    int? DurationSeconds = null
 ) : IRequest<PodMessageDto>;
 
 public class SendPodMessageCommandHandler : IRequestHandler<SendPodMessageCommand, PodMessageDto>
@@ -94,8 +96,11 @@ public class SendPodMessageCommandHandler : IRequestHandler<SendPodMessageComman
             displayName,
             avatarUrl,
             request.Text,
-            request.EmojiReaction);
+            request.EmojiReaction,
+            request.AudioUrl,
+            request.DurationSeconds);
 
+        _dbContext.PodMessages.Add(msg);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return new PodMessageDto(
@@ -107,8 +112,45 @@ public class SendPodMessageCommandHandler : IRequestHandler<SendPodMessageComman
             msg.SenderAvatarUrl,
             msg.Text,
             msg.EmojiReaction,
+            msg.AudioUrl,
+            msg.DurationSeconds,
             msg.CreatedAtUtc
         );
+    }
+}
+
+public record SendPodSpeakingStatusCommand(
+    Guid PodId,
+    bool IsSpeaking,
+    bool IsMuted
+) : IRequest<bool>;
+
+public class SendPodSpeakingStatusCommandHandler : IRequestHandler<SendPodSpeakingStatusCommand, bool>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public SendPodSpeakingStatusCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<bool> Handle(SendPodSpeakingStatusCommand request, CancellationToken cancellationToken)
+    {
+        var pod = await _dbContext.MoodPods
+            .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
+            ?? throw new NotFoundException("MoodPod", request.PodId);
+
+        var userId = _currentUserService.UserId ?? Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var username = _currentUserService.Username ?? "sparkguest";
+        var displayName = _currentUserService.DisplayName ?? username;
+        var avatarUrl = _currentUserService.AvatarUrl;
+
+        pod.BroadcastSpeakingStatus(userId, username, displayName, avatarUrl, request.IsSpeaking, request.IsMuted);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 }
 
@@ -139,8 +181,8 @@ public class SendPodReactionCommandHandler : IRequestHandler<SendPodReactionComm
         var username = _currentUserService.Username ?? "sparkfan";
 
         pod.BurstReaction(userId, username, request.Emoji, request.Intensity);
-
         await _dbContext.SaveChangesAsync(cancellationToken);
+
         return true;
     }
 }
