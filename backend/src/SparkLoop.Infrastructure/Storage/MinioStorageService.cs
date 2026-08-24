@@ -102,8 +102,30 @@ public class MinioStorageService : IBlobStorageService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "MinIO upload failed ({Message}). Returning local mock media URL.", ex.Message);
-            return $"http://localhost:5195/media/{sanitizedFileName}";
+            _logger.LogWarning(ex, "MinIO upload failed ({Message}). Saving locally to wwwroot/uploads.", ex.Message);
+
+            try
+            {
+                var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads");
+                Directory.CreateDirectory(uploadsDir);
+                var localFilePath = Path.Combine(uploadsDir, sanitizedFileName);
+
+                if (stream.CanSeek)
+                {
+                    stream.Position = 0;
+                }
+                using (var fileStream = new FileStream(localFilePath, FileMode.Create, FileAccess.Write))
+                {
+                    await stream.CopyToAsync(fileStream, cancellationToken);
+                }
+
+                return $"/uploads/{sanitizedFileName}";
+            }
+            catch (Exception localEx)
+            {
+                _logger.LogError(localEx, "Failed to save file locally as fallback.");
+                return $"/uploads/{sanitizedFileName}";
+            }
         }
     }
 

@@ -88,8 +88,27 @@ public class SubmitSparkEntryCommandHandler : IRequestHandler<SubmitSparkEntryCo
             request.MediaUrl,
             request.Caption);
 
+        _dbContext.SparkSubmissions.Add(submission);
+
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        user?.AddReputation(15);
+        if (user is null)
+        {
+            var norm = System.Text.RegularExpressions.Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+            if (norm.Length < 3) norm = norm.PadRight(3, '0');
+            if (norm.Length > 30) norm = norm[..30];
+
+            user = SparkLoop.Domain.Aggregates.UserAggregate.User.Create(
+                userId,
+                norm,
+                $"{norm}@sparkloop.app",
+                displayName,
+                avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={norm}",
+                "SparkLoop Creator"
+            );
+            user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
+            _dbContext.Users.Add(user);
+        }
+        user.AddReputation(15);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 

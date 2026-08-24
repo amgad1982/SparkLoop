@@ -163,15 +163,6 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
               );
             })}
           </nav>
-
-          {/* Action CTA Button */}
-          <button
-            onClick={() => onTabChange('create')}
-            className="w-full py-3 px-4 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 text-white font-bold text-xs rounded-2xl shadow-xl shadow-fuchsia-600/25 active:scale-98 transition-all flex items-center justify-center gap-2 group"
-          >
-            <Palette className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-            <span className="hidden lg:inline">{isArabic ? 'إنشاء ميم / قصة' : 'Create New Meme'}</span>
-          </button>
         </div>
 
         {/* Bottom Section: Language Switcher & Profile Card */}

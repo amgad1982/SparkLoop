@@ -24,6 +24,7 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
   const [chain, setChain] = useState<ChainDto>(initialChain);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const activeAudioRef = React.useRef<HTMLAudioElement | null>(null);
 
   // Real-Time Centrifugo Subscription for this specific chain
   useCentrifugo(`chain:${chain.id}`, (data) => {
@@ -59,15 +60,38 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
 
   const progressPercent = Math.min(100, Math.round((chain.currentStepCount / chain.maxSteps) * 100));
 
-  const playAudio = (stepId: string) => {
+  const playAudio = (stepId: string, audioUrl?: string) => {
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current = null;
+    }
+
     if (playingAudioId === stepId) {
       setPlayingAudioId(null);
       return;
     }
+
+    if (!audioUrl) return;
+
     setPlayingAudioId(stepId);
-    const audio = new Audio('https://actions.google.com/sounds/v1/human_voices/applause_crowd_cheering.ogg');
-    audio.play();
-    audio.onended = () => setPlayingAudioId(null);
+    const audio = new Audio(audioUrl);
+    activeAudioRef.current = audio;
+
+    audio.play().catch((err) => {
+      console.error('Audio playback error:', err);
+      setPlayingAudioId(null);
+      activeAudioRef.current = null;
+    });
+
+    audio.onended = () => {
+      setPlayingAudioId(null);
+      activeAudioRef.current = null;
+    };
+
+    audio.onerror = () => {
+      setPlayingAudioId(null);
+      activeAudioRef.current = null;
+    };
   };
 
   return (
@@ -125,8 +149,9 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
 
         {/* Steps Stream / Bubbles */}
         <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 no-scrollbar pt-1">
-          {chain.steps.map((step, idx) => {
+          {chain.steps.map((step) => {
             const isStepAuthorMe = step.authorId === currentPersona.id;
+            const isAudioPlaying = playingAudioId === step.id;
 
             return (
               <motion.div
@@ -155,15 +180,21 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
                   </div>
                   {step.audioUrl && (
                     <button
-                      onClick={() => playAudio(step.id)}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors ${
-                        playingAudioId === step.id
-                          ? 'bg-cyan-500 text-black border-cyan-400'
-                          : 'bg-zinc-800 text-cyan-300 border-zinc-700 hover:bg-zinc-700'
+                      onClick={() => playAudio(step.id, step.audioUrl)}
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                        isAudioPlaying
+                          ? 'bg-cyan-500 text-black border-cyan-400 shadow-lg shadow-cyan-500/25'
+                          : 'bg-zinc-800/90 text-cyan-300 border-cyan-500/30 hover:bg-zinc-750'
                       }`}
                     >
-                      <Volume2 className="w-3 h-3" />
-                      <span>{playingAudioId === step.id ? (isArabic ? 'جاري التشغيل' : 'Playing') : '15s Audio'}</span>
+                      <Volume2 className={`w-3 h-3 ${isAudioPlaying ? 'animate-bounce text-black' : 'text-cyan-400'}`} />
+                      <span>
+                        {isAudioPlaying
+                          ? isArabic
+                            ? 'تشغيل...'
+                            : 'Playing...'
+                          : `${step.durationSeconds ? `${step.durationSeconds}s` : '15s'} Audio`}
+                      </span>
                     </button>
                   )}
                 </div>

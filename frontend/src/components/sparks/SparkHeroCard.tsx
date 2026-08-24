@@ -25,6 +25,10 @@ export const SparkHeroCard: React.FC<SparkHeroCardProps> = ({
   const [quickCaption, setQuickCaption] = useState('');
   const [isResolving, setIsResolving] = useState(false);
 
+  useEffect(() => {
+    setSpark(initialSpark);
+  }, [initialSpark]);
+
   // Real-Time Centrifugo Subscription for "sparks:daily"
   useCentrifugo('sparks:daily', (data) => {
     if (data.type === 'SPARK_SUBMISSION_ADDED' && data.submission) {
@@ -273,11 +277,11 @@ export const SparkHeroCard: React.FC<SparkHeroCardProps> = ({
 
                 {/* Media Meme Preview if available */}
                 {sub.mediaUrl && (
-                  <div className="rounded-2xl overflow-hidden border border-zinc-800/80 max-h-72 bg-zinc-950 flex items-center justify-center">
+                  <div className="rounded-2xl overflow-hidden border border-zinc-800/80 max-h-80 bg-zinc-950 flex items-center justify-center">
                     <img
-                      src={sub.mediaUrl}
+                      src={sub.mediaUrl.startsWith('/') ? `http://localhost:5000${sub.mediaUrl}` : sub.mediaUrl}
                       alt={sub.caption}
-                      className="w-full h-auto object-cover max-h-72"
+                      className="w-full h-auto object-cover max-h-80"
                     />
                   </div>
                 )}

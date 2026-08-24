@@ -75,7 +75,7 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
         builder.ToTable("posts");
         builder.HasKey(p => p.Id);
 
-        builder.Property(p => p.AuthorUsername).HasMaxLength(30).IsRequired();
+        builder.Property(p => p.AuthorUsername).HasMaxLength(100).IsRequired();
         builder.Property(p => p.AuthorDisplayName).HasMaxLength(100);
         builder.Property(p => p.AuthorAvatarUrl).HasMaxLength(500);
 
@@ -86,7 +86,7 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
 
         builder.OwnsOne(p => p.Media, media =>
         {
-            media.Property(m => m.Url).HasColumnName("media_url").HasMaxLength(1000);
+            media.Property(m => m.Url).HasColumnName("media_url").HasMaxLength(2000000);
             media.Property(m => m.Type).HasColumnName("media_type");
             media.Property(m => m.Width).HasColumnName("media_width");
             media.Property(m => m.Height).HasColumnName("media_height");
@@ -97,6 +97,9 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
             .WithOne()
             .HasForeignKey(r => r.PostId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(p => p.Reactions)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(p => p.CreatedAtUtc);
     }
@@ -109,7 +112,7 @@ public class ReactionConfiguration : IEntityTypeConfiguration<Reaction>
         builder.ToTable("reactions");
         builder.HasKey(r => r.Id);
 
-        builder.Property(r => r.Username).HasMaxLength(30).IsRequired();
+        builder.Property(r => r.Username).HasMaxLength(100).IsRequired();
         builder.Property(r => r.Type).HasMaxLength(30).IsRequired();
 
         builder.HasIndex(r => new { r.PostId, r.UserId }).IsUnique();
@@ -127,12 +130,15 @@ public class SparkConfiguration : IEntityTypeConfiguration<Spark>
         builder.Property(s => s.Prompt).HasMaxLength(1000).IsRequired();
         builder.Property(s => s.Category).HasMaxLength(50).IsRequired();
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
-        builder.Property(s => s.WinnerUsername).HasMaxLength(30);
+        builder.Property(s => s.WinnerUsername).HasMaxLength(100);
 
         builder.HasMany(s => s.Submissions)
             .WithOne()
             .HasForeignKey(sub => sub.SparkId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(s => s.Submissions)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(s => s.ActiveFromUtc);
         builder.HasIndex(s => s.Status);
@@ -146,16 +152,19 @@ public class SparkSubmissionConfiguration : IEntityTypeConfiguration<SparkSubmis
         builder.ToTable("spark_submissions");
         builder.HasKey(s => s.Id);
 
-        builder.Property(s => s.AuthorUsername).HasMaxLength(30).IsRequired();
+        builder.Property(s => s.AuthorUsername).HasMaxLength(100).IsRequired();
         builder.Property(s => s.AuthorDisplayName).HasMaxLength(100);
         builder.Property(s => s.AuthorAvatarUrl).HasMaxLength(500);
-        builder.Property(s => s.MediaUrl).HasMaxLength(1000);
+        builder.Property(s => s.MediaUrl).HasMaxLength(2000000);
         builder.Property(s => s.Caption).HasMaxLength(300);
 
         builder.HasMany(s => s.Votes)
             .WithOne()
             .HasForeignKey(v => v.SubmissionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(s => s.Votes)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(s => new { s.SparkId, s.VoteCount });
     }
@@ -182,15 +191,15 @@ public class ChainConfiguration : IEntityTypeConfiguration<Chain>
         builder.Property(c => c.Title).HasMaxLength(150).IsRequired();
         builder.Property(c => c.Theme).HasMaxLength(50).IsRequired();
         builder.Property(c => c.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
-        builder.Property(c => c.CreatedByUsername).HasMaxLength(30).IsRequired();
-
-        // Optimistic concurrency token
-        builder.Property(c => c.RowVersion).IsConcurrencyToken();
+        builder.Property(c => c.CreatedByUsername).HasMaxLength(100).IsRequired();
 
         builder.HasMany(c => c.Steps)
             .WithOne()
             .HasForeignKey(s => s.ChainId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(c => c.Steps)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(c => c.Status);
         builder.HasIndex(c => c.CreatedAtUtc);
@@ -204,7 +213,7 @@ public class ChainStepConfiguration : IEntityTypeConfiguration<ChainStep>
         builder.ToTable("chain_steps");
         builder.HasKey(s => s.Id);
 
-        builder.Property(s => s.AuthorUsername).HasMaxLength(30).IsRequired();
+        builder.Property(s => s.AuthorUsername).HasMaxLength(100).IsRequired();
         builder.Property(s => s.AuthorDisplayName).HasMaxLength(100);
         builder.Property(s => s.AuthorAvatarUrl).HasMaxLength(500);
         builder.Property(s => s.Content).HasMaxLength(TurnLockPolicy.MaxStepContentLength);

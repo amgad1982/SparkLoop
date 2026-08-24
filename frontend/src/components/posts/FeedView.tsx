@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { PostDto } from '../../types/api';
@@ -27,6 +27,10 @@ export const FeedView: React.FC<FeedViewProps> = ({ initialPosts, onOpenCanvas }
 
   const [posts, setPosts] = useState<PostDto[]>(initialPosts);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  useEffect(() => {
+    setPosts(initialPosts);
+  }, [initialPosts]);
 
   const handleReact = async (postId: string, reactionType: string) => {
     try {
@@ -99,11 +103,11 @@ export const FeedView: React.FC<FeedViewProps> = ({ initialPosts, onOpenCanvas }
 
             {/* Media Attachment (WebP meme or image) */}
             {post.media?.url && (
-              <div className="rounded-2xl overflow-hidden border border-zinc-800/80 bg-zinc-950 max-h-80 flex items-center justify-center">
+              <div className="rounded-2xl overflow-hidden border border-zinc-800/80 bg-zinc-950 max-h-96 flex items-center justify-center">
                 <img
-                  src={post.media.url}
+                  src={post.media.url.startsWith('/') ? `http://localhost:5000${post.media.url}` : post.media.url}
                   alt="Post media"
-                  className="w-full h-auto object-cover max-h-80"
+                  className="w-full h-auto object-cover max-h-96"
                 />
               </div>
             )}

@@ -104,10 +104,24 @@ export const api = {
   // Chains
   getActiveChains: () => fetchWithAuth<ChainDto[]>('/chains'),
   getChainById: (id: string) => fetchWithAuth<ChainDto>(`/chains/${id}`),
-  createChain: (title: string, theme: string, maxSteps: number, initialContent: string, initialAudioUrl?: string) =>
+  createChain: (
+    title: string,
+    theme: string,
+    maxSteps: number,
+    initialContent: string,
+    initialAudioUrl?: string,
+    initialDurationSeconds?: number
+  ) =>
     fetchWithAuth<ChainDto>('/chains', {
       method: 'POST',
-      body: JSON.stringify({ title, theme, maxSteps, initialContent, initialAudioUrl }),
+      body: JSON.stringify({
+        title,
+        theme,
+        maxSteps,
+        initialContent,
+        initialAudioUrl,
+        initialDurationSeconds,
+      }),
     }),
   submitChainStep: (chainId: string, content: string, audioUrl?: string, durationSeconds?: number, expectedVersion?: number) =>
     fetchWithAuth<ChainDto>(`/chains/${chainId}/step`, {

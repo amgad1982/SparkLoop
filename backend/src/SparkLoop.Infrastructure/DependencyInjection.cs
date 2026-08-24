@@ -27,6 +27,7 @@ public static class DependencyInjection
                 {
                     npgsqlOptions.EnableRetryOnFailure(3);
                     npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                 });
             }
             else
@@ -36,6 +37,7 @@ public static class DependencyInjection
                 options.UseSqlite(sqliteConn, sqliteOptions =>
                 {
                     sqliteOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                    sqliteOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
                 });
             }
         });

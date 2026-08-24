@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.ChainAggregate;
+using SparkLoop.Domain.Aggregates.UserAggregate;
 using SparkLoop.Domain.Exceptions;
 
 namespace SparkLoop.Application.Features.Chains;
@@ -41,7 +42,7 @@ public class CreateChainCommandHandler : IRequestHandler<CreateChainCommand, Cha
 
     public async Task<ChainDto> Handle(CreateChainCommand request, CancellationToken cancellationToken)
     {
-        var userId = _currentUserService.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var userId = _currentUserService.UserId ?? Guid.NewGuid();
         var username = _currentUserService.Username ?? "sparkcreator";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
@@ -60,6 +61,28 @@ public class CreateChainCommandHandler : IRequestHandler<CreateChainCommand, Cha
             request.InitialDurationSeconds);
 
         _dbContext.Chains.Add(chain);
+
+        // Auto-provision user if not exists
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            var norm = System.Text.RegularExpressions.Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+            if (norm.Length < 3) norm = norm.PadRight(3, '0');
+            if (norm.Length > 30) norm = norm[..30];
+
+            user = User.Create(
+                userId,
+                norm,
+                $"{norm}@sparkloop.app",
+                displayName,
+                avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={norm}",
+                "SparkLoop Creator & Storyteller"
+            );
+            user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
+            _dbContext.Users.Add(user);
+        }
+        user.AddReputation(20);
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapToDto(chain, userId);
@@ -148,13 +171,13 @@ public class SubmitChainStepCommandHandler : IRequestHandler<SubmitChainStepComm
             .FirstOrDefaultAsync(c => c.Id == request.ChainId, cancellationToken)
             ?? throw new NotFoundException("Chain", request.ChainId);
 
-        var userId = _currentUserService.UserId ?? Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var userId = _currentUserService.UserId ?? Guid.NewGuid();
         var username = _currentUserService.Username ?? "sparkguest";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
         // Domain method adds step, checks invariants (consecutive user, step limits, length), increments version
-        chain.AddStep(
+        var step = chain.AddStep(
             Guid.NewGuid(),
             userId,
             username,
@@ -165,9 +188,28 @@ public class SubmitChainStepCommandHandler : IRequestHandler<SubmitChainStepComm
             request.DurationSeconds,
             request.ExpectedVersion);
 
-        // Award reputation to author
+        _dbContext.ChainSteps.Add(step);
+
+        // Award reputation to author / auto-provision
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        user?.AddReputation(10);
+        if (user is null)
+        {
+            var norm = System.Text.RegularExpressions.Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+            if (norm.Length < 3) norm = norm.PadRight(3, '0');
+            if (norm.Length > 30) norm = norm[..30];
+
+            user = User.Create(
+                userId,
+                norm,
+                $"{norm}@sparkloop.app",
+                displayName,
+                avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={norm}",
+                "SparkLoop Creator & Storyteller"
+            );
+            user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
+            _dbContext.Users.Add(user);
+        }
+        user.AddReputation(10);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 

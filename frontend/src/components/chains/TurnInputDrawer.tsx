@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { ChainDto } from '../../types/api';
 import { api } from '../../services/apiClient';
-import { Mic, Send, Volume2, X } from 'lucide-react';
+import { Mic, Send, Square, Play, Pause, Trash2, Volume2, X, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface TurnInputDrawerProps {
@@ -24,36 +24,187 @@ export const TurnInputDrawer: React.FC<TurnInputDrawerProps> = ({
   const { currentPersona } = useAuthStore();
 
   const [content, setContent] = useState('');
-  const [includeAudio, setIncludeAudio] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Audio Recording State
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const maxChars = 100;
   const charsRemaining = maxChars - content.length;
+  const maxAudioSeconds = 15;
 
+  // Cleanup on unmount or modal close
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+      if (previewAudioRef.current) {
+        previewAudioRef.current.pause();
+      }
+      if (audioPreviewUrl) {
+        URL.revokeObjectURL(audioPreviewUrl);
+      }
+    };
+  }, [audioPreviewUrl]);
+
+  // Start microphone recording
+  const startRecording = async () => {
+    setErrorMessage(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm')
+        ? 'audio/webm'
+        : 'audio/ogg';
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunksRef.current, { type: mimeType });
+        setAudioBlob(blob);
+        const url = URL.createObjectURL(blob);
+        setAudioPreviewUrl(url);
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach((track) => track.stop());
+          streamRef.current = null;
+        }
+      };
+
+      mediaRecorder.start(250);
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      // Start elapsed timer (auto-stops at maxAudioSeconds)
+      const startTime = Date.now();
+      timerRef.current = window.setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        setRecordingSeconds(elapsed);
+        if (elapsed >= maxAudioSeconds) {
+          stopRecording();
+        }
+      }, 200);
+    } catch (err: unknown) {
+      console.error('Microphone access error:', err);
+      setErrorMessage(
+        isArabic
+          ? 'تعذر الوصول إلى الميكروفون. يرجى منح الإذن للتسجيل.'
+          : 'Microphone access denied. Please grant microphone permissions.'
+      );
+    }
+  };
+
+  // Stop microphone recording
+  const stopRecording = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+  };
+
+  // Discard recorded audio
+  const discardAudio = () => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      previewAudioRef.current = null;
+    }
+    if (audioPreviewUrl) {
+      URL.revokeObjectURL(audioPreviewUrl);
+    }
+    setAudioBlob(null);
+    setAudioPreviewUrl(null);
+    setRecordingSeconds(0);
+    setIsPlayingPreview(false);
+  };
+
+  // Toggle playback of recorded preview
+  const togglePlayPreview = () => {
+    if (!audioPreviewUrl) return;
+
+    if (isPlayingPreview && previewAudioRef.current) {
+      previewAudioRef.current.pause();
+      setIsPlayingPreview(false);
+      return;
+    }
+
+    const audio = new Audio(audioPreviewUrl);
+    previewAudioRef.current = audio;
+    setIsPlayingPreview(true);
+
+    audio.play().catch((err) => {
+      console.error('Audio playback error:', err);
+      setIsPlayingPreview(false);
+    });
+
+    audio.onended = () => {
+      setIsPlayingPreview(false);
+    };
+
+    audio.onerror = () => {
+      setIsPlayingPreview(false);
+    };
+  };
+
+  // Submit step
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim() && !includeAudio) return;
+    if (!content.trim() && !audioBlob) return;
 
     setIsSubmitting(true);
     setErrorMessage(null);
 
     try {
-      const audioUrl = includeAudio
-        ? 'https://actions.google.com/sounds/v1/human_voices/applause_crowd_cheering.ogg'
-        : undefined;
-      const durationSeconds = includeAudio ? 5 : undefined;
+      let finalAudioUrl: string | undefined = undefined;
+      let finalDurationSeconds: number | undefined = undefined;
+
+      if (audioBlob) {
+        // Convert blob to base64 data URL
+        finalAudioUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(audioBlob);
+        });
+        finalDurationSeconds = Math.max(1, Math.min(maxAudioSeconds, recordingSeconds));
+      }
 
       const updated = await api.submitChainStep(
         chain.id,
         content.trim(),
-        audioUrl,
-        durationSeconds,
+        finalAudioUrl,
+        finalDurationSeconds,
         chain.rowVersion
       );
 
       setContent('');
-      setIncludeAudio(false);
+      discardAudio();
       onStepSubmitted(updated);
       onClose();
     } catch (err: unknown) {
@@ -130,25 +281,91 @@ export const TurnInputDrawer: React.FC<TurnInputDrawerProps> = ({
                 </span>
               </div>
 
-              {/* Audio Note Toggle */}
-              <div className="flex items-center justify-between p-2.5 bg-zinc-950 border border-zinc-800 rounded-2xl">
-                <div className="flex items-center gap-2 text-xs">
-                  <Mic className="w-4 h-4 text-cyan-400" />
-                  <span className="text-zinc-300">
-                    {isArabic ? 'إرفاق تسجيل صوتي 15 ثانية' : 'Attach 15s Audio Note'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIncludeAudio(!includeAudio)}
-                  className={`px-3 py-1 text-xs font-bold rounded-xl transition-colors ${
-                    includeAudio
-                      ? 'bg-cyan-500 text-black'
-                      : 'bg-zinc-800 text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {includeAudio ? (isArabic ? 'مرفق ✓' : 'Attached ✓') : (isArabic ? 'إضافة' : '+ Add')}
-                </button>
+              {/* Real Microphone Recording Studio */}
+              <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-2">
+                {isRecording ? (
+                  /* Recording in Progress */
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+                      <span className="text-xs font-bold text-rose-400">
+                        {isArabic ? 'جاري التسجيل...' : 'Recording...'}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-zinc-300">
+                        {recordingSeconds}s / {maxAudioSeconds}s
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={stopRecording}
+                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-lg shadow-rose-600/30 active:scale-95"
+                    >
+                      <Square className="w-3.5 h-3.5 fill-white" />
+                      <span>{isArabic ? 'إيقاف' : 'Stop'}</span>
+                    </button>
+                  </div>
+                ) : audioBlob ? (
+                  /* Audio Recorded & Ready Preview */
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={togglePlayPreview}
+                        className="w-8 h-8 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center transition-transform active:scale-95 shrink-0"
+                        title={isPlayingPreview ? 'Pause' : 'Play'}
+                      >
+                        {isPlayingPreview ? (
+                          <Pause className="w-4 h-4 fill-black" />
+                        ) : (
+                          <Play className="w-4 h-4 fill-black ml-0.5" />
+                        )}
+                      </button>
+
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-cyan-300">
+                            {isArabic ? 'ملاحظة صوتية جاهزة' : 'Audio Note Ready'}
+                          </span>
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 bg-cyan-950 text-cyan-400 rounded border border-cyan-800">
+                            {recordingSeconds}s
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-400">
+                          {isArabic ? 'انقر للاستماع قبل الإرسال' : 'Click play to review recording'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={discardAudio}
+                      className="p-2 hover:bg-zinc-850 rounded-xl text-zinc-500 hover:text-rose-400 transition-colors"
+                      title={isArabic ? 'حذف وإعادة التسجيل' : 'Discard & Re-record'}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  /* Initial Idle State: Start Recording Button */
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-xs">
+                      <Mic className="w-4 h-4 text-cyan-400" />
+                      <span className="text-zinc-300">
+                        {isArabic ? 'تسجيل مقطع صوتي (15 ثانية)' : 'Record 15s Voice Note'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={startRecording}
+                      className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-700 hover:border-cyan-500/50 text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-all active:scale-95"
+                    >
+                      <Mic className="w-3.5 h-3.5" />
+                      <span>{isArabic ? 'بدء التسجيل' : 'Record Mic'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
 
               {errorMessage && (
@@ -159,11 +376,23 @@ export const TurnInputDrawer: React.FC<TurnInputDrawerProps> = ({
 
               <button
                 type="submit"
-                disabled={isSubmitting || (!content.trim() && !includeAudio)}
+                disabled={isSubmitting || (!content.trim() && !audioBlob)}
                 className="w-full py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg"
               >
-                <Send className="w-4 h-4" />
-                <span>{isSubmitting ? (isArabic ? 'جاري الإرسال...' : 'Passing the Mic...') : (isArabic ? 'تمرير المايك والتسليم 🎤' : 'Pass The Mic 🎤')}</span>
+                {isSubmitting ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                <span>
+                  {isSubmitting
+                    ? isArabic
+                      ? 'جاري الإرسال وتمرير المايك...'
+                      : 'Passing the Mic...'
+                    : isArabic
+                    ? 'تمرير المايك والتسليم 🎤'
+                    : 'Pass The Mic 🎤'}
+                </span>
               </button>
             </form>
           </motion.div>
