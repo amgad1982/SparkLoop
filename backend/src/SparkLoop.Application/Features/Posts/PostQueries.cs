@@ -46,7 +46,12 @@ public static class PostQueries
     }
 }
 
-public record GetFeedPostsQuery(int PageNumber = 1, int PageSize = 20) : IRequest<IReadOnlyList<PostDto>>;
+public record GetFeedPostsQuery(
+    int PageNumber = 1,
+    int PageSize = 20,
+    string? Hashtag = null,
+    string? SearchQuery = null
+) : IRequest<IReadOnlyList<PostDto>>;
 
 public class GetFeedPostsQueryHandler : IRequestHandler<GetFeedPostsQuery, IReadOnlyList<PostDto>>
 {
@@ -59,8 +64,26 @@ public class GetFeedPostsQueryHandler : IRequestHandler<GetFeedPostsQuery, IRead
 
     public async Task<IReadOnlyList<PostDto>> Handle(GetFeedPostsQuery request, CancellationToken cancellationToken)
     {
-        var posts = await _dbContext.Posts
+        var query = _dbContext.Posts
             .Include(p => p.Reactions)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(request.Hashtag))
+        {
+            var cleanTag = request.Hashtag.Trim().TrimStart('#');
+            var tagWithHash = "#" + cleanTag;
+            query = query.Where(p => p.Content.Value.ToLower().Contains(tagWithHash.ToLower()));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.SearchQuery))
+        {
+            var search = request.SearchQuery.Trim().ToLower();
+            query = query.Where(p => p.Content.Value.ToLower().Contains(search) ||
+                                     p.AuthorUsername.ToLower().Contains(search) ||
+                                     (p.AuthorDisplayName != null && p.AuthorDisplayName.ToLower().Contains(search)));
+        }
+
+        var posts = await query
             .OrderByDescending(p => p.CreatedAtUtc)
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)

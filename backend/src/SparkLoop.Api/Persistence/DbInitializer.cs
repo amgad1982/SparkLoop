@@ -167,14 +167,14 @@ public static class DbInitializer
 
             dbContext.MoodPods.AddRange(pod1, pod2);
 
-            // 5. Seed Feed Posts
+            // 5. Seed Feed Posts with Tracked Hashtags
             var post1 = Post.Create(
                 Guid.NewGuid(),
                 noorId,
                 "noor",
                 "نور العرّاف 🌟",
                 "https://api.dicebear.com/7.x/bottts/svg?seed=noor",
-                "أهلاً بكم في SparkLoop! شبكة تدوين وتفاعل ترفيهية متكاملة تجمع بين سلاسل القصص التفاعلية، وتحديات السبارك اليومية، وحجرات المزاج اللحظية. شاركونا إبداعاتكم! ✨",
+                "أهلاً بكم في SparkLoop! شبكة تدوين وتفاعل ترفيهية متكاملة تجمع بين سلاسل القصص التفاعلية، وتحديات السبارك اليومية. شاركونا إبداعاتكم! #sparkloop #arabcreators ✨",
                 new MediaAttachment("https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80", MediaType.Image, 800, 500)
             );
             post1.AddReaction(aliceId, "alice", "fire");
@@ -187,13 +187,25 @@ public static class DbInitializer
                 "alice",
                 "Alice Wonder 🎨",
                 "https://api.dicebear.com/7.x/bottts/svg?seed=alice",
-                "Just finished drawing a new meme template on the SparkLoop canvas editor! Super fluid touch gestures and instant WebP export. Try passing the mic on our Neo-Cairo story chain! 🚀🎨",
+                "Just finished drawing a new meme template on the SparkLoop canvas editor! Super fluid touch gestures. Try passing the mic on our Neo-Cairo story chain! #meme #art #spark 🚀🎨",
                 new MediaAttachment("https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80", MediaType.MemeWebP, 800, 600)
             );
             post2.AddReaction(noorId, "noor", "spark");
             post2.AddReaction(tariqId, "tariq", "fire");
 
-            dbContext.Posts.AddRange(post1, post2);
+            var post3 = Post.Create(
+                Guid.NewGuid(),
+                tariqId,
+                "tariq",
+                "طارق صانع الميمز ⚡",
+                "https://api.dicebear.com/7.x/bottts/svg?seed=tariq",
+                "تحدي اليوم مولع! صمموا أفضل ميم عن الجمعة وشاركوا في السبارك للفوز بالوسم الذهبي. #spark #meme #gaming 🔥",
+                new MediaAttachment("https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80", MediaType.Image, 800, 500)
+            );
+            post3.AddReaction(aliceId, "alice", "laugh");
+            post3.AddReaction(bobId, "bob", "fire");
+
+            dbContext.Posts.AddRange(post1, post2, post3);
 
             await dbContext.SaveChangesAsync();
             logger.LogInformation("SparkLoop initial seed completed successfully!");

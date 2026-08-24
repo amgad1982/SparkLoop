@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Volume2 } from 'lucide-react';
+import { getMediaUrl } from '../../services/apiClient';
 
 interface PodAudioPlayerProps {
   audioUrl: string;
@@ -13,7 +14,7 @@ export const PodAudioPlayer: React.FC<PodAudioPlayerProps> = ({ audioUrl, durati
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
-    const audio = new Audio(audioUrl);
+    const audio = new Audio(getMediaUrl(audioUrl));
     audioRef.current = audio;
 
     audio.onloadedmetadata = () => {

@@ -177,3 +177,9 @@ public record UserProfileDto(
     IReadOnlyList<ChainDto> RecentChains
 );
 
+public record HashtagDto(
+    string Tag,
+    int Count,
+    DateTime LastUsedAtUtc
+);
+

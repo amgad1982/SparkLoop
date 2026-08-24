@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-zinc-950 text-zinc-100 selection:bg-fuchsia-500 selection:text-white;
+  html, body, #root {
+    @apply h-full overflow-hidden bg-zinc-950 text-zinc-100 selection:bg-fuchsia-500 selection:text-white;
   }
 }
 
@@ -46,6 +46,32 @@
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Elegant narrow scrollbar for modern browsers */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(113, 113, 122, 0.35);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 70, 239, 0.6);
+}
+
+/* Firefox standard scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(113, 113, 122, 0.35) transparent;
 }
 
 /* RTL Helpers */

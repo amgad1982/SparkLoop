@@ -74,7 +74,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
 
   return (
     <>
-      <aside className="hidden md:flex flex-col justify-between w-20 lg:w-64 h-screen sticky top-0 border-r rtl:border-r-0 rtl:border-l border-zinc-800/80 bg-zinc-950/95 backdrop-blur-xl p-3 lg:p-5 z-30 shrink-0 select-none">
+      <aside className="hidden md:flex flex-col justify-between w-20 lg:w-64 h-full border-r rtl:border-r-0 rtl:border-l border-zinc-800/80 bg-zinc-950/95 backdrop-blur-xl p-3 lg:p-5 z-30 shrink-0 select-none overflow-y-auto no-scrollbar">
         {/* Top: Branding & Logo */}
         <div className="space-y-6">
           <div className="flex items-center gap-3 px-1">

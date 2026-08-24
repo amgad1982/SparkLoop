@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuthStore, Persona } from '../../stores/useAuthStore';
 import { useThemeStore } from '../../stores/useThemeStore';
-import { api } from '../../services/apiClient';
+import { api, getMediaUrl } from '../../services/apiClient';
 import { UserProfileDto } from '../../types/api';
 import { PersonaSwitcher } from '../layout/PersonaSwitcher';
 import {
@@ -304,12 +304,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
         </div>
 
         {/* Profile Details Bar */}
-        <div className="px-5 sm:px-8 pb-6 relative -mt-14 sm:-mt-16">
-          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div className="px-6 sm:px-8 pb-7 relative -mt-14 sm:-mt-16">
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-5">
             {/* Large Avatar with Online / Creator Status */}
             <div className="relative group">
               <img
-                src={profile.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.username}`}
+                src={getMediaUrl(profile.avatarUrl) || `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.username}`}
                 alt={profile.username}
                 className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-zinc-900 border-4 border-zinc-950 object-cover shadow-2xl"
               />
@@ -332,10 +332,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
             {/* Actions: Portfolio / Edit Profile / Security / Switch Persona */}
             {isOwnProfile && (
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
                 <button
                   onClick={() => setActiveTab('portfolio')}
-                  className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                     activeTab === 'portfolio'
                       ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
                       : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300'
@@ -347,7 +347,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
                 <button
                   onClick={() => setActiveTab('edit')}
-                  className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                     activeTab === 'edit'
                       ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
                       : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300'
@@ -359,7 +359,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
                 <button
                   onClick={() => setActiveTab('security')}
-                  className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                     activeTab === 'security'
                       ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
                       : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300'
@@ -371,7 +371,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
                 <button
                   onClick={() => setIsSwitcherOpen(true)}
-                  className="px-3 py-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-2xl text-xs font-bold text-zinc-300 flex items-center gap-1.5 transition-all"
+                  className="px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-2xl text-xs font-bold text-zinc-300 flex items-center gap-1.5 transition-all"
                   title={isArabic ? 'تبديل الحساب / تسجيل مستخدم جديد' : 'Switch Account'}
                 >
                   <Users className="w-3.5 h-3.5 text-cyan-400" />
@@ -381,7 +381,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 {currentPersona.username !== 'guest' && (
                   <button
                     onClick={() => logout()}
-                    className="px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 rounded-2xl text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 transition-all"
+                    className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 rounded-2xl text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 transition-all"
                     title={isArabic ? 'تسجيل الخروج' : 'Log Out'}
                   >
                     <LogOut className="w-3.5 h-3.5" />
@@ -393,12 +393,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
           </div>
 
           {/* User Bio & Meta */}
-          <div className="mt-4 space-y-2">
-            <div className="flex items-center gap-2.5">
+          <div className="mt-5 space-y-2.5">
+            <div className="flex items-center gap-3">
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
                 {profile.displayName}
               </h2>
-              <span className="text-xs text-zinc-400 font-semibold">@{profile.username}</span>
+              <span className="text-xs sm:text-sm text-zinc-400 font-semibold">@{profile.username}</span>
             </div>
 
             <p className="text-xs sm:text-sm text-zinc-300 max-w-2xl leading-relaxed">
@@ -408,18 +408,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   : 'SparkLoop Creator & Storyteller')}
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 pt-1">
-              <span className="flex items-center gap-1">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 pt-1.5">
+              <span className="flex items-center gap-1.5">
                 <Mail className="w-3.5 h-3.5 text-zinc-500" />
                 <span>{profile.email}</span>
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5 text-zinc-500" />
                 <span>
                   {isArabic ? 'انضم في' : 'Joined'} {new Date(profile.createdAtUtc).toLocaleDateString()}
                 </span>
               </span>
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
                 <span>{isArabic ? 'حساب نشط' : 'Active Member'}</span>
               </span>
@@ -427,9 +427,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
           </div>
 
           {/* Reputation XP Bar */}
-          <div className="mt-5 p-4 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold flex items-center gap-1 text-amber-400">
+          <div className="mt-6 p-5 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-2.5">
+            <div className="flex items-center justify-between text-xs sm:text-sm">
+              <span className="font-bold flex items-center gap-1.5 text-amber-400">
                 <Zap className="w-4 h-4 text-amber-400" />
                 {isArabic ? 'نقاط السمعة والتفاعل' : 'Reputation Score'}
               </span>
@@ -437,7 +437,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 {profile.repScore} / {repTier.max} XP
               </span>
             </div>
-            <div className="w-full h-2 bg-zinc-950 rounded-full overflow-hidden border border-zinc-800/80">
+            <div className="w-full h-2.5 bg-zinc-950 rounded-full overflow-hidden border border-zinc-800/80">
               <div
                 className="h-full bg-gradient-to-r from-amber-500 via-fuchsia-500 to-cyan-400 rounded-full transition-all duration-700"
                 style={{ width: `${repProgress}%` }}
@@ -451,53 +451,53 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
       {activeTab === 'portfolio' && (
         <div className="space-y-6">
           {/* Stats Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="glass-card rounded-2xl p-4 border border-zinc-800 text-center space-y-1">
-              <MessageSquare className="w-5 h-5 text-fuchsia-400 mx-auto" />
-              <div className="text-lg font-black text-white">{profile.postsCount}</div>
-              <div className="text-[11px] text-zinc-400">{isArabic ? 'التدوينات والميمز' : 'Posts & Memes'}</div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="glass-card rounded-2xl p-5 border border-zinc-800 text-center space-y-1.5 shadow-md">
+              <MessageSquare className="w-6 h-6 text-fuchsia-400 mx-auto" />
+              <div className="text-xl font-black text-white">{profile.postsCount}</div>
+              <div className="text-xs text-zinc-400 font-medium">{isArabic ? 'التدوينات والميمز' : 'Posts & Memes'}</div>
             </div>
 
-            <div className="glass-card rounded-2xl p-4 border border-zinc-800 text-center space-y-1">
-              <Heart className="w-5 h-5 text-rose-400 mx-auto" />
-              <div className="text-lg font-black text-white">{profile.totalReactionsReceived}</div>
-              <div className="text-[11px] text-zinc-400">{isArabic ? 'التفاعلات المستلمة' : 'Reactions'}</div>
+            <div className="glass-card rounded-2xl p-5 border border-zinc-800 text-center space-y-1.5 shadow-md">
+              <Heart className="w-6 h-6 text-rose-400 mx-auto" />
+              <div className="text-xl font-black text-white">{profile.totalReactionsReceived}</div>
+              <div className="text-xs text-zinc-400 font-medium">{isArabic ? 'التفاعلات المستلمة' : 'Reactions'}</div>
             </div>
 
-            <div className="glass-card rounded-2xl p-4 border border-zinc-800 text-center space-y-1">
-              <GitBranch className="w-5 h-5 text-purple-400 mx-auto" />
-              <div className="text-lg font-black text-white">{profile.chainsCount}</div>
-              <div className="text-[11px] text-zinc-400">{isArabic ? 'سلاسل القصص' : 'Story Chains'}</div>
+            <div className="glass-card rounded-2xl p-5 border border-zinc-800 text-center space-y-1.5 shadow-md">
+              <GitBranch className="w-6 h-6 text-purple-400 mx-auto" />
+              <div className="text-xl font-black text-white">{profile.chainsCount}</div>
+              <div className="text-xs text-zinc-400 font-medium">{isArabic ? 'سلاسل القصص' : 'Story Chains'}</div>
             </div>
 
-            <div className="glass-card rounded-2xl p-4 border border-zinc-800 text-center space-y-1">
-              <Trophy className="w-5 h-5 text-amber-400 mx-auto" />
-              <div className="text-lg font-black text-white">{profile.sparksWonCount}</div>
-              <div className="text-[11px] text-zinc-400">{isArabic ? 'تحديات السبارك' : 'Sparks Won'}</div>
+            <div className="glass-card rounded-2xl p-5 border border-zinc-800 text-center space-y-1.5 shadow-md">
+              <Trophy className="w-6 h-6 text-amber-400 mx-auto" />
+              <div className="text-xl font-black text-white">{profile.sparksWonCount}</div>
+              <div className="text-xs text-zinc-400 font-medium">{isArabic ? 'تحديات السبارك' : 'Sparks Won'}</div>
             </div>
           </div>
 
           {/* Badges Showcase */}
           {profile.badges.length > 0 && (
-            <div className="glass-card rounded-3xl p-5 border border-zinc-800 space-y-3">
-              <div className="flex items-center gap-2">
+            <div className="glass-card rounded-3xl p-6 sm:p-7 border border-zinc-800 space-y-4 shadow-lg">
+              <div className="flex items-center gap-2.5">
                 <Award className="w-5 h-5 text-fuchsia-400" />
-                <h3 className="font-bold text-sm text-white">
+                <h3 className="font-bold text-sm sm:text-base text-white">
                   {isArabic ? 'الأوسمة والجوائز المكتسبة' : 'Awarded Badges & Trophies'}
                 </h3>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {profile.badges.map((b) => (
                   <div
                     key={b.id}
-                    className="p-3 bg-zinc-900/80 rounded-2xl border border-zinc-800 flex items-center gap-3"
+                    className="p-3.5 bg-zinc-900/80 rounded-2xl border border-zinc-800 flex items-center gap-3.5"
                   >
-                    <span className="text-2xl p-2 bg-zinc-950 rounded-xl border border-zinc-800 shrink-0">
+                    <span className="text-2xl p-2.5 bg-zinc-950 rounded-xl border border-zinc-800 shrink-0">
                       {b.icon}
                     </span>
                     <div className="min-w-0">
-                      <h4 className="font-bold text-xs text-zinc-100 truncate">{b.name}</h4>
+                      <h4 className="font-bold text-xs sm:text-sm text-zinc-100 truncate">{b.name}</h4>
                       <p className="text-[11px] text-zinc-400 line-clamp-1">{b.description}</p>
                     </div>
                   </div>
@@ -557,8 +557,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                         {post.content}
                       </p>
                       {post.media?.url && (
-                        <div className="rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950 max-h-72 flex items-center justify-center">
-                          <img src={post.media.url} alt="Post media" className="w-full h-auto object-cover max-h-72" />
+                        <div className="rounded-xl overflow-hidden border border-zinc-800 bg-zinc-950/80 flex items-center justify-center p-1">
+                          <img
+                            src={getMediaUrl(post.media.url)}
+                            alt="Post media"
+                            className="w-full h-auto max-h-[500px] object-contain rounded-lg"
+                            loading="lazy"
+                          />
                         </div>
                       )}
                       <div className="flex items-center justify-between text-xs text-zinc-500 pt-1 border-t border-zinc-800/60">
@@ -633,7 +638,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
           <div className="p-4 bg-zinc-900/90 rounded-2xl border border-zinc-800 flex flex-col sm:flex-row items-center gap-4">
             <div className="relative">
               <img
-                src={editAvatarUrl || profile.avatarUrl || currentPersona.avatarUrl}
+                src={getMediaUrl(editAvatarUrl) || getMediaUrl(profile.avatarUrl) || currentPersona.avatarUrl}
                 alt="Avatar preview"
                 className="w-20 h-20 rounded-2xl bg-zinc-950 border-2 border-fuchsia-500/50 object-cover shadow-lg"
               />

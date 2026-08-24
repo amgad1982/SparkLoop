@@ -66,15 +66,17 @@ export const App: React.FC = () => {
 
       {/* 2. Daily Sparks Tab */}
       {activeTab === 'sparks' && spark && (
-        <SparkHeroCard
-          initialSpark={spark}
-          onOpenCanvas={() => setActiveTab('create')}
-        />
+        <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 pb-24 md:pb-8">
+          <SparkHeroCard
+            initialSpark={spark}
+            onOpenCanvas={() => setActiveTab('create')}
+          />
+        </div>
       )}
 
       {/* 3. Pass-the-Mic Chains Tab */}
       {activeTab === 'chains' && (
-        <div className="space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 pb-24 md:pb-8 space-y-4">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-2">
               <GitBranch className="w-5 h-5 text-fuchsia-400" />
@@ -119,31 +121,38 @@ export const App: React.FC = () => {
 
       {/* 4. Ephemeral Mood Pods Tab */}
       {activeTab === 'pods' && (
-        <MoodPodsView
-          pods={pods}
-          onRefreshPods={refetchPods}
-          selectedPodId={selectedPodId}
-          onSelectPodId={setSelectedPodId}
-        />
+        <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 pb-24 md:pb-8">
+          <MoodPodsView
+            pods={pods}
+            onRefreshPods={refetchPods}
+            selectedPodId={selectedPodId}
+            onSelectPodId={setSelectedPodId}
+          />
+        </div>
       )}
 
       {/* 5. Meme Canvas Editor Tab */}
       {activeTab === 'create' && (
-        <MemeCanvasEditor
-          onPublishPost={() => {
-            refetchPosts();
-            setActiveTab('feed');
-          }}
-          onPublishSpark={() => {
-            refetchSpark();
-            setActiveTab('sparks');
-          }}
-        />
+        <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 pb-24 md:pb-8">
+          <MemeCanvasEditor
+            activeSpark={spark}
+            onPublishPost={() => {
+              refetchPosts();
+              setActiveTab('feed');
+            }}
+            onPublishSpark={() => {
+              refetchSpark();
+              setActiveTab('sparks');
+            }}
+          />
+        </div>
       )}
 
       {/* 6. User Profile & XP Portfolio Tab */}
       {activeTab === 'profile' && (
-        <ProfileView onOpenCanvas={() => setActiveTab('create')} />
+        <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 pb-24 md:pb-8">
+          <ProfileView onOpenCanvas={() => setActiveTab('create')} />
+        </div>
       )}
     </MobileAppShell>
   );

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Features.Auth;
 using SparkLoop.Application.Features.Chains;
+using SparkLoop.Application.Features.Hashtags;
 using SparkLoop.Application.Features.MoodPods;
 using SparkLoop.Application.Features.Posts;
 using SparkLoop.Application.Features.Sparks;
@@ -201,9 +202,13 @@ public class PostsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<PostDto>>> GetFeed([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<ActionResult<IReadOnlyList<PostDto>>> GetFeed(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? hashtag = null,
+        [FromQuery] string? search = null)
     {
-        var result = await _mediator.Send(new GetFeedPostsQuery(page, pageSize));
+        var result = await _mediator.Send(new GetFeedPostsQuery(page, pageSize, hashtag, search));
         return Ok(result);
     }
 
@@ -222,6 +227,45 @@ public class PostsController : ControllerBase
     }
 
     public record ReactRequest(string Type);
+}
+
+[ApiController]
+[Route("api/[controller]")]
+public class HashtagsController : ControllerBase
+{
+    private readonly IMediator _mediator;
+
+    public HashtagsController(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
+
+    [HttpGet("trending")]
+    public async Task<ActionResult<IReadOnlyList<HashtagDto>>> GetTrending([FromQuery] int limit = 10)
+    {
+        var result = await _mediator.Send(new GetTrendingHashtagsQuery(limit));
+        return Ok(result);
+    }
+
+    [HttpGet("search")]
+    public async Task<ActionResult<IReadOnlyList<HashtagDto>>> Search([FromQuery] string query, [FromQuery] int limit = 10)
+    {
+        var result = await _mediator.Send(new SearchHashtagsQuery(query, limit));
+        return Ok(result);
+    }
+
+    [HttpGet]
+    public async Task<ActionResult<IReadOnlyList<HashtagDto>>> GetHashtags([FromQuery] string? query = null, [FromQuery] int limit = 10)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            var trending = await _mediator.Send(new GetTrendingHashtagsQuery(limit));
+            return Ok(trending);
+        }
+
+        var searchResult = await _mediator.Send(new SearchHashtagsQuery(query, limit));
+        return Ok(searchResult);
+    }
 }
 
 [ApiController]

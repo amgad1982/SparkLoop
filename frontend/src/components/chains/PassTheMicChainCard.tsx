@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { ChainDto, ChainStepDto } from '../../types/api';
+import { getMediaUrl } from '../../services/apiClient';
 import { useCentrifugo } from '../../hooks/useCentrifugo';
 import { TurnInputDrawer } from './TurnInputDrawer';
 import { CheckCircle2, GitBranch, Lock, Mic, Play, Sparkles, UserCheck, Volume2 } from 'lucide-react';
@@ -74,7 +75,7 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
     if (!audioUrl) return;
 
     setPlayingAudioId(stepId);
-    const audio = new Audio(audioUrl);
+    const audio = new Audio(getMediaUrl(audioUrl));
     activeAudioRef.current = audio;
 
     audio.play().catch((err) => {
@@ -96,22 +97,22 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
 
   return (
     <>
-      <div className="glass-card rounded-3xl p-4.5 space-y-3.5 border border-zinc-800/80 text-white relative overflow-hidden transition-all hover:border-zinc-700/80">
+      <div className="glass-card rounded-3xl p-5 sm:p-6 space-y-4.5 border border-zinc-800/80 text-white relative overflow-hidden transition-all hover:border-zinc-700/80 shadow-lg">
         {/* Top Header & Theme */}
-        <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+            <div className="flex items-center gap-2 mb-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                 {chain.theme}
               </span>
-              <span className="text-[10px] text-zinc-400 font-medium">
+              <span className="text-xs text-zinc-400 font-medium">
                 {isArabic ? `أنشأها @${chain.createdByUsername}` : `by @${chain.createdByUsername}`}
               </span>
             </div>
-            <h3 className="font-bold text-base tracking-tight text-zinc-100">{chain.title}</h3>
+            <h3 className="font-bold text-base sm:text-lg tracking-tight text-zinc-100">{chain.title}</h3>
           </div>
 
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold">
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-bold shrink-0">
             <GitBranch className="w-3.5 h-3.5 text-fuchsia-400" />
             <span className="text-zinc-200">
               {chain.currentStepCount}/{chain.maxSteps}
@@ -120,8 +121,8 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
         </div>
 
         {/* Progress Bar */}
-        <div className="space-y-1">
-          <div className="w-full h-1.5 bg-zinc-900 rounded-full overflow-hidden">
+        <div className="space-y-1.5">
+          <div className="w-full h-2 bg-zinc-900 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }}
               animate={{ width: `${progressPercent}%` }}
@@ -133,7 +134,7 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
               }`}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-zinc-400">
+          <div className="flex justify-between text-[11px] text-zinc-400 font-medium">
             <span>{isArabic ? 'تقدم السلسلة' : 'Chain Progress'}</span>
             <span>
               {isCompleted
@@ -148,7 +149,7 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
         </div>
 
         {/* Steps Stream / Bubbles */}
-        <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1 no-scrollbar pt-1">
+        <div className="space-y-3 max-h-72 overflow-y-auto pr-1 no-scrollbar pt-1">
           {chain.steps.map((step) => {
             const isStepAuthorMe = step.authorId === currentPersona.id;
             const isAudioPlaying = playingAudioId === step.id;
@@ -158,30 +159,30 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
                 key={step.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`p-3 rounded-2xl border text-xs space-y-1.5 ${
+                className={`p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm space-y-2 ${
                   isStepAuthorMe
                     ? 'bg-fuchsia-950/30 border-fuchsia-500/30 ml-4 rtl:ml-0 rtl:mr-4'
                     : 'bg-zinc-900/60 border-zinc-800/80 mr-4 rtl:mr-0 rtl:ml-4'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2.5">
                     <img
                       src={step.authorAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${step.authorUsername}`}
                       alt={step.authorUsername}
-                      className="w-5 h-5 rounded-full border border-zinc-700 object-cover"
+                      className="w-6 h-6 rounded-full border border-zinc-700 object-cover"
                     />
                     <span className="font-semibold text-zinc-200">
                       {step.authorDisplayName || step.authorUsername}
                     </span>
-                    <span className="text-[10px] font-bold text-fuchsia-400 px-1 rounded bg-fuchsia-950/60">
+                    <span className="text-[10px] font-bold text-fuchsia-400 px-1.5 py-0.5 rounded bg-fuchsia-950/60">
                       #{step.stepNumber}
                     </span>
                   </div>
                   {step.audioUrl && (
                     <button
                       onClick={() => playAudio(step.id, step.audioUrl)}
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-colors ${
                         isAudioPlaying
                           ? 'bg-cyan-500 text-black border-cyan-400 shadow-lg shadow-cyan-500/25'
                           : 'bg-zinc-800/90 text-cyan-300 border-cyan-500/30 hover:bg-zinc-750'
@@ -199,7 +200,7 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
                   )}
                 </div>
 
-                <p className="text-zinc-200 leading-relaxed font-medium pl-7 rtl:pl-0 rtl:pr-7">
+                <p className="text-zinc-200 leading-relaxed font-medium pl-8 rtl:pl-0 rtl:pr-8">
                   {step.content}
                 </p>
               </motion.div>
@@ -208,14 +209,14 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
         </div>
 
         {/* Turn Action / Invariant Status Bar */}
-        <div className="pt-2 border-t border-zinc-800/70">
+        <div className="pt-3.5 border-t border-zinc-800/70">
           {isCompleted ? (
-            <div className="p-2.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center gap-2 text-xs font-bold text-emerald-300">
+            <div className="p-3.5 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-center justify-center gap-2 text-xs sm:text-sm font-bold text-emerald-300">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
               <span>{isArabic ? 'اكتملت القصة التفاعلية وتم تتويج المساهمين! 🎉' : 'Story Completed & Sealed! 🎉'}</span>
             </div>
           ) : isLastAuthor ? (
-            <div className="p-2.5 rounded-2xl bg-amber-950/40 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300">
+            <div className="p-3.5 rounded-2xl bg-amber-950/40 border border-amber-500/30 flex items-center justify-between text-xs sm:text-sm text-amber-300">
               <div className="flex items-center gap-2">
                 <Lock className="w-4 h-4 text-amber-400" />
                 <span className="font-semibold">
@@ -224,14 +225,14 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
                     : 'Turn locked: Cannot submit consecutively!'}
                 </span>
               </div>
-              <span className="text-[10px] px-2 py-0.5 rounded bg-amber-500/20 font-bold">
+              <span className="text-[10px] px-2.5 py-1 rounded bg-amber-500/20 font-bold">
                 {isArabic ? 'دور كاتب آخر' : 'Wait for next'}
               </span>
             </div>
           ) : (
             <button
               onClick={() => setIsDrawerOpen(true)}
-              className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 hover:from-fuchsia-500 hover:to-cyan-400 font-bold text-xs flex items-center justify-center gap-2 text-white active:scale-98 transition-all spark-glow"
+              className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 hover:from-fuchsia-500 hover:to-cyan-400 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 text-white active:scale-98 transition-all spark-glow shadow-lg"
             >
               <Mic className="w-4 h-4 text-amber-300 animate-pulse" />
               <span>{isArabic ? 'دورك الآن! مرر المايك وأكمل القصة 🎤' : 'Your Turn! Take The Mic & Add Step 🎤'}</span>

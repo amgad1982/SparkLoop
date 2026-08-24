@@ -22,8 +22,10 @@ import {
   Hash,
 } from 'lucide-react';
 import { api } from '../../services/apiClient';
+import { SparkDto } from '../../types/api';
 
 interface MemeCanvasEditorProps {
+  activeSpark?: SparkDto;
   onPublishPost?: (mediaUrl: string, caption: string) => void;
   onPublishSpark?: (mediaUrl: string, caption: string) => void;
 }
@@ -118,6 +120,7 @@ const ASPECT_RATIOS = [
 type StudioTab = 'text' | 'templates' | 'stickers' | 'draw' | 'filters';
 
 export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
+  activeSpark,
   onPublishPost,
   onPublishSpark,
 }) => {
@@ -268,49 +271,67 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      if (layer.bgHighlight) {
-        const metrics = ctx.measureText(displayText);
-        const padX = 14;
-        const padY = 8;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillRect(
-          layer.x - metrics.width / 2 - padX,
-          layer.y - layer.fontSize / 2 - padY,
-          metrics.width + padX * 2,
-          layer.fontSize + padY * 2
-        );
-      }
+      // Split lines by explicit \n
+      const lines = displayText.split('\n');
+      const lineHeight = layer.fontSize * 1.25;
+      const totalHeight = lines.length * lineHeight;
+      const startY = layer.y - ((lines.length - 1) * lineHeight) / 2;
+      const maxDrawWidth = Math.max(120, width - 32);
 
-      if (layer.hasShadow) {
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.9)';
-        ctx.shadowBlur = 8;
-        ctx.shadowOffsetX = 2;
-        ctx.shadowOffsetY = 2;
-      } else {
+      let maxLineWidth = 0;
+      lines.forEach((line) => {
+        const m = ctx.measureText(line).width;
+        if (m > maxLineWidth) maxLineWidth = m;
+      });
+      maxLineWidth = Math.min(maxLineWidth, maxDrawWidth);
+
+      lines.forEach((line, idx) => {
+        const lineY = startY + idx * lineHeight;
+
+        if (layer.bgHighlight) {
+          const metrics = ctx.measureText(line);
+          const drawLineWidth = Math.min(metrics.width, maxDrawWidth);
+          const padX = 14;
+          const padY = 6;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+          ctx.fillRect(
+            layer.x - drawLineWidth / 2 - padX,
+            lineY - layer.fontSize / 2 - padY,
+            drawLineWidth + padX * 2,
+            layer.fontSize + padY * 2
+          );
+        }
+
+        if (layer.hasShadow) {
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.95)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
+        if (layer.strokeWidth > 0) {
+          ctx.strokeStyle = layer.strokeColor;
+          ctx.lineWidth = layer.strokeWidth;
+          ctx.lineJoin = 'round';
+          ctx.strokeText(line, layer.x, lineY, maxDrawWidth);
+        }
+
+        ctx.fillStyle = layer.color;
+        ctx.fillText(line, layer.x, lineY, maxDrawWidth);
         ctx.shadowBlur = 0;
-      }
-
-      if (layer.strokeWidth > 0) {
-        ctx.strokeStyle = layer.strokeColor;
-        ctx.lineWidth = layer.strokeWidth;
-        ctx.lineJoin = 'round';
-        ctx.strokeText(displayText, layer.x, layer.y, width - 24);
-      }
-
-      ctx.fillStyle = layer.color;
-      ctx.fillText(displayText, layer.x, layer.y, width - 24);
-      ctx.shadowBlur = 0;
+      });
 
       if (layer.id === selectedTextId && !isExport && !isBrushMode && activeStudioTab === 'text') {
-        const metrics = ctx.measureText(displayText);
         ctx.strokeStyle = '#D946EF';
         ctx.lineWidth = 1.5;
         ctx.setLineDash([5, 5]);
         ctx.strokeRect(
-          layer.x - metrics.width / 2 - 8,
-          layer.y - layer.fontSize / 2 - 6,
-          metrics.width + 16,
-          layer.fontSize + 12
+          layer.x - maxLineWidth / 2 - 8,
+          layer.y - totalHeight / 2 - 6,
+          maxLineWidth + 16,
+          totalHeight + 12
         );
         ctx.setLineDash([]);
       }
@@ -517,6 +538,15 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
   };
 
   const exportMemeAsBlobOrDataUrl = async (): Promise<{ blob: Blob; dataUrl: string }> => {
+    // Ensure all web fonts are fully loaded before capturing
+    if (document.fonts) {
+      try {
+        await document.fonts.ready;
+      } catch {
+        // font ready fallback
+      }
+    }
+
     const exportCanvas = document.createElement('canvas');
     exportCanvas.width = aspectRatio.width;
     exportCanvas.height = aspectRatio.height;
@@ -538,22 +568,40 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       });
     }
 
-    const dataUrl = exportCanvas.toDataURL('image/webp', 0.95);
+    let dataUrl = '';
+    try {
+      dataUrl = exportCanvas.toDataURL('image/webp', 0.95);
+    } catch (e) {
+      console.warn('Canvas toDataURL failed, falling back to main canvas:', e);
+      if (canvasRef.current) {
+        try {
+          dataUrl = canvasRef.current.toDataURL('image/webp', 0.95);
+        } catch {
+          // ignore
+        }
+      }
+    }
 
     const blob = await new Promise<Blob>((resolve) => {
       exportCanvas.toBlob((b) => {
         if (b) {
           resolve(b);
-        } else {
+        } else if (dataUrl) {
           // Convert dataURL to blob fallback
-          const byteString = atob(dataUrl.split(',')[1]);
-          const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
-          const ab = new ArrayBuffer(byteString.length);
-          const ia = new Uint8Array(ab);
-          for (let i = 0; i < byteString.length; i++) {
-            ia[i] = byteString.charCodeAt(i);
+          try {
+            const byteString = atob(dataUrl.split(',')[1]);
+            const mimeString = dataUrl.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+              ia[i] = byteString.charCodeAt(i);
+            }
+            resolve(new Blob([ab], { type: mimeString }));
+          } catch {
+            resolve(new Blob([], { type: 'image/webp' }));
           }
-          resolve(new Blob([ab], { type: mimeString }));
+        } else {
+          resolve(new Blob([], { type: 'image/webp' }));
         }
       }, 'image/webp', 0.95);
     });
@@ -598,8 +646,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         setStatusMessage({ text: isArabic ? 'تم نشر الميم بنجاح في الموجز! 🎉' : 'Meme posted to feed successfully! 🎉' });
         if (onPublishPost) onPublishPost(finalMediaUrl, finalCaption);
       } else {
-        const activeSpark = await api.getActiveSpark();
-        await api.submitSparkEntry(activeSpark.id, finalCaption, finalMediaUrl);
+        const targetSparkId = activeSpark?.id || (await api.getActiveSpark()).id;
+        await api.submitSparkEntry(targetSparkId, finalCaption, finalMediaUrl);
         setStatusMessage({ text: isArabic ? 'تم إرسال الميم إلى تحدي اليوم! 🏆' : 'Submitted to Daily Spark challenge! 🏆' });
         if (onPublishSpark) onPublishSpark(finalMediaUrl, finalCaption);
       }
@@ -617,9 +665,9 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
   return (
     <div className="space-y-6 text-white max-w-2xl mx-auto">
       {/* 1. Header & Quick Controls */}
-      <div className="glass-card p-4 rounded-3xl border border-zinc-800/80 flex flex-wrap items-center justify-between gap-3">
+      <div className="glass-card p-5 sm:p-6 rounded-3xl border border-zinc-800/80 flex flex-wrap items-center justify-between gap-4 shadow-lg">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-cyan-500 p-0.5 shadow-lg shadow-fuchsia-600/20 flex items-center justify-center shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-cyan-500 p-0.5 shadow-lg shadow-fuchsia-600/20 flex items-center justify-center shrink-0">
             <div className="w-full h-full bg-zinc-950 rounded-[14px] flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-fuchsia-400" />
             </div>
@@ -678,11 +726,43 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         </div>
       </div>
 
+      {/* Active Spark Challenge Context Pill */}
+      {activeSpark && (
+        <div className="p-3 bg-gradient-to-r from-amber-500/15 via-fuchsia-500/15 to-purple-500/15 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <Flame className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+            <div className="truncate">
+              <span className="text-[10px] font-black text-amber-300 uppercase block">
+                {isArabic ? 'تحدي السبارك الحالي:' : 'Daily Spark Challenge:'}
+              </span>
+              <span className="text-xs font-bold text-white truncate block">
+                {activeSpark.title}
+              </span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setTextLayers((prev) => [
+                {
+                  ...prev[0],
+                  text: activeSpark.prompt,
+                },
+                ...prev.slice(1),
+              ]);
+            }}
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[11px] rounded-xl shrink-0 transition-colors shadow-sm"
+          >
+            {isArabic ? 'استخدم نص التحدي' : 'Use Challenge Prompt'}
+          </button>
+        </div>
+      )}
+
       {/* 2. Interactive Canvas Stage */}
-      <div className="glass-card p-4 rounded-3xl border border-zinc-800/80 space-y-4">
+      <div className="glass-card p-5 sm:p-6 rounded-3xl border border-zinc-800/80 space-y-5 shadow-xl">
         <div
           ref={containerRef}
-          className="relative w-full max-w-[480px] mx-auto bg-zinc-950 rounded-2xl overflow-hidden border-2 border-zinc-800 shadow-2xl flex items-center justify-center select-none"
+          className="relative w-full max-w-[480px] mx-auto bg-zinc-950 rounded-2xl overflow-hidden border-2 border-zinc-800 shadow-2xl flex items-center justify-center select-none p-1"
         >
           <canvas
             ref={canvasRef}
@@ -730,7 +810,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       </div>
 
       {/* 3. Studio Customization Panel */}
-      <div className="glass-card p-5 rounded-3xl border border-zinc-800/80">
+      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-zinc-800/80 shadow-xl">
         {/* TAB 1: TEXT STUDIO */}
         {activeStudioTab === 'text' && (
           <div className="space-y-4">
@@ -1137,7 +1217,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       </div>
 
       {/* 4. Publishing & Sharing Deck */}
-      <div className="glass-card p-5 rounded-3xl border border-zinc-800/80 space-y-4">
+      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-zinc-800/80 space-y-5 shadow-xl">
         <div>
           <div className="flex justify-between items-center mb-1.5">
             <label className="text-xs font-bold text-zinc-300">

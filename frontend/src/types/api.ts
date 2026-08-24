@@ -179,3 +179,10 @@ export interface UserProfileDto {
   recentChains: ChainDto[];
 }
 
+export interface HashtagDto {
+  tag: string;
+  count: number;
+  lastUsedAtUtc: string;
+}
+
+

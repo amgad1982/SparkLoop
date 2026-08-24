@@ -51,6 +51,8 @@ public sealed record SparkSubmissionAddedEvent(
     Guid SubmissionId,
     Guid AuthorId,
     string AuthorUsername,
+    string? AuthorDisplayName,
+    string? AuthorAvatarUrl,
     string? MediaUrl,
     string Caption
 ) : BaseDomainEvent;

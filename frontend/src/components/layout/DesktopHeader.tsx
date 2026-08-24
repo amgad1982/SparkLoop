@@ -102,7 +102,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   const Icon = info.icon;
 
   return (
-    <header className="hidden md:block sticky top-0 z-30 w-full glass-panel border-b border-zinc-800/80 px-6 py-3.5 mb-4 backdrop-blur-xl">
+    <header className="hidden md:block w-full glass-panel border-b border-zinc-800/80 px-6 py-3.5 backdrop-blur-xl shrink-0 z-30">
       <div className="flex items-center justify-between gap-4">
         {/* Section Title, Subtitle & Icon */}
         <div className="flex items-center gap-3.5 min-w-0">

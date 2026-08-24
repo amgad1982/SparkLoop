@@ -120,6 +120,8 @@ public class SparkDomainEventsHandler :
                 id = notification.SubmissionId,
                 authorId = notification.AuthorId,
                 authorUsername = notification.AuthorUsername,
+                authorDisplayName = notification.AuthorDisplayName ?? notification.AuthorUsername,
+                authorAvatarUrl = notification.AuthorAvatarUrl,
                 mediaUrl = notification.MediaUrl,
                 caption = notification.Caption,
                 voteCount = 0,

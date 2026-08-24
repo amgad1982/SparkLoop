@@ -164,43 +164,43 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
           </div>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-5 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-2xl transition-all shadow-lg"
+            className="px-5 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs sm:text-sm rounded-2xl transition-all shadow-lg"
           >
             {isArabic ? 'إطلاق أول حجرة الآن 🚀' : 'Launch First Mood Pod 🚀'}
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {pods.map((pod) => (
             <motion.div
               key={pod.id}
               whileHover={{ y: -3 }}
               onClick={() => setActivePodId(pod.id)}
-              className={`p-5 rounded-3xl border bg-gradient-to-br ${getThemeCardStyle(
+              className={`p-6 sm:p-7 rounded-3xl border bg-gradient-to-br ${getThemeCardStyle(
                 pod.backgroundTheme
-              )} shadow-xl cursor-pointer transition-all space-y-4 relative overflow-hidden group`}
+              )} shadow-xl cursor-pointer transition-all space-y-4.5 relative overflow-hidden group`}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl p-3 bg-zinc-950/80 rounded-2xl border border-zinc-800 shadow-inner shrink-0 group-hover:scale-110 transition-transform">
+                <div className="flex items-center gap-3.5">
+                  <span className="text-3xl p-3.5 bg-zinc-950/80 rounded-2xl border border-zinc-800 shadow-inner shrink-0 group-hover:scale-110 transition-transform">
                     {pod.moodEmoji}
                   </span>
                   <div>
-                    <h3 className="font-bold text-sm text-zinc-100 group-hover:text-white leading-snug line-clamp-1">
+                    <h3 className="font-bold text-sm sm:text-base text-zinc-100 group-hover:text-white leading-snug line-clamp-1">
                       {pod.title}
                     </h3>
                     <div className="flex items-center gap-2 text-xs text-zinc-400 mt-1">
                       <img
                         src={pod.hostAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${pod.hostUsername}`}
                         alt={pod.hostUsername}
-                        className="w-4 h-4 rounded-full border border-zinc-700 object-cover"
+                        className="w-5 h-5 rounded-full border border-zinc-700 object-cover"
                       />
                       <span className="text-zinc-300">@{pod.hostUsername}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/20 text-cyan-300 rounded-full border border-cyan-500/30 text-[10px] font-black uppercase shrink-0">
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full border border-cyan-500/30 text-[10px] font-black uppercase shrink-0">
                   <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
                   <span>LIVE</span>
                 </div>
@@ -208,31 +208,31 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
 
               {/* Recent Message Snippet Preview */}
               {pod.recentMessages.length > 0 ? (
-                <div className="p-3 rounded-2xl bg-zinc-950/70 border border-zinc-800/80 text-xs text-zinc-300 space-y-1">
-                  <div className="flex items-center justify-between text-[10px] text-zinc-500">
+                <div className="p-3.5 rounded-2xl bg-zinc-950/70 border border-zinc-800/80 text-xs sm:text-sm text-zinc-300 space-y-1">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
                     <span className="font-semibold">{pod.recentMessages[pod.recentMessages.length - 1].senderDisplayName || pod.recentMessages[pod.recentMessages.length - 1].senderUsername}:</span>
-                    <MessageSquare className="w-3 h-3 text-zinc-600" />
+                    <MessageSquare className="w-3.5 h-3.5 text-zinc-600" />
                   </div>
                   <p className="line-clamp-1 italic text-zinc-300">
                     "{pod.recentMessages[pod.recentMessages.length - 1].text}"
                   </p>
                 </div>
               ) : (
-                <div className="p-3 rounded-2xl bg-zinc-950/40 border border-zinc-800/50 text-[11px] text-zinc-500 italic">
+                <div className="p-3.5 rounded-2xl bg-zinc-950/40 border border-zinc-800/50 text-xs text-zinc-500 italic">
                   {isArabic ? 'الحجرة هادئة وجاهزة للدردشة والموسيقى...' : 'Room is quiet and ready for chat & lo-fi vibes...'}
                 </div>
               )}
 
               {/* Bottom Meta & Join Button */}
-              <div className="flex items-center justify-between pt-1 border-t border-zinc-800/60 text-xs text-zinc-400">
-                <div className="flex items-center gap-3">
-                  <span className="flex items-center gap-1 text-cyan-400 font-bold">
-                    <Users className="w-3.5 h-3.5" />
+              <div className="flex items-center justify-between pt-3 border-t border-zinc-800/60 text-xs sm:text-sm text-zinc-400">
+                <div className="flex items-center gap-3.5">
+                  <span className="flex items-center gap-1.5 text-cyan-400 font-bold">
+                    <Users className="w-4 h-4" />
                     <span>{pod.activeParticipantCount}</span>
                   </span>
 
-                  <span className="flex items-center gap-1 text-amber-400 font-mono">
-                    <Clock className="w-3.5 h-3.5" />
+                  <span className="flex items-center gap-1.5 text-amber-400 font-mono">
+                    <Clock className="w-4 h-4" />
                     <span>{pod.timeRemaining ? `${String(pod.timeRemaining).split('.')[0]}` : '24h'}</span>
                   </span>
                 </div>
@@ -242,9 +242,9 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
                     e.stopPropagation();
                     setActivePodId(pod.id);
                   }}
-                  className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 group-hover:bg-cyan-600 group-hover:text-white border border-zinc-800 group-hover:border-cyan-500 rounded-xl text-xs font-bold transition-all flex items-center gap-1 shadow-md"
+                  className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 group-hover:bg-cyan-600 group-hover:text-white border border-zinc-800 group-hover:border-cyan-500 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-md"
                 >
-                  <Volume2 className="w-3.5 h-3.5" />
+                  <Volume2 className="w-4 h-4" />
                   <span>{isArabic ? 'دخول الحجرة' : 'Enter Pod'}</span>
                 </button>
               </div>

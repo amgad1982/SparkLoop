@@ -35,8 +35,8 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
 
   return (
     <RTLProvider>
-      <div className="min-h-screen bg-zinc-950 text-zinc-100 flex justify-center w-full overflow-x-hidden selection:bg-fuchsia-500 selection:text-white">
-        <div className="w-full max-w-7xl flex justify-between relative">
+      <div className="h-screen w-full bg-zinc-950 text-zinc-100 flex justify-center overflow-hidden selection:bg-fuchsia-500 selection:text-white">
+        <div className="w-full max-w-7xl h-full flex justify-between relative overflow-hidden">
           {/* 1. Left Sticky Navigation Sidebar (Tablet & Desktop) */}
           <DesktopSidebar
             activeTab={activeTab}
@@ -45,7 +45,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
           />
 
           {/* 2. Center Content Column (Responsive: max-w-md on mobile, flex-1 on desktop) */}
-          <div className="w-full md:max-w-3xl xl:max-w-3xl min-h-screen flex flex-col bg-zinc-950 border-x border-zinc-800/40 relative shadow-2xl pb-24 md:pb-8 flex-1">
+          <div className="w-full md:max-w-3xl xl:max-w-3xl h-full flex flex-col bg-zinc-950 border-x border-zinc-800/40 relative shadow-2xl overflow-hidden flex-1">
             {/* Mobile Header (Visible on < md) */}
             <TopHeader isConnected={isConnected} onNavigateTab={onTabChange} />
 
@@ -56,8 +56,8 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
               isConnected={isConnected}
             />
 
-            {/* Scrollable Center Stream Content */}
-            <main className="flex-1 px-3 sm:px-6 py-2 overflow-y-auto">
+            {/* Center Stream Content */}
+            <main className="flex-1 min-h-0 px-3.5 sm:px-6 lg:px-8 pt-3 pb-0 overflow-hidden flex flex-col">
               {children}
             </main>
 

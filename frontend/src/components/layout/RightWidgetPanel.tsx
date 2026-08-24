@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { TabType } from './BottomNavBar';
-import { SparkDto, MoodPodDto, UserDto } from '../../types/api';
+import { SparkDto, MoodPodDto, UserDto, HashtagDto } from '../../types/api';
+import { api } from '../../services/apiClient';
 import {
   Flame,
   Radio,
@@ -12,6 +13,7 @@ import {
   ChevronRight,
   TrendingUp,
   Award,
+  Hash,
 } from 'lucide-react';
 
 interface RightWidgetPanelProps {
@@ -29,14 +31,21 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
 }) => {
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
+  const [trendingTags, setTrendingTags] = useState<HashtagDto[]>([]);
+
+  useEffect(() => {
+    api.getTrendingHashtags(5)
+      .then(setTrendingTags)
+      .catch((err) => console.error('Failed to load trending tags for widget:', err));
+  }, []);
 
   return (
-    <aside className="hidden xl:flex flex-col gap-5 w-80 h-screen sticky top-0 p-4 border-l rtl:border-l-0 rtl:border-r border-zinc-800/80 bg-zinc-950/95 overflow-y-auto no-scrollbar shrink-0 select-none">
+    <aside className="hidden xl:flex flex-col gap-6 w-80 h-full p-5 border-l rtl:border-l-0 rtl:border-r border-zinc-800/80 bg-zinc-950/95 overflow-y-auto no-scrollbar shrink-0 select-none">
       {/* Widget 1: 24h Synchronized Daily Spark Challenge */}
-      <div className="glass-card rounded-3xl p-4 border border-zinc-800/80 shadow-xl relative overflow-hidden group">
+      <div className="glass-card rounded-3xl p-5 border border-zinc-800/80 shadow-xl relative overflow-hidden group space-y-3.5">
         <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
 
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
               <Flame className="w-4 h-4" />
@@ -46,7 +55,7 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
             </span>
           </div>
 
-          <span className="flex items-center gap-1 text-[11px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+          <span className="flex items-center gap-1 text-[11px] font-mono font-bold text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
             <Clock className="w-3 h-3" />
             {activeSpark?.timeRemaining || '24:00:00'}
           </span>
@@ -58,7 +67,7 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
               "{activeSpark.prompt}"
             </p>
 
-            <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 border-t border-zinc-800/60">
+            <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-2 border-t border-zinc-800/60">
               <span>{activeSpark.submissions?.length || 0} {isArabic ? 'مشاركة' : 'entries'}</span>
               <button
                 onClick={() => onNavigateTab('sparks')}
@@ -76,8 +85,52 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
         )}
       </div>
 
-      {/* Widget 2: Live Ephemeral Mood Pods */}
-      <div className="glass-card rounded-3xl p-4 border border-zinc-800/80 shadow-xl space-y-3">
+      {/* Widget 2: Trending Hashtags */}
+      <div className="glass-card rounded-3xl p-5 border border-zinc-800/80 shadow-xl space-y-3.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-xl bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30">
+              <Hash className="w-4 h-4" />
+            </div>
+            <span className="text-xs font-black text-zinc-100 uppercase tracking-wider">
+              {isArabic ? 'الوسوم الأكثر تداولاً' : 'Trending Tags'}
+            </span>
+          </div>
+
+          <Sparkles className="w-3.5 h-3.5 text-fuchsia-400" />
+        </div>
+
+        <div className="space-y-2">
+          {trendingTags.length > 0 ? (
+            trendingTags.map((tag) => (
+              <button
+                key={tag.tag}
+                onClick={() => onNavigateTab('feed')}
+                className="w-full p-2.5 rounded-2xl bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800/80 hover:border-fuchsia-500/40 transition-all flex items-center justify-between text-left rtl:text-right group"
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-fuchsia-400 font-black text-sm">#</span>
+                  <span className="text-xs font-bold text-zinc-200 group-hover:text-white truncate">
+                    {tag.tag}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-1 text-[11px] font-bold text-zinc-400 shrink-0">
+                  <Flame className="w-3 h-3 text-amber-400" />
+                  <span>{tag.count}</span>
+                </div>
+              </button>
+            ))
+          ) : (
+            <p className="text-xs text-zinc-500">
+              {isArabic ? 'جاري استخراج الوسوم...' : 'Loading trending tags...'}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Widget 3: Live Ephemeral Mood Pods */}
+      <div className="glass-card rounded-3xl p-5 border border-zinc-800/80 shadow-xl space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
@@ -91,13 +144,13 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
           <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {pods.length > 0 ? (
             pods.slice(0, 3).map((pod) => (
               <button
                 key={pod.id}
                 onClick={() => onNavigateTab('pods')}
-                className="w-full p-2.5 rounded-2xl bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800/80 hover:border-cyan-500/40 transition-all flex items-center justify-between text-left rtl:text-right group"
+                className="w-full p-3 rounded-2xl bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800/80 hover:border-cyan-500/40 transition-all flex items-center justify-between text-left rtl:text-right group shadow-sm"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="text-xl p-1.5 bg-zinc-950 rounded-xl border border-zinc-800 shrink-0">
@@ -127,8 +180,8 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
         </div>
       </div>
 
-      {/* Widget 3: Top Creators Leaderboard */}
-      <div className="glass-card rounded-3xl p-4 border border-zinc-800/80 shadow-xl space-y-3">
+      {/* Widget 4: Top Creators Leaderboard */}
+      <div className="glass-card rounded-3xl p-5 border border-zinc-800/80 shadow-xl space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-xl bg-fuchsia-500/20 text-fuchsia-400 border border-fuchsia-500/30">
@@ -142,13 +195,13 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
           <TrendingUp className="w-3.5 h-3.5 text-fuchsia-400" />
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {topCreators.slice(0, 4).map((user, idx) => {
             const medals = ['🥇', '🥈', '🥉', '✨'];
             return (
               <div
                 key={user.id}
-                className="p-2.5 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 flex items-center justify-between gap-2"
+                className="p-3 rounded-2xl bg-zinc-900/90 border border-zinc-800/80 flex items-center justify-between gap-2 shadow-sm"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <span className="text-base font-bold shrink-0">{medals[idx]}</span>
@@ -167,7 +220,7 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
                   </div>
                 </div>
 
-                <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-fuchsia-500/10 text-fuchsia-300 rounded-full border border-fuchsia-500/20 shrink-0">
+                <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold bg-fuchsia-500/10 text-fuchsia-300 rounded-full border border-fuchsia-500/20 shrink-0">
                   {user.repScore} XP
                 </span>
               </div>

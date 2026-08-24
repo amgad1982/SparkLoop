@@ -188,6 +188,8 @@ public class Spark : AggregateRoot<Guid>
             submission.Id,
             authorId,
             authorUsername,
+            authorDisplayName,
+            authorAvatarUrl,
             mediaUrl,
             caption));
 

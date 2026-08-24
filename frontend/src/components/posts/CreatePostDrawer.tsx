@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { api } from '../../services/apiClient';
 import { PostDto } from '../../types/api';
+import { HashtagAutocomplete } from '../common/HashtagAutocomplete';
 import { Image, Palette, Send, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,6 +28,8 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
   const [mediaUrl, setMediaUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<number | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const maxChars = 280;
   const charsRemaining = maxChars - content.length;
@@ -49,6 +52,17 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSelectHashtag = (newText: string, newCursor: number) => {
+    setContent(newText);
+    setCursorPosition(newCursor);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newCursor, newCursor);
+      }
+    }, 0);
   };
 
   return (
@@ -84,19 +98,34 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="relative">
                 <textarea
+                  ref={textareaRef}
                   rows={4}
                   maxLength={maxChars}
                   value={content}
-                  onChange={(e) => setContent(e.target.value)}
+                  onChange={(e) => {
+                    setContent(e.target.value);
+                    setCursorPosition(e.target.selectionStart);
+                  }}
+                  onKeyUp={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
+                  onClick={(e) => setCursorPosition((e.target as HTMLTextAreaElement).selectionStart)}
                   placeholder={
                     isArabic
-                      ? 'ماذا يدور في ذهنك؟ شارك ميم أو فكرة سريعة (<= 280 حرف)...'
-                      : "What's happening? Share a meme or thought (<= 280 chars)..."
+                      ? 'ماذا يدور في ذهنك؟ اكتب # لاختيار أو كتابة وسم (<= 280 حرف)...'
+                      : "What's happening? Type # to add hashtags (<= 280 chars)..."
                   }
                   className="w-full p-3 bg-zinc-950 border border-zinc-800 rounded-2xl text-xs text-white resize-none focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500"
                 />
+
+                {/* Hashtag Autocomplete Popup */}
+                <HashtagAutocomplete
+                  text={content}
+                  cursorPosition={cursorPosition}
+                  onSelectHashtag={handleSelectHashtag}
+                  className="bottom-full mb-1 left-2 rtl:left-auto rtl:right-2"
+                />
+
                 <span
-                  className={`absolute bottom-2.5 right-3 text-[11px] font-bold ${
+                  className={`absolute bottom-2.5 right-3 rtl:right-auto rtl:left-3 text-[11px] font-bold ${
                     charsRemaining < 20 ? 'text-amber-400' : 'text-zinc-500'
                   }`}
                 >

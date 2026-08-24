@@ -21,7 +21,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true, onNavi
 
   return (
     <>
-      <header className="md:hidden sticky top-0 z-40 w-full glass-panel border-b border-zinc-800/80 px-4 py-3">
+      <header className="md:hidden w-full glass-panel border-b border-zinc-800/80 px-4 py-3 shrink-0 z-40">
         <div className="max-w-md mx-auto flex items-center justify-between">
           {/* Logo & Realtime Status */}
           <div className="flex items-center gap-2.5">

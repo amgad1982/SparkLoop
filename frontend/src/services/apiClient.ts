@@ -11,9 +11,24 @@ import {
   SparkSubmissionDto,
   UserDto,
   UserProfileDto,
+  HashtagDto,
 } from '../types/api';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5195/api';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5195/api';
+
+export const getMediaUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (
+    url.startsWith('http://') ||
+    url.startsWith('https://') ||
+    url.startsWith('data:') ||
+    url.startsWith('blob:')
+  ) {
+    return url;
+  }
+  const apiOrigin = BASE_URL.replace(/\/api\/?$/, '');
+  return `${apiOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
+};
 
 function safeHeaderValue(val?: string | null): string {
   if (!val) return '';
@@ -131,7 +146,12 @@ export const api = {
   getCompletedChains: () => fetchWithAuth<ChainDto[]>('/chains/completed'),
 
   // Posts
-  getFeed: (page = 1) => fetchWithAuth<PostDto[]>(`/posts?page=${page}`),
+  getFeed: (page = 1, pageSize = 20, hashtag?: string, search?: string) => {
+    let url = `/posts?page=${page}&pageSize=${pageSize}`;
+    if (hashtag) url += `&hashtag=${encodeURIComponent(hashtag)}`;
+    if (search) url += `&search=${encodeURIComponent(search)}`;
+    return fetchWithAuth<PostDto[]>(url);
+  },
   createPost: (content: string, mediaUrl?: string, mediaType?: string, width?: number, height?: number) =>
     fetchWithAuth<PostDto>('/posts', {
       method: 'POST',
@@ -142,6 +162,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ type }),
     }),
+
+  // Hashtags
+  getTrendingHashtags: (limit = 10) => fetchWithAuth<HashtagDto[]>(`/hashtags/trending?limit=${limit}`),
+  searchHashtags: (query: string, limit = 8) =>
+    fetchWithAuth<HashtagDto[]>(`/hashtags/search?query=${encodeURIComponent(query)}&limit=${limit}`),
 
   // Mood Pods
   getActivePods: () => fetchWithAuth<MoodPodDto[]>('/moodpods'),
@@ -227,4 +252,6 @@ export const api = {
 
     return response.json();
   },
+
+  getMediaUrl,
 };
