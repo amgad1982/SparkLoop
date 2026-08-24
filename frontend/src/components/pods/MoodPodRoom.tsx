@@ -8,6 +8,7 @@ import { usePodVoiceEngine } from '../../hooks/usePodVoiceEngine';
 import { FloatingReactions } from './FloatingReactions';
 import { PodAudioPlayer } from './PodAudioPlayer';
 import { PodAudioStage } from './PodAudioStage';
+import { PodBgMusicPlayer } from './PodBgMusicPlayer';
 import { api } from '../../services/apiClient';
 import {
   ArrowLeft,
@@ -20,8 +21,6 @@ import {
   Sparkles,
   Trash2,
   Users,
-  Volume2,
-  VolumeX,
   Zap,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -52,8 +51,6 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
   const [messages, setMessages] = useState<PodMessageDto[]>(initialPod.recentMessages || []);
   const [inputText, setInputText] = useState('');
   const [isSending, setIsSending] = useState(false);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const [ambientVolume, setAmbientVolume] = useState(0.25);
   const [activeSoundBanner, setActiveSoundBanner] = useState<{ effect: string; senderName: string } | null>(null);
   const [showSoundboard, setShowSoundboard] = useState(false);
 
@@ -65,9 +62,6 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const ambientAudioCtxRef = useRef<AudioContext | null>(null);
-  const ambientGainNodeRef = useRef<GainNode | null>(null);
-  const ambientOscillatorsRef = useRef<OscillatorNode[]>([]);
 
   // Update pod state when initialPod changes
   useEffect(() => {
@@ -75,7 +69,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
     setMessages(initialPod.recentMessages || []);
   }, [initialPod.id]);
 
-  // Voice Engine (WebRTC Mesh, Audio Chunks, Mic level, Soundboard, Hand Raises)
+  // Voice Engine (WebRTC Mesh, Audio Chunks, Mic level, Soundboard, Hand Raises, DJ Background Music)
   const voiceEngine = usePodVoiceEngine({
     podId: pod.id,
     hostUsername: pod.hostUsername,
@@ -97,11 +91,21 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
     if (data.type === 'POD_MESSAGE' && data.message) {
       const newMsg = data.message as PodMessageDto;
       setMessages((prev) => {
-        if (prev.some((m) => m.id === newMsg.id)) return prev;
+        const index = prev.findIndex((m) => m.id === newMsg.id);
+        if (index >= 0) {
+          const copy = [...prev];
+          copy[index] = {
+            ...copy[index],
+            ...newMsg,
+            senderDisplayName: newMsg.senderDisplayName || copy[index].senderDisplayName,
+            senderAvatarUrl: newMsg.senderAvatarUrl || copy[index].senderAvatarUrl,
+          };
+          return copy;
+        }
         return [...prev, newMsg];
       });
     } else {
-      // Forward WebRTC signals, audio chunks, sound effects, and speaking events to voiceEngine
+      // Forward WebRTC signals, audio chunks, sound effects, speaking events, and DJ background music to voiceEngine
       voiceEngine.handleIncomingData(data);
     }
   });
@@ -110,102 +114,35 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Web Audio API Ambient Generator (Cosmic/Lo-Fi Synth Chord Drone)
-  const startAmbientSound = () => {
-    try {
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const ctx = new AudioCtx();
-      ambientAudioCtxRef.current = ctx;
-
-      const masterGain = ctx.createGain();
-      masterGain.gain.setValueAtTime(ambientVolume, ctx.currentTime);
-      masterGain.connect(ctx.destination);
-      ambientGainNodeRef.current = masterGain;
-
-      // Lush 4-voice ambient chord
-      const freqs = [174.61, 220.0, 261.63, 329.63];
-      const oscs: OscillatorNode[] = [];
-
-      freqs.forEach((freq) => {
-        const osc = ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime);
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(450, ctx.currentTime);
-
-        const voiceGain = ctx.createGain();
-        voiceGain.gain.setValueAtTime(0.18, ctx.currentTime);
-
-        osc.connect(filter);
-        filter.connect(voiceGain);
-        voiceGain.connect(masterGain);
-
-        osc.start();
-        oscs.push(osc);
-      });
-
-      ambientOscillatorsRef.current = oscs;
-      setIsAudioPlaying(true);
-    } catch (err) {
-      console.warn('Web Audio Ambient error:', err);
-    }
-  };
-
-  const stopAmbientSound = () => {
-    ambientOscillatorsRef.current.forEach((osc) => {
-      try {
-        osc.stop();
-        osc.disconnect();
-      } catch {}
-    });
-    ambientOscillatorsRef.current = [];
-    if (ambientAudioCtxRef.current) {
-      ambientAudioCtxRef.current.close().catch(() => {});
-      ambientAudioCtxRef.current = null;
-    }
-    setIsAudioPlaying(false);
-  };
-
-  const toggleAmbientAudio = () => {
-    if (isAudioPlaying) {
-      stopAmbientSound();
-    } else {
-      startAmbientSound();
-    }
-  };
-
-  useEffect(() => {
-    if (ambientGainNodeRef.current && ambientAudioCtxRef.current) {
-      ambientGainNodeRef.current.gain.setValueAtTime(
-        ambientVolume,
-        ambientAudioCtxRef.current.currentTime
-      );
-    }
-  }, [ambientVolume]);
-
-  // Clean up sound on unmount
+  // Clean up recording timer on unmount
   useEffect(() => {
     return () => {
-      stopAmbientSound();
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
     };
   }, []);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isSending) return;
 
+    const content = inputText.trim();
+    setInputText('');
     setIsSending(true);
+
     try {
-      const msg = await api.sendPodMessage(pod.id, inputText.trim());
-      setMessages((prev) => [...prev, msg]);
-      setInputText('');
+      const msg = await api.sendPodMessage(pod.id, content);
+      setMessages((prev) => {
+        const index = prev.findIndex((m) => m.id === msg.id);
+        if (index >= 0) {
+          const copy = [...prev];
+          copy[index] = msg;
+          return copy;
+        }
+        return [...prev, msg];
+      });
     } catch (err) {
       console.error('Send message error:', err);
+      setInputText(content);
     } finally {
       setIsSending(false);
     }
@@ -287,7 +224,15 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
           audioUrl,
           duration || 1
         );
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => {
+          const index = prev.findIndex((m) => m.id === msg.id);
+          if (index >= 0) {
+            const copy = [...prev];
+            copy[index] = msg;
+            return copy;
+          }
+          return [...prev, msg];
+        });
       } catch (err) {
         console.error('Error sending voice message:', err);
       } finally {
@@ -390,13 +335,13 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
               <span>•</span>
               <span className="flex items-center gap-1 text-amber-400">
                 <Clock className="w-3 h-3" />
-                <span>{pod.timeRemaining ? `${String(pod.timeRemaining).split('.')[0]}` : '24h TTL'}</span>
+                <span>{pod.timeRemaining ? `${String(pod.timeRemaining).split('.')[0]}` : '24h'}</span>
               </span>
             </div>
           </div>
         </div>
 
-        {/* Ambient Audio Toggle & Live Soundboard Opener */}
+        {/* Live DJ Background Audio Sharing & Live Soundboard Opener */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => setShowSoundboard(!showSoundboard)}
@@ -409,24 +354,23 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
           >
             <Music className="w-3.5 h-3.5 text-fuchsia-400" />
             <span className="hidden sm:inline">
-              {isArabic ? 'المؤثرات الصوتية 🎵' : 'Soundboard 🎵'}
+              {isArabic ? 'المؤثرات 🎵' : 'Soundboard 🎵'}
             </span>
           </button>
 
-          <button
-            onClick={toggleAmbientAudio}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
-              isAudioPlaying
-                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 shadow-lg shadow-cyan-500/20 animate-pulse'
-                : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-white'
-            }`}
-            title={isAudioPlaying ? 'Mute Ambient Sound' : 'Play Ambient Lo-Fi & Synth'}
-          >
-            {isAudioPlaying ? <Volume2 className="w-3.5 h-3.5 text-cyan-400" /> : <VolumeX className="w-3.5 h-3.5" />}
-            <span className="hidden md:inline">
-              {isAudioPlaying ? (isArabic ? 'صوت محيطي' : 'Ambient Lo-Fi') : (isArabic ? 'محيطي' : 'Ambient')}
-            </span>
-          </button>
+          {/* Live Background Audio / Local Audio Sharing */}
+          <PodBgMusicPlayer
+            bgMusic={voiceEngine.bgMusic}
+            bgMusicVolume={voiceEngine.bgMusicVolume}
+            isBgMusicMuted={voiceEngine.isBgMusicMuted}
+            onVolumeChange={voiceEngine.setBgMusicVolume}
+            onToggleMute={voiceEngine.toggleBgMusicMute}
+            onStartSharingFile={voiceEngine.startSharingLocalFile}
+            onStartSharingSystem={voiceEngine.startSharingSystemAudio}
+            onPause={voiceEngine.pauseBgMusic}
+            onResume={voiceEngine.resumeBgMusic}
+            onStopSharing={voiceEngine.stopSharingBgMusic}
+          />
         </div>
       </div>
 

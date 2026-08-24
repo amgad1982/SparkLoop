@@ -42,6 +42,15 @@ export const PRESET_PERSONAS: Persona[] = [
   },
 ];
 
+export const GUEST_PERSONA: Persona = {
+  id: '00000000-0000-0000-0000-000000000000',
+  username: 'guest',
+  displayName: 'Guest Explorer 👤',
+  avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=guest',
+  role: 'Guest Visitor',
+  isCustom: false,
+};
+
 interface AuthState {
   currentPersona: Persona;
   customPersonas: Persona[];
@@ -49,8 +58,9 @@ interface AuthState {
   centrifugoToken: string | null;
   setPersona: (persona: Persona) => void;
   addCustomPersona: (persona: Persona) => void;
-  setUser: (user: UserDto) => void;
-  setCentrifugoToken: (token: string) => void;
+  setUser: (user: UserDto | null) => void;
+  setCentrifugoToken: (token: string | null) => void;
+  logout: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -71,6 +81,12 @@ export const useAuthStore = create<AuthState>()(
         })),
       setUser: (user) => set({ currentUser: user }),
       setCentrifugoToken: (token) => set({ centrifugoToken: token }),
+      logout: () =>
+        set({
+          currentPersona: GUEST_PERSONA,
+          currentUser: null,
+          centrifugoToken: null,
+        }),
     }),
     {
       name: 'sparkloop-auth-storage',

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { api } from '../../services/apiClient';
 import { MoodPodDto } from '../../types/api';
@@ -88,152 +89,160 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
     }
   };
 
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 15 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 15 }}
-            className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white space-y-4"
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 flex items-center justify-center">
-                  <div className="w-full h-full bg-zinc-950 rounded-[14px] flex items-center justify-center">
-                    <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
-                  </div>
-                </div>
-                <div>
-                  <h3 className="font-bold text-base">
-                    {isArabic ? 'إنشاء حجرة مزاج مؤقتة (24 ساعة)' : 'Create Ephemeral Mood Pod'}
-                  </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    {isArabic ? 'غرفة صوت ودردشة تفاعلية تنتهي تلقائياً بعد 24 ساعة' : '24h real-time room with ambient sound & live reactions'}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={onClose}
-                className="p-2 text-zinc-400 hover:text-white rounded-full bg-zinc-800 transition-colors"
+  return typeof document !== 'undefined'
+    ? createPortal(
+        <AnimatePresence>
+          {isOpen && (
+            <div
+              className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+              onClick={onClose}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-lg bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white space-y-4 relative z-10"
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {error && (
-              <div className="p-3 rounded-2xl bg-rose-950/60 border border-rose-800 text-xs text-rose-300">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Room Title */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-300">
-                  {isArabic ? 'عنوان الحجرة / موضوع النقاش' : 'Room Title & Topic'} <span className="text-fuchsia-400">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={isArabic ? 'مثال: سهرة برمجة وتصميم مع موسيقى هادئة 🎧' : 'e.g. Late Night Coding & Synthwave Chill 🎧'}
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-cyan-500 rounded-2xl text-xs text-white placeholder:text-zinc-600 focus:outline-none transition-colors"
-                />
-              </div>
-
-              {/* Mood Emoji Picker */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-300">
-                  {isArabic ? 'أيقونة المزاج' : 'Mood Emoji'}
-                </label>
-                <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-                  {EMOJI_PRESETS.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => setSelectedEmoji(emoji)}
-                      className={`text-xl p-2.5 rounded-2xl border transition-all shrink-0 ${
-                        selectedEmoji === emoji
-                          ? 'bg-cyan-500/20 border-cyan-400 scale-110 shadow-lg shadow-cyan-500/20'
-                          : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Theme Picker */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-300">
-                  {isArabic ? 'السمة البصرية والصوتية' : 'Ambient Visual & Sound Theme'}
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {THEMES.map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      onClick={() => setSelectedTheme(t.id)}
-                      className={`p-3 rounded-2xl border text-left rtl:text-right bg-gradient-to-r ${t.gradient} transition-all flex items-center justify-between ${
-                        selectedTheme === t.id
-                          ? 'ring-2 ring-cyan-400 border-cyan-400 shadow-md'
-                          : 'opacity-70 hover:opacity-100'
-                      }`}
-                    >
-                      <div>
-                        <div className="text-xs font-bold text-white">
-                          {isArabic ? t.nameAr : t.name}
-                        </div>
-                        <div className="text-[10px] text-zinc-400">
-                          {isArabic ? 'خلفية ومؤثر صوتي مدمج' : 'Background & soundscape'}
-                        </div>
+                {/* Modal Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 flex items-center justify-center">
+                      <div className="w-full h-full bg-zinc-950 rounded-[14px] flex items-center justify-center">
+                        <Radio className="w-4 h-4 text-cyan-400 animate-pulse" />
                       </div>
-                      {selectedTheme === t.id && (
-                        <Sparkles className={`w-4 h-4 ${t.accent}`} />
-                      )}
-                    </button>
-                  ))}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-base">
+                        {isArabic ? 'إنشاء حجرة مزاج مؤقتة (24 ساعة)' : 'Create Ephemeral Mood Pod'}
+                      </h3>
+                      <p className="text-[11px] text-zinc-400">
+                        {isArabic ? 'غرفة صوت ودردشة تفاعلية تنتهي تلقائياً بعد 24 ساعة' : '24h real-time room with ambient sound & live reactions'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="p-2 text-zinc-400 hover:text-white rounded-full bg-zinc-800 transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
-              </div>
 
-              {/* TTL Banner */}
-              <div className="p-3 bg-zinc-950/80 rounded-2xl border border-zinc-800 flex items-center gap-2.5 text-xs text-zinc-400">
-                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
-                <span>
-                  {isArabic
-                    ? 'ستظل الحجرة نشطة لمدة 24 ساعة متزامنة ثم تُحذف تلقائياً بواسطة نظام SparkLoop TTL.'
-                    : 'This room will remain active for 24 hours and will be automatically purged by the TTL worker.'}
-                </span>
-              </div>
+                {error && (
+                  <div className="p-3 rounded-2xl bg-rose-950/60 border border-rose-800 text-xs text-rose-300">
+                    {error}
+                  </div>
+                )}
 
-              {/* Submit Buttons */}
-              <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300"
-                >
-                  {isArabic ? 'إلغاء' : 'Cancel'}
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-cyan-600/30"
-                >
-                  <Radio className="w-4 h-4" />
-                  <span>{isSubmitting ? (isArabic ? 'جاري الإنشاء...' : 'Creating...') : (isArabic ? 'إطلاق الحجرة الآن' : 'Launch Mood Pod')}</span>
-                </button>
-              </div>
-            </form>
-          </motion.div>
-        </div>
-      )}
-    </AnimatePresence>
-  );
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Room Title */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-zinc-300">
+                      {isArabic ? 'عنوان الحجرة / موضوع النقاش' : 'Room Title & Topic'} <span className="text-fuchsia-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder={isArabic ? 'مثال: سهرة برمجة وتصميم مع موسيقى هادئة 🎧' : 'e.g. Late Night Coding & Synthwave Chill 🎧'}
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 focus:border-cyan-500 rounded-2xl text-xs text-white placeholder:text-zinc-600 focus:outline-none transition-colors"
+                    />
+                  </div>
+
+                  {/* Mood Emoji Picker */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-zinc-300">
+                      {isArabic ? 'أيقونة المزاج' : 'Mood Emoji'}
+                    </label>
+                    <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+                      {EMOJI_PRESETS.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => setSelectedEmoji(emoji)}
+                          className={`text-xl p-2.5 rounded-2xl border transition-all shrink-0 ${
+                            selectedEmoji === emoji
+                              ? 'bg-cyan-500/20 border-cyan-400 scale-110 shadow-lg shadow-cyan-500/20'
+                              : 'bg-zinc-950 border-zinc-800 hover:border-zinc-700'
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Theme Picker */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-zinc-300">
+                      {isArabic ? 'السمة البصرية والصوتية' : 'Ambient Visual & Sound Theme'}
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {THEMES.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setSelectedTheme(t.id)}
+                          className={`p-3 rounded-2xl border text-left rtl:text-right bg-gradient-to-r ${t.gradient} transition-all flex items-center justify-between ${
+                            selectedTheme === t.id
+                              ? 'ring-2 ring-cyan-400 border-cyan-400 shadow-md'
+                              : 'opacity-70 hover:opacity-100'
+                          }`}
+                        >
+                          <div>
+                            <div className="text-xs font-bold text-white">
+                              {isArabic ? t.nameAr : t.name}
+                            </div>
+                            <div className="text-[10px] text-zinc-400">
+                              {isArabic ? 'خلفية ومؤثر صوتي مدمج' : 'Background & soundscape'}
+                            </div>
+                          </div>
+                          {selectedTheme === t.id && (
+                            <Sparkles className={`w-4 h-4 ${t.accent}`} />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Expiration Banner */}
+                  <div className="p-3 bg-zinc-950/80 rounded-2xl border border-zinc-800 flex items-center gap-2.5 text-xs text-zinc-400">
+                    <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>
+                      {isArabic
+                        ? 'ستظل الحجرة نشطة لمدة 24 ساعة، ثم تُغلق وتُحذف تلقائياً.'
+                        : 'This room will remain active for 24 hours and will be closed automatically.'}
+                    </span>
+                  </div>
+
+                  {/* Submit Buttons */}
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="px-4 py-2.5 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-300"
+                    >
+                      {isArabic ? 'إلغاء' : 'Cancel'}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-cyan-600/30"
+                    >
+                      <Radio className="w-4 h-4" />
+                      <span>{isSubmitting ? (isArabic ? 'جاري الإنشاء...' : 'Creating...') : (isArabic ? 'إطلاق الحجرة الآن' : 'Launch Mood Pod')}</span>
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )
+    : null;
 };

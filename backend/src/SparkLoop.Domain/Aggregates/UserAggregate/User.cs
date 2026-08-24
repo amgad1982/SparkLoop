@@ -62,11 +62,16 @@ public class User : AggregateRoot<Guid>
         PasswordHash = passwordHash;
     }
 
-    public void UpdateProfile(string displayName, string? bio, string? avatarUrl)
+    public void UpdateProfile(string displayName, string? bio, string? avatarUrl, string? email = null)
     {
         if (!string.IsNullOrWhiteSpace(displayName))
         {
             DisplayName = displayName.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(email))
+        {
+            Email = email.Trim().ToLowerInvariant();
         }
 
         Bio = bio;

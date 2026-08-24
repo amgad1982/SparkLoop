@@ -313,3 +313,55 @@ public class SendPodAudioChunkCommandHandler : IRequestHandler<SendPodAudioChunk
         return true;
     }
 }
+
+public record SendPodBgMusicCommand(
+    Guid PodId,
+    string Action,
+    string? TrackTitle = null,
+    double? CurrentTime = null,
+    double? Duration = null,
+    string? AudioBase64 = null,
+    int? ChunkIndex = null
+) : IRequest<bool>;
+
+public class SendPodBgMusicCommandHandler : IRequestHandler<SendPodBgMusicCommand, bool>
+{
+    private readonly ICentrifugoService _centrifugoService;
+    private readonly ICurrentUserService _currentUserService;
+
+    public SendPodBgMusicCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService)
+    {
+        _centrifugoService = centrifugoService;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<bool> Handle(SendPodBgMusicCommand request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId?.ToString() ?? "22222222-2222-2222-2222-222222222222";
+        var username = _currentUserService.Username ?? "sparkguest";
+        var displayName = _currentUserService.DisplayName ?? username;
+        var avatarUrl = _currentUserService.AvatarUrl;
+
+        var channel = $"pod:{request.PodId}";
+        var bgMusicEvent = new
+        {
+            type = "BG_MUSIC_STATE",
+            podId = request.PodId,
+            action = request.Action,
+            trackTitle = request.TrackTitle,
+            currentTime = request.CurrentTime,
+            duration = request.Duration,
+            audioBase64 = request.AudioBase64,
+            chunkIndex = request.ChunkIndex,
+            djUserId = userId,
+            djUsername = username,
+            djDisplayName = displayName,
+            djAvatarUrl = avatarUrl,
+            timestamp = DateTime.UtcNow
+        };
+
+        await _centrifugoService.PublishAsync(channel, bgMusicEvent, cancellationToken);
+        return true;
+    }
+}
+

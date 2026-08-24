@@ -197,23 +197,65 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
                 .Include(u => u.Badges)
                 .FirstOrDefaultAsync(u => u.Id == request.UserId.Value, cancellationToken);
         }
-        else if (!string.IsNullOrEmpty(request.Username))
+
+        if (user is null && !string.IsNullOrWhiteSpace(request.Username))
         {
-            var target = Username.Create(request.Username);
-            user = await _dbContext.Users
-                .Include(u => u.Badges)
-                .FirstOrDefaultAsync(u => u.Username == target, cancellationToken);
+            var rawUsername = request.Username.Trim();
+            try
+            {
+                var target = Username.Create(rawUsername);
+                user = await _dbContext.Users
+                    .Include(u => u.Badges)
+                    .FirstOrDefaultAsync(u => u.Username == target, cancellationToken);
+            }
+            catch {}
         }
-        else if (_currentUserService.UserId.HasValue)
+
+        if (user is null && _currentUserService.UserId.HasValue)
         {
             user = await _dbContext.Users
                 .Include(u => u.Badges)
                 .FirstOrDefaultAsync(u => u.Id == _currentUserService.UserId.Value, cancellationToken);
         }
 
+        if (user is null && !string.IsNullOrWhiteSpace(_currentUserService.Username))
+        {
+            try
+            {
+                var authTarget = Username.Create(_currentUserService.Username);
+                user = await _dbContext.Users
+                    .Include(u => u.Badges)
+                    .FirstOrDefaultAsync(u => u.Username == authTarget, cancellationToken);
+            }
+            catch {}
+        }
+
+        // Auto-provision persona if requested user does not exist in db yet
         if (user is null)
         {
-            throw new NotFoundException("User profile not found.", "USER_NOT_FOUND");
+            var fallbackName = !string.IsNullOrWhiteSpace(request.Username)
+                ? request.Username.Trim()
+                : (!string.IsNullOrWhiteSpace(_currentUserService.Username) ? _currentUserService.Username.Trim() : "creator");
+
+            var normalizedUsername = System.Text.RegularExpressions.Regex.Replace(fallbackName.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+            if (normalizedUsername.Length < 3) normalizedUsername = normalizedUsername.PadRight(3, '0');
+            if (normalizedUsername.Length > 30) normalizedUsername = normalizedUsername[..30];
+
+            var targetUserId = request.UserId ?? _currentUserService.UserId ?? Guid.NewGuid();
+            var displayName = _currentUserService.DisplayName ?? fallbackName;
+
+            user = User.Create(
+                targetUserId,
+                normalizedUsername,
+                $"{normalizedUsername}@sparkloop.app",
+                displayName,
+                $"https://api.dicebear.com/7.x/bottts/svg?seed={normalizedUsername}",
+                "SparkLoop Creator & Storyteller"
+            );
+
+            user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
+            _dbContext.Users.Add(user);
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
         var userPosts = await _dbContext.Posts
@@ -248,7 +290,7 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
             p.Id,
             p.AuthorId,
             p.AuthorUsername,
-            p.AuthorDisplayName,
+            p.AuthorDisplayName ?? p.AuthorUsername,
             p.AuthorAvatarUrl,
             p.Content.Value,
             p.Media != null ? new MediaAttachmentDto(p.Media.Url, p.Media.Type.ToString(), p.Media.Width, p.Media.Height, p.Media.AspectRatio) : null,
@@ -310,7 +352,8 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
 public record UpdateUserProfileCommand(
     string DisplayName,
     string? Bio = null,
-    string? AvatarUrl = null
+    string? AvatarUrl = null,
+    string? Email = null
 ) : IRequest<UserDto>;
 
 public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfileCommand, UserDto>
@@ -334,13 +377,106 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
 
         if (user is null)
         {
-            throw new NotFoundException("User not found.", "USER_NOT_FOUND");
+            var fallbackName = !string.IsNullOrWhiteSpace(_currentUserService.Username) ? _currentUserService.Username.Trim() : "creator";
+            var normalizedUsername = System.Text.RegularExpressions.Regex.Replace(fallbackName.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+            if (normalizedUsername.Length < 3) normalizedUsername = normalizedUsername.PadRight(3, '0');
+            if (normalizedUsername.Length > 30) normalizedUsername = normalizedUsername[..30];
+
+            user = User.Create(
+                userId,
+                normalizedUsername,
+                request.Email ?? $"{normalizedUsername}@sparkloop.app",
+                request.DisplayName,
+                request.AvatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={normalizedUsername}",
+                request.Bio ?? "SparkLoop Creator & Storyteller"
+            );
+            user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
+            _dbContext.Users.Add(user);
         }
 
-        user.UpdateProfile(request.DisplayName, request.Bio, request.AvatarUrl);
+        // If email is being changed, ensure it's not taken by another user
+        if (!string.IsNullOrWhiteSpace(request.Email) && !string.Equals(request.Email.Trim(), user.Email, StringComparison.OrdinalIgnoreCase))
+        {
+            var emailExists = await _dbContext.Users
+                .AnyAsync(u => u.Email == request.Email.Trim().ToLowerInvariant() && u.Id != userId, cancellationToken);
+            if (emailExists)
+            {
+                throw new DomainRuleException("This email address is already in use by another account.", "EMAIL_IN_USE");
+            }
+        }
+
+        user.UpdateProfile(request.DisplayName, request.Bio, request.AvatarUrl, request.Email);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return RegisterUserCommandHandler.MapUserToDto(user);
+    }
+}
+
+public record ChangePasswordCommand(
+    string CurrentPassword,
+    string NewPassword
+) : IRequest<bool>;
+
+public class ChangePasswordCommandValidator : AbstractValidator<ChangePasswordCommand>
+{
+    public ChangePasswordCommandValidator()
+    {
+        RuleFor(x => x.CurrentPassword).NotEmpty().WithMessage("Current password is required.");
+        RuleFor(x => x.NewPassword).NotEmpty().MinimumLength(6).WithMessage("New password must be at least 6 characters long.");
+    }
+}
+
+public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordCommand, bool>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public ChangePasswordCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<bool> Handle(ChangePasswordCommand request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId ?? throw new DomainRuleException("Authentication required to change password.", "UNAUTHORIZED");
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+
+        if (user is null)
+        {
+            var fallbackName = !string.IsNullOrWhiteSpace(_currentUserService.Username) ? _currentUserService.Username.Trim() : "creator";
+            var normalizedUsername = System.Text.RegularExpressions.Regex.Replace(fallbackName.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+            if (normalizedUsername.Length < 3) normalizedUsername = normalizedUsername.PadRight(3, '0');
+            if (normalizedUsername.Length > 30) normalizedUsername = normalizedUsername[..30];
+
+            user = User.Create(
+                userId,
+                normalizedUsername,
+                $"{normalizedUsername}@sparkloop.app",
+                _currentUserService.DisplayName ?? fallbackName,
+                $"https://api.dicebear.com/7.x/bottts/svg?seed={normalizedUsername}",
+                "SparkLoop Creator & Storyteller"
+            );
+            user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
+            _dbContext.Users.Add(user);
+        }
+
+        // Verify current password if user already has a password hash set
+        if (!string.IsNullOrEmpty(user.PasswordHash))
+        {
+            if (!PasswordSecurity.VerifyPassword(request.CurrentPassword, user.PasswordHash))
+            {
+                throw new DomainRuleException("The current password provided is incorrect.", "INVALID_PASSWORD");
+            }
+        }
+
+        var newPasswordHash = PasswordSecurity.HashPassword(request.NewPassword);
+        user.SetPassword(newPasswordHash);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return true;
     }
 }
 

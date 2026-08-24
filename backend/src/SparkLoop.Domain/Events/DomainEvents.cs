@@ -87,6 +87,8 @@ public sealed record MoodPodMessageSentEvent(
     Guid MessageId,
     Guid SenderId,
     string SenderUsername,
+    string? SenderDisplayName,
+    string? SenderAvatarUrl,
     string Text,
     string? EmojiReaction,
     string? AudioUrl = null,

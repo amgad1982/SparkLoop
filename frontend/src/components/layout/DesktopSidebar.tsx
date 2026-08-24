@@ -7,18 +7,18 @@ import {
   Flame,
   GitBranch,
   Languages,
+  LogIn,
+  LogOut,
   MessageSquare,
   Palette,
-  Plus,
   Radio,
   Sparkles,
-  User,
   Users,
 } from 'lucide-react';
 
 interface DesktopSidebarProps {
-  activeTab: TabType;
-  onTabChange: (tab: TabType) => void;
+  activeTab: TabType | 'profile';
+  onTabChange: (tab: TabType | 'profile') => void;
   isConnected?: boolean;
 }
 
@@ -27,7 +27,7 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
   onTabChange,
   isConnected = true,
 }) => {
-  const { currentPersona } = useAuthStore();
+  const { currentPersona, logout } = useAuthStore();
   const { locale, toggleLocale } = useThemeStore();
   const isArabic = locale === 'ar';
 
@@ -67,14 +67,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       id: 'create' as TabType,
       label: isArabic ? 'استوديو الميمز' : 'Meme Studio',
       icon: Palette,
-      desc: isArabic ? 'رسم وتصدير WebP فوري' : 'Touch Canvas & Stickers',
+      desc: isArabic ? 'رسم وتصميم ميمز فوري' : 'Create Memes & Stickers',
       isHighlight: true,
-    },
-    {
-      id: 'profile' as TabType,
-      label: isArabic ? 'الملف الشخصي' : 'Profile & XP',
-      icon: User,
-      desc: isArabic ? 'الأوسمة ونقاط السمعة' : 'Badges & Stats',
     },
   ];
 
@@ -107,8 +101,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 <span className="truncate">
                   {isConnected
                     ? isArabic
-                      ? 'متصل لحظياً (v5)'
-                      : 'Centrifugo v5'
+                      ? 'متصل لحظياً'
+                      : 'Live Connected'
                     : isArabic
                     ? 'جاري الاتصال...'
                     : 'Connecting...'}
@@ -127,13 +121,18 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                 <button
                   key={item.id}
                   onClick={() => onTabChange(item.id)}
-                  className={`w-full flex items-center gap-3.5 p-3 rounded-2xl transition-all text-left rtl:text-right group relative ${
+                  className={`w-full flex items-center gap-3 p-2.5 lg:p-3 rounded-2xl transition-all text-left rtl:text-right group relative overflow-hidden ${
                     isActive
                       ? 'bg-fuchsia-950/50 border border-fuchsia-500/60 text-white font-bold shadow-lg shadow-fuchsia-950/50'
                       : 'text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900/80 border border-transparent'
                   }`}
                   title={item.label}
                 >
+                  {/* Active Indicator Accent Bar at Start Edge */}
+                  {isActive && (
+                    <div className="absolute left-0 rtl:left-auto rtl:right-0 top-2.5 bottom-2.5 w-1 rounded-r-full rtl:rounded-r-none rtl:rounded-l-full bg-gradient-to-b from-fuchsia-400 to-purple-400 shadow-md shadow-fuchsia-500/50" />
+                  )}
+
                   <div
                     className={`p-2 rounded-xl transition-colors shrink-0 ${
                       isActive
@@ -144,8 +143,8 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                     <Icon className="w-5 h-5" />
                   </div>
 
-                  <div className="hidden lg:flex flex-1 items-center justify-between min-w-0">
-                    <div>
+                  <div className="hidden lg:flex flex-1 items-center justify-between min-w-0 gap-2">
+                    <div className="min-w-0">
                       <div className="text-sm font-bold text-zinc-100 group-hover:text-white truncate">
                         {item.label}
                       </div>
@@ -155,15 +154,11 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
                     </div>
 
                     {item.badge && (
-                      <span className="px-2 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full">
+                      <span className="px-2 py-0.5 text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full shrink-0">
                         {item.badge}
                       </span>
                     )}
                   </div>
-
-                  {isActive && (
-                    <div className="hidden lg:block w-1.5 h-6 rounded-full bg-fuchsia-400" />
-                  )}
                 </button>
               );
             })}
@@ -196,28 +191,76 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
             </span>
           </button>
 
-          {/* User Persona & Switcher Trigger */}
-          <button
-            onClick={() => setModalConfig({ isOpen: true, tab: 'switch' })}
-            className="w-full p-2.5 rounded-2xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-fuchsia-500/50 transition-all flex items-center gap-3 text-left rtl:text-right group"
-          >
-            <img
-              src={currentPersona.avatarUrl}
-              alt={currentPersona.username}
-              className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 object-cover shrink-0"
-            />
-            <div className="hidden lg:block flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-xs text-zinc-100 group-hover:text-white truncate">
-                  {currentPersona.displayName}
-                </span>
-                <Users className="w-3.5 h-3.5 text-zinc-500 group-hover:text-fuchsia-400 shrink-0" />
+          {/* User Persona & Profile / Switcher / Logout Trigger */}
+          {currentPersona.username === 'guest' ? (
+            <button
+              onClick={() => setModalConfig({ isOpen: true, tab: 'switch' })}
+              className="w-full p-2.5 rounded-2xl bg-gradient-to-r from-fuchsia-600/20 to-purple-600/20 hover:from-fuchsia-600/30 hover:to-purple-600/30 border border-fuchsia-500/40 hover:border-fuchsia-500/80 transition-all flex items-center justify-center lg:justify-start gap-2.5 text-left rtl:text-right group"
+              title={isArabic ? 'تسجيل الدخول أو اختيار شخصية' : 'Sign in or select persona'}
+            >
+              <div className="w-9 h-9 rounded-xl bg-fuchsia-600/20 border border-fuchsia-500/30 flex items-center justify-center text-fuchsia-400 shrink-0">
+                <LogIn className="w-4 h-4" />
               </div>
-              <div className="text-[11px] text-zinc-400 truncate">
-                @{currentPersona.username}
+              <div className="hidden lg:block min-w-0">
+                <span className="font-bold text-xs text-white block">
+                  {isArabic ? 'تسجيل الدخول' : 'Sign In / Switch'}
+                </span>
+                <span className="text-[10px] text-zinc-400 block">
+                  {isArabic ? 'اختر شخصيتك الإبداعية' : 'Select persona'}
+                </span>
+              </div>
+            </button>
+          ) : (
+            <div
+              onClick={() => onTabChange('profile')}
+              className={`w-full p-2.5 rounded-2xl bg-zinc-900 hover:bg-zinc-850 border transition-all flex items-center gap-3 text-left rtl:text-right group cursor-pointer ${
+                activeTab === 'profile'
+                  ? 'border-fuchsia-500/80 bg-fuchsia-950/20 shadow-lg shadow-fuchsia-500/10 ring-1 ring-fuchsia-500/50'
+                  : 'border-zinc-800 hover:border-zinc-700'
+              }`}
+              title={isArabic ? 'عرض وتعديل الملف الشخصي' : 'View and edit profile'}
+            >
+              <img
+                src={currentPersona.avatarUrl}
+                alt={currentPersona.username}
+                className="w-10 h-10 rounded-xl bg-zinc-800 border border-zinc-700 object-cover shrink-0"
+              />
+              <div className="hidden lg:block flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-xs text-zinc-100 group-hover:text-white truncate">
+                    {currentPersona.displayName}
+                  </span>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setModalConfig({ isOpen: true, tab: 'switch' });
+                      }}
+                      className="p-1 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-cyan-400 transition-colors"
+                      title={isArabic ? 'تبديل الحساب' : 'Switch Account'}
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        logout();
+                      }}
+                      className="p-1 hover:bg-zinc-800 rounded-lg text-zinc-500 hover:text-rose-400 transition-colors"
+                      title={isArabic ? 'تسجيل الخروج' : 'Log Out'}
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+                <div className="text-[11px] text-zinc-400 truncate">
+                  @{currentPersona.username}
+                </div>
               </div>
             </div>
-          </button>
+          )}
         </div>
       </aside>
 

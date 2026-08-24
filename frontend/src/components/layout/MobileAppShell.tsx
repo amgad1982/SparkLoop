@@ -47,7 +47,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
           {/* 2. Center Content Column (Responsive: max-w-md on mobile, flex-1 on desktop) */}
           <div className="w-full md:max-w-3xl xl:max-w-3xl min-h-screen flex flex-col bg-zinc-950 border-x border-zinc-800/40 relative shadow-2xl pb-24 md:pb-8 flex-1">
             {/* Mobile Header (Visible on < md) */}
-            <TopHeader isConnected={isConnected} />
+            <TopHeader isConnected={isConnected} onNavigateTab={onTabChange} />
 
             {/* Desktop Header (Visible on >= md) */}
             <DesktopHeader

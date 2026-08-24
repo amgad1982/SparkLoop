@@ -152,6 +152,8 @@ public class MoodPod : AggregateRoot<Guid>
             message.Id,
             senderId,
             senderUsername,
+            message.SenderDisplayName,
+            message.SenderAvatarUrl,
             message.Text,
             message.EmojiReaction,
             message.AudioUrl,

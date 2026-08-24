@@ -205,6 +205,8 @@ public class MoodPodDomainEventsHandler :
                 id = notification.MessageId,
                 senderId = notification.SenderId,
                 senderUsername = notification.SenderUsername,
+                senderDisplayName = notification.SenderDisplayName ?? notification.SenderUsername,
+                senderAvatarUrl = notification.SenderAvatarUrl,
                 text = notification.Text,
                 emojiReaction = notification.EmojiReaction,
                 audioUrl = notification.AudioUrl,

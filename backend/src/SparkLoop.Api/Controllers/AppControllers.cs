@@ -81,6 +81,13 @@ public class UsersController : ControllerBase
         var result = await _mediator.Send(command);
         return Ok(result);
     }
+
+    [HttpPost("change-password")]
+    public async Task<ActionResult<bool>> ChangePassword([FromBody] ChangePasswordCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
 }
 
 [ApiController]
@@ -296,11 +303,33 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpPost("{id:guid}/bg-music")]
+    public async Task<ActionResult<bool>> SendBgMusic(Guid id, [FromBody] PodBgMusicRequest request)
+    {
+        var result = await _mediator.Send(new SendPodBgMusicCommand(
+            id,
+            request.Action,
+            request.TrackTitle,
+            request.CurrentTime,
+            request.Duration,
+            request.AudioBase64,
+            request.ChunkIndex));
+        return Ok(result);
+    }
+
     public record PodReactRequest(string Emoji, int Intensity = 1);
     public record PodSpeakingRequest(bool IsSpeaking, bool IsMuted);
     public record PodSignalRequest(string SignalType, object? Payload = null, string? TargetUserId = null);
     public record PodSoundEffectRequest(string EffectName);
     public record PodAudioChunkRequest(string AudioBase64, int ChunkIndex, int? DurationMs = null);
+    public record PodBgMusicRequest(
+        string Action,
+        string? TrackTitle = null,
+        double? CurrentTime = null,
+        double? Duration = null,
+        string? AudioBase64 = null,
+        int? ChunkIndex = null
+    );
 }
 
 [ApiController]

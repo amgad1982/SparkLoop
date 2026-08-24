@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuthStore, PRESET_PERSONAS, Persona } from '../../stores/useAuthStore';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { api } from '../../services/apiClient';
-import { ShieldCheck, Sparkles, UserCheck, UserPlus, X, RefreshCw, AlertCircle, CheckCircle2, Users } from 'lucide-react';
+import { ShieldCheck, Sparkles, UserCheck, UserPlus, X, RefreshCw, AlertCircle, CheckCircle2, Users, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface PersonaSwitcherProps {
@@ -18,7 +18,7 @@ export const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({
   onClose,
   initialTab = 'switch',
 }) => {
-  const { currentPersona, customPersonas, setPersona, addCustomPersona, setUser } = useAuthStore();
+  const { currentPersona, customPersonas, setPersona, addCustomPersona, setUser, logout } = useAuthStore();
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
 
@@ -226,14 +226,30 @@ export const PersonaSwitcher: React.FC<PersonaSwitcherProps> = ({
                   })}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('register')}
-                  className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-750 border border-dashed border-zinc-700 hover:border-fuchsia-500/60 rounded-2xl text-xs font-bold text-zinc-300 hover:text-white flex items-center justify-center gap-2 transition-all"
-                >
-                  <UserPlus className="w-4 h-4 text-fuchsia-400" />
-                  <span>{isArabic ? '+ إنشاء حساب جديد مخصص' : '+ Register a New Custom Persona'}</span>
-                </button>
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('register')}
+                    className="w-full py-2.5 px-4 bg-zinc-800 hover:bg-zinc-750 border border-dashed border-zinc-700 hover:border-fuchsia-500/60 rounded-2xl text-xs font-bold text-zinc-300 hover:text-white flex items-center justify-center gap-2 transition-all"
+                  >
+                    <UserPlus className="w-4 h-4 text-fuchsia-400" />
+                    <span>{isArabic ? '+ إنشاء حساب جديد مخصص' : '+ Register a New Custom Persona'}</span>
+                  </button>
+
+                  {currentPersona.username !== 'guest' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        logout();
+                        onClose();
+                      }}
+                      className="w-full py-2 px-4 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 rounded-2xl text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center justify-center gap-2 transition-all"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span>{isArabic ? 'تسجيل الخروج' : 'Log Out'}</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 

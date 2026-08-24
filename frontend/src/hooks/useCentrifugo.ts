@@ -13,6 +13,7 @@ export function useCentrifugo(channelName?: string, onMessage?: (data: Centrifug
   const currentPersona = useAuthStore((state) => state.currentPersona);
   const centrifugeRef = useRef<Centrifuge | null>(null);
   const subscriptionRef = useRef<Subscription | null>(null);
+  const userSubRef = useRef<Subscription | null>(null);
   const onMessageRef = useRef(onMessage);
 
   useEffect(() => {
@@ -28,8 +29,17 @@ export function useCentrifugo(channelName?: string, onMessage?: (data: Centrifug
         if (isCancelled) return;
 
         // Disconnect previous instance if exists
+        if (subscriptionRef.current) {
+          subscriptionRef.current.unsubscribe();
+          subscriptionRef.current = null;
+        }
+        if (userSubRef.current) {
+          userSubRef.current.unsubscribe();
+          userSubRef.current = null;
+        }
         if (centrifugeRef.current) {
           centrifugeRef.current.disconnect();
+          centrifugeRef.current = null;
         }
 
         const centrifuge = new Centrifuge('ws://localhost:8000/connection/websocket', {
@@ -64,6 +74,7 @@ export function useCentrifugo(channelName?: string, onMessage?: (data: Centrifug
           }
         });
         userSub.subscribe();
+        userSubRef.current = userSub;
 
         // Subscribe to target channel if specified
         if (channelName) {
@@ -87,9 +98,15 @@ export function useCentrifugo(channelName?: string, onMessage?: (data: Centrifug
       isCancelled = true;
       if (subscriptionRef.current) {
         subscriptionRef.current.unsubscribe();
+        subscriptionRef.current = null;
+      }
+      if (userSubRef.current) {
+        userSubRef.current.unsubscribe();
+        userSubRef.current = null;
       }
       if (centrifugeRef.current) {
         centrifugeRef.current.disconnect();
+        centrifugeRef.current = null;
       }
     };
   }, [currentPersona.id, currentPersona.username, channelName]);

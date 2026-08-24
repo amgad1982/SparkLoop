@@ -11,6 +11,18 @@ const RTC_CONFIG: RTCConfiguration = {
   ],
 };
 
+export interface PodBgMusicState {
+  isActive: boolean;
+  isPlaying: boolean;
+  djUserId: string | null;
+  djUsername: string | null;
+  djDisplayName: string | null;
+  djAvatarUrl?: string | null;
+  trackTitle: string;
+  currentTime: number;
+  duration: number;
+}
+
 export interface UsePodVoiceEngineOptions {
   podId: string;
   hostUsername: string;
@@ -37,14 +49,40 @@ export function usePodVoiceEngine({
   const [roomVolume, setRoomVolume] = useState(1.0);
   const [isAudioMuted, setIsAudioMuted] = useState(false);
 
+  // Background Music State
+  const [bgMusic, setBgMusic] = useState<PodBgMusicState>({
+    isActive: false,
+    isPlaying: false,
+    djUserId: null,
+    djUsername: null,
+    djDisplayName: null,
+    djAvatarUrl: null,
+    trackTitle: '',
+    currentTime: 0,
+    duration: 0,
+  });
+  const [bgMusicVolume, setBgMusicVolume] = useState(0.35); // 35% default background mix
+  const [isBgMusicMuted, setIsBgMusicMuted] = useState(false);
+
   // Audio & WebRTC Refs
   const localStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const masterGainRef = useRef<GainNode | null>(null);
+  const bgMusicGainRef = useRef<GainNode | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const isSpeakingRef = useRef(false);
   const lastSpeakingStateSentRef = useRef<number>(0);
+
+  // Local DJ Media & Streamer Refs
+  const isLocalDJRef = useRef<boolean>(false);
+  const lastChunkReceivedAtRef = useRef<number>(0);
+  const lastStopReceivedAtRef = useRef<number>(0);
+  const localBgAudioElRef = useRef<HTMLAudioElement | null>(null);
+  const bgMediaStreamRef = useRef<MediaStream | null>(null);
+  const bgMediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const bgChunkIndexRef = useRef(0);
+  const bgNextPlayTimeRef = useRef<number>(0);
 
   // WebRTC Peer Connections: peerUserId -> RTCPeerConnection
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -58,27 +96,38 @@ export function usePodVoiceEngine({
   const audioQueueRef = useRef<{ buffer: AudioBuffer; time: number }[]>([]);
   const nextPlayTimeRef = useRef<number>(0);
 
-  // Helper to ensure AudioContext exists
+  // Helper to ensure AudioContext and Gain nodes exist
   const getAudioContext = useCallback((): AudioContext => {
     if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
       const AudioCtx =
         window.AudioContext ||
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = new AudioCtx();
+      
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(isAudioMuted ? 0 : roomVolume, ctx.currentTime);
       gain.connect(ctx.destination);
 
+      const bgGain = ctx.createGain();
+      bgGain.gain.setValueAtTime(isBgMusicMuted ? 0 : bgMusicVolume, ctx.currentTime);
+      bgGain.connect(ctx.destination);
+
       audioCtxRef.current = ctx;
       masterGainRef.current = gain;
+      bgMusicGainRef.current = bgGain;
     }
     if (audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume().catch(() => {});
     }
     return audioCtxRef.current;
-  }, [isAudioMuted, roomVolume]);
+  }, [isAudioMuted, roomVolume, isBgMusicMuted, bgMusicVolume]);
 
-  // Update master gain when volume or mute changes
+  const getBgMusicGainNode = useCallback((): GainNode => {
+    getAudioContext();
+    return bgMusicGainRef.current!;
+  }, [getAudioContext]);
+
+  // Update master gain and bg music gain when volume or mute changes
   useEffect(() => {
     if (masterGainRef.current && audioCtxRef.current) {
       masterGainRef.current.gain.setValueAtTime(
@@ -90,6 +139,44 @@ export function usePodVoiceEngine({
       audio.volume = isAudioMuted ? 0 : roomVolume;
     });
   }, [roomVolume, isAudioMuted]);
+
+  useEffect(() => {
+    if (bgMusicGainRef.current && audioCtxRef.current) {
+      bgMusicGainRef.current.gain.setValueAtTime(
+        isBgMusicMuted ? 0 : bgMusicVolume,
+        audioCtxRef.current.currentTime
+      );
+    }
+    if (localBgAudioElRef.current) {
+      localBgAudioElRef.current.volume = isBgMusicMuted ? 0 : bgMusicVolume;
+    }
+  }, [bgMusicVolume, isBgMusicMuted]);
+
+  // Auto-cleanup watchdog: if no DJ chunks/heartbeats received for 4.5s on listeners, clear banner
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (
+        bgMusic.isActive &&
+        !isLocalDJRef.current &&
+        lastChunkReceivedAtRef.current > 0 &&
+        Date.now() - lastChunkReceivedAtRef.current > 4500
+      ) {
+        setBgMusic({
+          isActive: false,
+          isPlaying: false,
+          djUserId: null,
+          djUsername: null,
+          djDisplayName: null,
+          djAvatarUrl: null,
+          trackTitle: '',
+          currentTime: 0,
+          duration: 0,
+        });
+      }
+    }, 1500);
+
+    return () => clearInterval(interval);
+  }, [bgMusic.isActive]);
 
   // -------------------------------------------------------------
   // WebRTC Connection Setup for a given peer
@@ -373,6 +460,125 @@ export function usePodVoiceEngine({
         soundEffects.play('pop', 0.2);
         onReactionReceived?.(reaction.emoji);
       }
+
+      // 6. BACKGROUND MUSIC EVENTS (DJ Broadcast & Audio Chunks)
+      else if (data.type === 'BG_MUSIC_STATE') {
+        const msg = data as unknown as {
+          action: string;
+          trackTitle?: string;
+          currentTime?: number;
+          duration?: number;
+          audioBase64?: string;
+          chunkIndex?: number;
+          djUserId: string;
+          djUsername: string;
+          djDisplayName: string;
+          djAvatarUrl?: string;
+        };
+
+        if (msg.action === 'PLAY') {
+          lastChunkReceivedAtRef.current = Date.now();
+          setBgMusic({
+            isActive: true,
+            isPlaying: true,
+            djUserId: msg.djUserId,
+            djUsername: msg.djUsername,
+            djDisplayName: msg.djDisplayName,
+            djAvatarUrl: msg.djAvatarUrl,
+            trackTitle: msg.trackTitle || 'Live Audio Stream',
+            currentTime: msg.currentTime || 0,
+            duration: msg.duration || 0,
+          });
+        } else if (msg.action === 'PAUSE') {
+          setBgMusic((prev) => ({
+            ...prev,
+            isPlaying: false,
+          }));
+        } else if (msg.action === 'STOP') {
+          lastStopReceivedAtRef.current = Date.now();
+          lastChunkReceivedAtRef.current = 0;
+          bgNextPlayTimeRef.current = 0;
+
+          // Silence background audio buffer queue immediately
+          if (bgMusicGainRef.current && audioCtxRef.current) {
+            try {
+              bgMusicGainRef.current.gain.cancelScheduledValues(audioCtxRef.current.currentTime);
+              bgMusicGainRef.current.gain.setValueAtTime(0, audioCtxRef.current.currentTime);
+              setTimeout(() => {
+                if (bgMusicGainRef.current && audioCtxRef.current) {
+                  bgMusicGainRef.current.gain.setValueAtTime(
+                    isBgMusicMuted ? 0 : bgMusicVolume,
+                    audioCtxRef.current.currentTime
+                  );
+                }
+              }, 150);
+            } catch {}
+          }
+
+          setBgMusic({
+            isActive: false,
+            isPlaying: false,
+            djUserId: null,
+            djUsername: null,
+            djDisplayName: null,
+            djAvatarUrl: null,
+            trackTitle: '',
+            currentTime: 0,
+            duration: 0,
+          });
+        } else if (msg.action === 'CHUNK' && msg.audioBase64) {
+          if (msg.djUserId === currentPersona.id) return; // DJ plays directly locally
+          if (Date.now() - lastStopReceivedAtRef.current < 2500) return; // Discard late chunks arriving right after STOP
+
+          lastChunkReceivedAtRef.current = Date.now();
+
+          // Update player active state if not already active
+          setBgMusic((prev) => {
+            if (!prev.isActive || prev.djUserId !== msg.djUserId) {
+              return {
+                isActive: true,
+                isPlaying: true,
+                djUserId: msg.djUserId,
+                djUsername: msg.djUsername,
+                djDisplayName: msg.djDisplayName,
+                djAvatarUrl: msg.djAvatarUrl,
+                trackTitle: msg.trackTitle || 'Live Shared Audio',
+                currentTime: msg.currentTime || 0,
+                duration: msg.duration || 0,
+              };
+            }
+            return prev;
+          });
+
+          // Play incoming background chunk
+          try {
+            const ctx = getAudioContext();
+            const bgGain = getBgMusicGainNode();
+            const base64Data = msg.audioBase64.split(',')[1] || msg.audioBase64;
+            const binaryStr = atob(base64Data);
+            const len = binaryStr.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+              bytes[i] = binaryStr.charCodeAt(i);
+            }
+
+            ctx.decodeAudioData(
+              bytes.buffer.slice(0),
+              (buffer) => {
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(bgGain);
+
+                const currentTime = ctx.currentTime;
+                const startTime = Math.max(currentTime, bgNextPlayTimeRef.current);
+                source.start(startTime);
+                bgNextPlayTimeRef.current = startTime + buffer.duration;
+              },
+              () => {}
+            );
+          } catch {}
+        }
+      }
     },
     [
       currentPersona.id,
@@ -576,6 +782,273 @@ export function usePodVoiceEngine({
     await api.sendPodSoundEffect(podId, effectName).catch(() => {});
   };
 
+  // -------------------------------------------------------------
+  // Background Audio Sharing (DJ Streaming)
+  // -------------------------------------------------------------
+  const startSharingLocalFile = async (file: File) => {
+    try {
+      stopSharingBgMusic();
+      isLocalDJRef.current = true;
+
+      const objectUrl = URL.createObjectURL(file);
+      const audio = new Audio(objectUrl);
+      audio.crossOrigin = 'anonymous';
+      audio.loop = false;
+      audio.volume = isBgMusicMuted ? 0 : bgMusicVolume;
+      localBgAudioElRef.current = audio;
+
+      audio.onended = () => {
+        stopSharingBgMusic();
+      };
+
+      const trackName = file.name.replace(/\.[^/.]+$/, '');
+
+      // Create stream destination from audio element
+      const ctx = getAudioContext();
+      let stream: MediaStream | null = null;
+      try {
+        if ('captureStream' in audio) {
+          stream = (audio as unknown as { captureStream: () => MediaStream }).captureStream();
+        } else if ('mozCaptureStream' in audio) {
+          stream = (audio as unknown as { mozCaptureStream: () => MediaStream }).mozCaptureStream();
+        }
+      } catch {}
+
+      if (!stream) {
+        try {
+          const src = ctx.createMediaElementSource(audio);
+          const dest = ctx.createMediaStreamDestination();
+          const bgGain = getBgMusicGainNode();
+          src.connect(bgGain);
+          src.connect(dest);
+          stream = dest.stream;
+        } catch {}
+      }
+
+      await audio.play();
+
+      setBgMusic({
+        isActive: true,
+        isPlaying: true,
+        djUserId: currentPersona.id,
+        djUsername: currentPersona.username,
+        djDisplayName: currentPersona.displayName,
+        djAvatarUrl: currentPersona.avatarUrl,
+        trackTitle: trackName,
+        currentTime: 0,
+        duration: audio.duration || 0,
+      });
+
+      // Broadcast start signal to room
+      await api.sendPodBgMusic(podId, 'PLAY', trackName, 0, audio.duration || 0);
+
+      // Start streaming audio chunks via MediaRecorder if stream is available
+      if (stream && stream.getAudioTracks().length > 0) {
+        bgMediaStreamRef.current = stream;
+
+        // Add stream track to existing WebRTC peer connections
+        peerConnectionsRef.current.forEach((pc) => {
+          stream!.getAudioTracks().forEach((track) => {
+            pc.addTrack(track, stream!);
+          });
+        });
+
+        // Slice into real-time audio chunks for Centrifugo broadcast fallback
+        try {
+          const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+          bgMediaRecorderRef.current = recorder;
+          bgChunkIndexRef.current = 0;
+
+          recorder.ondataavailable = async (event) => {
+            if (
+              event.data.size > 0 &&
+              isLocalDJRef.current &&
+              localBgAudioElRef.current &&
+              !localBgAudioElRef.current.paused
+            ) {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                if (!isLocalDJRef.current) return; // Guard against late chunk delivery after stop
+                const base64 = reader.result as string;
+                api.sendPodBgMusic(
+                  podId,
+                  'CHUNK',
+                  trackName,
+                  audio.currentTime,
+                  audio.duration,
+                  base64,
+                  bgChunkIndexRef.current++
+                ).catch(() => {});
+              };
+              reader.readAsDataURL(event.data);
+            }
+          };
+
+          recorder.start(1000); // 1000ms chunk slices
+        } catch (recErr) {
+          console.warn('Could not start background audio recorder:', recErr);
+        }
+      }
+    } catch (err) {
+      isLocalDJRef.current = false;
+      console.error('Error sharing local audio file:', err);
+    }
+  };
+
+  const startSharingSystemAudio = async () => {
+    try {
+      stopSharingBgMusic();
+      isLocalDJRef.current = true;
+
+      const displayStream = await navigator.mediaDevices.getDisplayMedia({
+        audio: true,
+        video: true,
+      });
+
+      // Stop video track immediately, keeping only audio
+      displayStream.getVideoTracks().forEach((vt) => vt.stop());
+
+      const audioTrack = displayStream.getAudioTracks()[0];
+      if (!audioTrack) {
+        throw new Error('No system/tab audio track detected.');
+      }
+
+      const stream = new MediaStream([audioTrack]);
+      bgMediaStreamRef.current = stream;
+
+      // Play locally into Web Audio gain node
+      const ctx = getAudioContext();
+      const src = ctx.createMediaStreamSource(stream);
+      const bgGain = getBgMusicGainNode();
+      src.connect(bgGain);
+
+      const trackTitle = 'Live Computer / Tab Audio 🖥️';
+
+      setBgMusic({
+        isActive: true,
+        isPlaying: true,
+        djUserId: currentPersona.id,
+        djUsername: currentPersona.username,
+        djDisplayName: currentPersona.displayName,
+        djAvatarUrl: currentPersona.avatarUrl,
+        trackTitle,
+        currentTime: 0,
+        duration: 0,
+      });
+
+      await api.sendPodBgMusic(podId, 'PLAY', trackTitle, 0, 0);
+
+      // Add to WebRTC peer connections
+      peerConnectionsRef.current.forEach((pc) => {
+        pc.addTrack(audioTrack, stream);
+      });
+
+      // Chunk streaming
+      try {
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        bgMediaRecorderRef.current = recorder;
+        bgChunkIndexRef.current = 0;
+
+        recorder.ondataavailable = (event) => {
+          if (event.data.size > 0 && isLocalDJRef.current) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (!isLocalDJRef.current) return;
+              const base64 = reader.result as string;
+              api.sendPodBgMusic(
+                podId,
+                'CHUNK',
+                trackTitle,
+                0,
+                0,
+                base64,
+                bgChunkIndexRef.current++
+              ).catch(() => {});
+            };
+            reader.readAsDataURL(event.data);
+          }
+        };
+
+        recorder.start(1000);
+      } catch (err) {
+        console.warn('MediaRecorder error for system audio:', err);
+      }
+
+      audioTrack.onended = () => {
+        stopSharingBgMusic();
+      };
+    } catch (err) {
+      isLocalDJRef.current = false;
+      console.error('Error capturing system audio:', err);
+    }
+  };
+
+  const pauseBgMusic = () => {
+    if (localBgAudioElRef.current) {
+      localBgAudioElRef.current.pause();
+    }
+    api.sendPodBgMusic(podId, 'PAUSE', bgMusic.trackTitle).catch(() => {});
+    setBgMusic((prev) => ({ ...prev, isPlaying: false }));
+  };
+
+  const resumeBgMusic = () => {
+    if (localBgAudioElRef.current) {
+      localBgAudioElRef.current.play();
+    }
+    api.sendPodBgMusic(podId, 'PLAY', bgMusic.trackTitle).catch(() => {});
+    setBgMusic((prev) => ({ ...prev, isPlaying: true }));
+  };
+
+  const stopSharingBgMusic = () => {
+    const wasLocalDJ =
+      isLocalDJRef.current ||
+      bgMusic.djUserId === currentPersona.id ||
+      localBgAudioElRef.current !== null ||
+      bgMediaStreamRef.current !== null;
+
+    isLocalDJRef.current = false;
+
+    if (bgMediaRecorderRef.current) {
+      try {
+        if (bgMediaRecorderRef.current.state !== 'inactive') {
+          bgMediaRecorderRef.current.stop();
+        }
+      } catch {}
+      bgMediaRecorderRef.current = null;
+    }
+
+    if (bgMediaStreamRef.current) {
+      bgMediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      bgMediaStreamRef.current = null;
+    }
+
+    if (localBgAudioElRef.current) {
+      localBgAudioElRef.current.pause();
+      localBgAudioElRef.current.src = '';
+      localBgAudioElRef.current = null;
+    }
+
+    if (wasLocalDJ) {
+      api.sendPodBgMusic(podId, 'STOP').catch(() => {});
+    }
+
+    setBgMusic({
+      isActive: false,
+      isPlaying: false,
+      djUserId: null,
+      djUsername: null,
+      djDisplayName: null,
+      djAvatarUrl: null,
+      trackTitle: '',
+      currentTime: 0,
+      duration: 0,
+    });
+  };
+
+  const toggleBgMusicMute = () => {
+    setIsBgMusicMuted((prev) => !prev);
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -592,8 +1065,23 @@ export function usePodVoiceEngine({
         audio.srcObject = null;
       });
       remoteAudiosRef.current.clear();
+
+      if (isLocalDJRef.current) {
+        api.sendPodBgMusic(podId, 'STOP').catch(() => {});
+        isLocalDJRef.current = false;
+      }
+
+      if (bgMediaRecorderRef.current) {
+        try { bgMediaRecorderRef.current.stop(); } catch {}
+      }
+      if (bgMediaStreamRef.current) {
+        bgMediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      if (localBgAudioElRef.current) {
+        localBgAudioElRef.current.pause();
+      }
     };
-  }, []);
+  }, [podId]);
 
   return {
     isOnStage,
@@ -607,6 +1095,16 @@ export function usePodVoiceEngine({
     setRoomVolume,
     isAudioMuted,
     setIsAudioMuted,
+    bgMusic,
+    bgMusicVolume,
+    setBgMusicVolume,
+    isBgMusicMuted,
+    toggleBgMusicMute,
+    startSharingLocalFile,
+    startSharingSystemAudio,
+    pauseBgMusic,
+    resumeBgMusic,
+    stopSharingBgMusic,
     handleJoinStage,
     handleLeaveStage,
     toggleMute,

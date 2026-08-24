@@ -118,7 +118,7 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
                   <span>{isArabic ? 'فتح صانع الميم التفاعلي' : 'Draw Meme in Canvas Lab'}</span>
                 </span>
                 <span className="text-[10px] px-2 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-300 font-bold">
-                  {isArabic ? 'صيغة WebP' : 'WebP'}
+                  {isArabic ? 'استوديو التصميم' : 'Meme Studio'}
                 </span>
               </button>
 

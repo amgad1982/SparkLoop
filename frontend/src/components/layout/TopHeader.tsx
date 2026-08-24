@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
+import { TabType } from './BottomNavBar';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { PersonaSwitcher } from './PersonaSwitcher';
-import { Languages, Radio, Sparkles, User } from 'lucide-react';
+import { Languages, Radio, Sparkles, User, Users } from 'lucide-react';
 
 interface TopHeaderProps {
   isConnected?: boolean;
+  onNavigateTab?: (tab: TabType) => void;
 }
 
-export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true }) => {
+export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true, onNavigateTab }) => {
   const { currentPersona } = useAuthStore();
   const { locale, toggleLocale } = useThemeStore();
   const [modalConfig, setModalConfig] = useState<{ isOpen: boolean; tab: 'switch' | 'register' }>({
@@ -19,7 +21,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true }) => {
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full glass-panel border-b border-zinc-800/80 px-4 py-3">
+      <header className="md:hidden sticky top-0 z-40 w-full glass-panel border-b border-zinc-800/80 px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
           {/* Logo & Realtime Status */}
           <div className="flex items-center gap-2.5">
@@ -43,7 +45,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true }) => {
                     isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'
                   }`}
                 />
-                <span>{isConnected ? (isArabic ? 'متصل لحظياً' : 'Centrifugo v5 Active') : (isArabic ? 'جاري الاتصال' : 'Connecting')}</span>
+                <span>{isConnected ? (isArabic ? 'متصل لحظياً' : 'Live Connected') : (isArabic ? 'جاري الاتصال' : 'Connecting')}</span>
               </div>
             </div>
           </div>
@@ -62,9 +64,15 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true }) => {
 
             {/* Persona Avatar Switcher Trigger */}
             <button
-              onClick={() => setModalConfig({ isOpen: true, tab: 'switch' })}
+              onClick={() => {
+                if (onNavigateTab) {
+                  onNavigateTab('profile');
+                } else {
+                  setModalConfig({ isOpen: true, tab: 'switch' });
+                }
+              }}
               className="flex items-center gap-2 p-1 pr-2.5 rtl:pr-1 rtl:pl-2.5 rounded-2xl bg-zinc-900 border border-zinc-800 hover:border-fuchsia-500/50 transition-all text-xs"
-              title={isArabic ? 'تبديل الشخصية أو تسجيل حساب جديد' : 'Switch persona or register account'}
+              title={isArabic ? 'عرض الملف الشخصي' : 'View Profile'}
             >
               <img
                 src={currentPersona.avatarUrl}

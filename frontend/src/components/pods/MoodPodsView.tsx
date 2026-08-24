@@ -233,7 +233,7 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
 
                   <span className="flex items-center gap-1 text-amber-400 font-mono">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>{pod.timeRemaining ? `${String(pod.timeRemaining).split('.')[0]}` : '24h TTL'}</span>
+                    <span>{pod.timeRemaining ? `${String(pod.timeRemaining).split('.')[0]}` : '24h'}</span>
                   </span>
                 </div>
 

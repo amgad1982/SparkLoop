@@ -74,10 +74,15 @@ export const api = {
   // User Profile
   getUserProfile: (username?: string) =>
     fetchWithAuth<UserProfileDto>(username ? `/users/profile/${encodeURIComponent(username)}` : '/users/me'),
-  updateProfile: (data: { displayName: string; bio?: string; avatarUrl?: string }) =>
+  updateProfile: (data: { displayName: string; bio?: string; avatarUrl?: string; email?: string }) =>
     fetchWithAuth<UserDto>('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
+    }),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    fetchWithAuth<boolean>('/users/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
     }),
 
   // Sparks
@@ -161,6 +166,26 @@ export const api = {
     fetchWithAuth<boolean>(`/moodpods/${podId}/audio-chunk`, {
       method: 'POST',
       body: JSON.stringify({ audioBase64, chunkIndex, durationMs }),
+    }),
+  sendPodBgMusic: (
+    podId: string,
+    action: string,
+    trackTitle?: string,
+    currentTime?: number,
+    duration?: number,
+    audioBase64?: string,
+    chunkIndex?: number
+  ) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/bg-music`, {
+      method: 'POST',
+      body: JSON.stringify({
+        action,
+        trackTitle,
+        currentTime,
+        duration,
+        audioBase64,
+        chunkIndex,
+      }),
     }),
 
   // Media Upload
