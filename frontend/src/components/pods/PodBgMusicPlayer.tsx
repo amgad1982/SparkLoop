@@ -108,12 +108,12 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
       <div className="flex items-center gap-2">
         {bgMusic.isActive ? (
           /* Active Playing Banner */
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-fuchsia-950/80 via-zinc-900/90 to-cyan-950/80 border border-fuchsia-500/40 shadow-lg backdrop-blur-md">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-gradient-to-r from-fuchsia-50 via-white to-cyan-50 dark:from-fuchsia-950/80 dark:via-zinc-900/90 dark:to-cyan-950/80 border border-fuchsia-300 dark:border-fuchsia-500/40 shadow-lg backdrop-blur-md transition-colors">
             {/* Equalizer dancing bars */}
             <div className="flex items-end gap-0.5 h-3.5 px-0.5">
-              <span className={`w-1 bg-fuchsia-400 rounded-full transition-all ${bgMusic.isPlaying ? 'h-3.5 animate-pulse' : 'h-1.5'}`} />
-              <span className={`w-1 bg-purple-400 rounded-full transition-all ${bgMusic.isPlaying ? 'h-2.5 animate-bounce' : 'h-1'}`} />
-              <span className={`w-1 bg-cyan-400 rounded-full transition-all ${bgMusic.isPlaying ? 'h-3.5 animate-pulse' : 'h-2'}`} />
+              <span className={`w-1 bg-fuchsia-500 dark:bg-fuchsia-400 rounded-full transition-all ${bgMusic.isPlaying ? 'h-3.5 animate-pulse' : 'h-1.5'}`} />
+              <span className={`w-1 bg-purple-500 dark:bg-purple-400 rounded-full transition-all ${bgMusic.isPlaying ? 'h-2.5 animate-bounce' : 'h-1'}`} />
+              <span className={`w-1 bg-cyan-500 dark:bg-cyan-400 rounded-full transition-all ${bgMusic.isPlaying ? 'h-3.5 animate-pulse' : 'h-2'}`} />
             </div>
 
             {/* DJ Avatar & Track info */}
@@ -121,30 +121,30 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
               <img
                 src={bgMusic.djAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${bgMusic.djUsername}`}
                 alt={bgMusic.djUsername || 'DJ'}
-                className="w-5 h-5 rounded-full border border-fuchsia-500/50 shrink-0 object-cover"
+                className="w-5 h-5 rounded-full border border-fuchsia-400 dark:border-fuchsia-500/50 shrink-0 object-cover"
               />
               <div className="min-w-0">
-                <div className="text-[11px] font-bold text-fuchsia-200 truncate leading-tight">
+                <div className="text-[11px] font-bold text-fuchsia-900 dark:text-fuchsia-200 truncate leading-tight">
                   {bgMusic.trackTitle || (isArabic ? 'بث صوتي مباشر' : 'Live Audio')}
                 </div>
-                <div className="text-[9px] text-zinc-400 truncate">
+                <div className="text-[9px] text-zinc-500 dark:text-zinc-400 truncate">
                   DJ @{bgMusic.djUsername}
                 </div>
               </div>
             </div>
 
             {/* Listener Volume & Mute Controls */}
-            <div className="flex items-center gap-1.5 pl-1 border-l rtl:pl-0 rtl:pr-1 rtl:border-l-0 rtl:border-r border-zinc-700/60">
+            <div className="flex items-center gap-1.5 pl-1 border-l rtl:pl-0 rtl:pr-1 rtl:border-l-0 rtl:border-r border-zinc-300 dark:border-zinc-700/60">
               <button
                 type="button"
                 onClick={onToggleMute}
-                className="text-zinc-400 hover:text-white transition-colors"
+                className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors"
                 title={isBgMusicMuted ? 'Unmute background audio' : 'Mute background audio'}
               >
                 {isBgMusicMuted ? (
-                  <VolumeX className="w-3.5 h-3.5 text-rose-400" />
+                  <VolumeX className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                 ) : (
-                  <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
+                  <Volume2 className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                 )}
               </button>
 
@@ -162,12 +162,12 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
 
             {/* DJ Specific Controls */}
             {isLocalDJ && (
-              <div className="flex items-center gap-1 pl-1 border-l rtl:pl-0 rtl:pr-1 rtl:border-l-0 rtl:border-r border-zinc-700/60">
+              <div className="flex items-center gap-1 pl-1 border-l rtl:pl-0 rtl:pr-1 rtl:border-l-0 rtl:border-r border-zinc-300 dark:border-zinc-700/60">
                 {bgMusic.isPlaying ? (
                   <button
                     type="button"
                     onClick={onPause}
-                    className="p-1 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200"
+                    className="p-1 rounded-lg bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200"
                     title="Pause"
                   >
                     <Pause className="w-3 h-3" />
@@ -186,7 +186,7 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                 <button
                   type="button"
                   onClick={onStopSharing}
-                  className="p-1 rounded-lg bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300"
+                  className="p-1 rounded-lg bg-rose-100 dark:bg-rose-950/60 hover:bg-rose-200 dark:hover:bg-rose-900 border border-rose-300 dark:border-rose-800/60 text-rose-700 dark:text-rose-300"
                   title="Stop Sharing"
                 >
                   <Square className="w-3 h-3 fill-current" />
@@ -199,10 +199,10 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
           <button
             type="button"
             onClick={() => setIsShareModalOpen(true)}
-            className="px-3 py-1.5 rounded-xl border border-fuchsia-500/40 bg-fuchsia-950/40 hover:bg-fuchsia-900/50 text-fuchsia-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95 group"
+            className="px-3 py-1.5 rounded-xl border border-fuchsia-300 dark:border-fuchsia-500/40 bg-fuchsia-50/80 dark:bg-fuchsia-950/40 hover:bg-fuchsia-100 dark:hover:bg-fuchsia-900/50 text-fuchsia-700 dark:text-fuchsia-300 text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 group"
             title={isArabic ? 'مشاركة وبث صوت من جهازك' : 'Play & Share audio from your machine'}
           >
-            <Disc3 className="w-3.5 h-3.5 text-fuchsia-400 group-hover:rotate-180 transition-transform duration-500" />
+            <Disc3 className="w-3.5 h-3.5 text-fuchsia-500 dark:text-fuchsia-400 group-hover:rotate-180 transition-transform duration-500" />
             <span className="hidden sm:inline">
               {isArabic ? 'بث صوت محلي 🎵' : 'Share Audio 🎵'}
             </span>
@@ -225,7 +225,7 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
           <AnimatePresence>
             {isShareModalOpen && (
               <div
-                className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+                className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md"
                 onClick={() => setIsShareModalOpen(false)}
               >
                 <motion.div
@@ -233,21 +233,21 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 15 }}
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl text-white space-y-5 relative z-10"
+                  className="w-full max-w-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl text-zinc-900 dark:text-white space-y-5 relative z-10 transition-colors"
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-purple-600 p-0.5 flex items-center justify-center shadow-lg">
-                        <div className="w-full h-full bg-zinc-950 rounded-[14px] flex items-center justify-center">
-                          <Music className="w-4 h-4 text-fuchsia-400" />
+                        <div className="w-full h-full bg-white dark:bg-zinc-950 rounded-[14px] flex items-center justify-center">
+                          <Music className="w-4 h-4 text-fuchsia-500 dark:text-fuchsia-400" />
                         </div>
                       </div>
                       <div>
-                        <h3 className="font-bold text-base">
+                        <h3 className="font-bold text-base text-zinc-900 dark:text-white">
                           {isArabic ? 'مشاركة وبث مقطع صوتي في الحجرة' : 'Share Background Music'}
                         </h3>
-                        <p className="text-[11px] text-zinc-400">
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                           {isArabic
                             ? 'شغّل مقطع صوت من جهازك ليسمعه الجميع في الخلفية أثناء التحدث بالمايك'
                             : 'Play audio from your machine live in the room background without file uploads'}
@@ -258,7 +258,7 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                     <button
                       type="button"
                       onClick={() => setIsShareModalOpen(false)}
-                      className="p-2 text-zinc-400 hover:text-white rounded-full bg-zinc-800 transition-colors"
+                      className="p-2 text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full bg-zinc-100 dark:bg-zinc-800 transition-colors"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -270,16 +270,16 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="p-4 rounded-2xl border border-fuchsia-500/40 bg-gradient-to-b from-fuchsia-950/40 to-zinc-950 hover:border-fuchsia-400 hover:scale-[1.02] text-left rtl:text-right space-y-2 transition-all group shadow-md"
+                      className="p-4 rounded-2xl border border-fuchsia-300 dark:border-fuchsia-500/40 bg-gradient-to-b from-fuchsia-50 via-white to-stone-50 dark:from-fuchsia-950/40 dark:to-zinc-950 hover:border-fuchsia-400 hover:scale-[1.02] text-left rtl:text-right space-y-2 transition-all group shadow-sm"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-fuchsia-600/30 text-fuchsia-300 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <div className="w-8 h-8 rounded-xl bg-fuchsia-500/20 text-fuchsia-600 dark:text-fuchsia-300 flex items-center justify-center group-hover:scale-110 transition-transform">
                         <FileAudio className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="font-bold text-xs text-white">
+                        <div className="font-bold text-xs text-zinc-900 dark:text-white">
                           {isArabic ? 'ملف صوت من جهازك' : 'Local Audio File'}
                         </div>
-                        <div className="text-[10px] text-zinc-400">
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                           {isArabic ? 'MP3, WAV, M4A, FLAC, OGG' : 'Direct local playback'}
                         </div>
                       </div>
@@ -289,16 +289,16 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                     <button
                       type="button"
                       onClick={handleSelectSystemAudio}
-                      className="p-4 rounded-2xl border border-cyan-500/40 bg-gradient-to-b from-cyan-950/40 to-zinc-950 hover:border-cyan-400 hover:scale-[1.02] text-left rtl:text-right space-y-2 transition-all group shadow-md"
+                      className="p-4 rounded-2xl border border-cyan-300 dark:border-cyan-500/40 bg-gradient-to-b from-cyan-50 via-white to-stone-50 dark:from-cyan-950/40 dark:to-zinc-950 hover:border-cyan-400 hover:scale-[1.02] text-left rtl:text-right space-y-2 transition-all group shadow-sm"
                     >
-                      <div className="w-8 h-8 rounded-xl bg-cyan-600/30 text-cyan-300 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 flex items-center justify-center group-hover:scale-110 transition-transform">
                         <Monitor className="w-4 h-4" />
                       </div>
                       <div>
-                        <div className="font-bold text-xs text-white">
+                        <div className="font-bold text-xs text-zinc-900 dark:text-white">
                           {isArabic ? 'صوت النظام أو المتصفح' : 'System / Tab Audio'}
                         </div>
-                        <div className="text-[10px] text-zinc-400">
+                        <div className="text-[10px] text-zinc-500 dark:text-zinc-400">
                           {isArabic ? 'Spotify, YouTube, تبويب' : 'Live stream computer sound'}
                         </div>
                       </div>
@@ -306,8 +306,8 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                   </div>
 
                   {/* Option 3: Quick Preset Vibes */}
-                  <div className="space-y-2 pt-2 border-t border-zinc-800">
-                    <span className="text-[11px] font-bold text-zinc-400 block">
+                  <div className="space-y-2 pt-2 border-t border-zinc-200 dark:border-zinc-800">
+                    <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 block">
                       {isArabic ? 'أو اختر مقطوعة جاهزة للبث المباشر:' : 'Or pick a live vibe track:'}
                     </span>
                     <div className="space-y-1.5">
@@ -317,12 +317,12 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                           type="button"
                           disabled={isLoadingPreset === preset.id}
                           onClick={() => handleSelectPreset(preset)}
-                          className="w-full p-2.5 rounded-xl bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 flex items-center justify-between text-xs font-semibold transition-all group"
+                          className="w-full p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950 hover:bg-zinc-100 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 flex items-center justify-between text-xs font-semibold text-zinc-800 dark:text-zinc-200 transition-all group shadow-sm"
                         >
                           <span className="truncate">
                             {isArabic ? preset.titleAr : preset.title}
                           </span>
-                          <span className="text-[10px] font-bold text-fuchsia-400 group-hover:text-fuchsia-300 shrink-0">
+                          <span className="text-[10px] font-bold text-fuchsia-600 dark:text-fuchsia-400 group-hover:text-fuchsia-500 shrink-0">
                             {isLoadingPreset === preset.id
                               ? (isArabic ? 'جاري التشغيل...' : 'Loading...')
                               : (isArabic ? 'تشغيل 🎵' : 'Play 🎵')}

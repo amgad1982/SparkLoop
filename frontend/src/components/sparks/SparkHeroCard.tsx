@@ -4,6 +4,7 @@ import { SparkDto, SparkSubmissionDto } from '../../types/api';
 import { useCentrifugo } from '../../hooks/useCentrifugo';
 import { VoteButton } from './VoteButton';
 import { api, getMediaUrl } from '../../services/apiClient';
+import { Tooltip } from '../ui/Tooltip';
 import { Clock, Crown, Flame, Plus, Sparkles, Trophy, Upload } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -289,31 +290,36 @@ export const SparkHeroCard: React.FC<SparkHeroCardProps> = ({
 
           {/* CTA Buttons */}
           <div className="flex items-center gap-3 pt-2">
-            <button
-              onClick={onOpenCanvas}
-              className="flex-1 py-3 px-4 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-95 transition-all spark-glow"
-            >
-              <Sparkles className="w-4 h-4 text-amber-300" />
-              <span>{isArabic ? 'رسم ميم والتسليم بالكانفاس' : 'Open Meme Canvas 🎨'}</span>
-            </button>
+            <Tooltip content={isArabic ? 'تصميم ميم رسومي كامل للتحدي اليومي' : 'Create full meme artwork for challenge'} position="top" className="flex-1">
+              <button
+                onClick={onOpenCanvas}
+                className="w-full py-3 px-4 rounded-2xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 active:scale-95 transition-all spark-glow"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>{isArabic ? 'رسم ميم والتسليم بالكانفاس' : 'Open Meme Canvas 🎨'}</span>
+              </button>
+            </Tooltip>
 
-            <button
-              onClick={() => setIsSubmittingQuick(!isSubmittingQuick)}
-              className="py-3 px-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-xs sm:text-sm font-bold text-zinc-300 flex items-center gap-1.5 transition-colors"
-            >
-              <Plus className="w-4 h-4 text-cyan-400" />
-              <span>{isArabic ? 'مشاركة سريعة' : 'Quick Text'}</span>
-            </button>
+            <Tooltip content={isArabic ? 'مشاركة سريعة بتوليد بطاقة ميم تلقائية' : 'Quick text submission with auto-styled card'} position="top">
+              <button
+                onClick={() => setIsSubmittingQuick(!isSubmittingQuick)}
+                className="py-3 px-4 rounded-2xl bg-zinc-900/90 dark:bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/60 dark:border-zinc-800 text-xs sm:text-sm font-bold text-zinc-100 dark:text-zinc-300 flex items-center gap-1.5 transition-colors shadow-sm"
+              >
+                <Plus className="w-4 h-4 text-cyan-400" />
+                <span>{isArabic ? 'مشاركة سريعة' : 'Quick Text'}</span>
+              </button>
+            </Tooltip>
 
             {!isCompleted && (
-              <button
-                disabled={isResolving}
-                onClick={handleResolveWinner}
-                className="py-3 px-3 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-400 hover:text-amber-300 text-xs font-bold transition-colors"
-                title="Resolve Winner (Demo/Cron)"
-              >
-                <Crown className="w-4 h-4" />
-              </button>
+              <Tooltip content={isArabic ? 'تتويج الفائز صاحب أعلى تصويت فوراً' : 'Crown the top-voted champion now'} position="top">
+                <button
+                  disabled={isResolving}
+                  onClick={handleResolveWinner}
+                  className="py-3 px-3 rounded-2xl bg-amber-950/40 border border-amber-500/40 text-amber-400 hover:text-amber-300 text-xs font-bold transition-colors shadow-sm"
+                >
+                  <Crown className="w-4 h-4" />
+                </button>
+              </Tooltip>
             )}
           </div>
 

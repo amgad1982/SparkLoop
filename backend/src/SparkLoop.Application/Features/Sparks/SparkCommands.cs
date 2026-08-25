@@ -154,13 +154,23 @@ public class VoteSparkSubmissionCommandHandler : IRequestHandler<VoteSparkSubmis
 
         var userId = _currentUserService.UserId ?? Guid.Parse("33333333-3333-3333-3333-333333333333");
 
-        spark.VoteForSubmission(request.SubmissionId, userId);
+        var submission = spark.Submissions.FirstOrDefault(s => s.Id == request.SubmissionId)
+            ?? throw new NotFoundException("SparkSubmission", request.SubmissionId);
 
-        var submission = spark.Submissions.First(s => s.Id == request.SubmissionId);
+        var vote = submission.ToggleOrAddVote(userId, out var wasAdded, out var removedVote);
 
-        // Award reputation to author on receiving a vote
-        var author = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == submission.AuthorId, cancellationToken);
-        author?.AddReputation(5);
+        if (wasAdded && vote is not null)
+        {
+            _dbContext.SparkVotes.Add(vote);
+
+            // Award reputation to author on receiving a vote
+            var author = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == submission.AuthorId, cancellationToken);
+            author?.AddReputation(5);
+        }
+        else if (removedVote is not null)
+        {
+            _dbContext.SparkVotes.Remove(removedVote);
+        }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 

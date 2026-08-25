@@ -4,6 +4,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { api } from '../../services/apiClient';
 import { PostDto } from '../../types/api';
 import { HashtagAutocomplete } from '../common/HashtagAutocomplete';
+import { Tooltip } from '../ui/Tooltip';
 import { Image, Palette, Send, Sparkles, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -68,31 +69,33 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm">
           <motion.div
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            className="w-full max-w-md bg-zinc-900 border-t border-zinc-800 rounded-t-3xl p-5 space-y-4 text-white shadow-2xl"
+            className="w-full max-w-md bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 rounded-t-3xl p-5 space-y-4 text-zinc-900 dark:text-white shadow-2xl transition-colors duration-200"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <img
                   src={currentPersona.avatarUrl}
                   alt={currentPersona.username}
-                  className="w-8 h-8 rounded-full border border-zinc-700 object-cover"
+                  className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover"
                 />
                 <div>
-                  <h3 className="font-bold text-sm text-zinc-100">{currentPersona.displayName}</h3>
-                  <span className="text-[10px] text-zinc-400">@{currentPersona.username}</span>
+                  <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{currentPersona.displayName}</h3>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400">@{currentPersona.username}</span>
                 </div>
               </div>
-              <button
-                onClick={onClose}
-                className="p-1.5 text-zinc-400 hover:text-white rounded-full bg-zinc-800"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <Tooltip content={isArabic ? 'إغلاق' : 'Close'} position="bottom">
+                <button
+                  onClick={onClose}
+                  className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full bg-zinc-100 dark:bg-zinc-800 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </Tooltip>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -113,7 +116,7 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
                       ? 'ماذا يدور في ذهنك؟ اكتب # لاختيار أو كتابة وسم (<= 280 حرف)...'
                       : "What's happening? Type # to add hashtags (<= 280 chars)..."
                   }
-                  className="w-full p-3 bg-zinc-950 border border-zinc-800 rounded-2xl text-xs text-white resize-none focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500"
+                  className="w-full p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs text-zinc-900 dark:text-white resize-none focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 shadow-sm"
                 />
 
                 {/* Hashtag Autocomplete Popup */}
@@ -126,7 +129,7 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
 
                 <span
                   className={`absolute bottom-2.5 right-3 rtl:right-auto rtl:left-3 text-[11px] font-bold ${
-                    charsRemaining < 20 ? 'text-amber-400' : 'text-zinc-500'
+                    charsRemaining < 20 ? 'text-amber-500' : 'text-zinc-400'
                   }`}
                 >
                   {charsRemaining}
@@ -134,37 +137,41 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
               </div>
 
               {/* Meme Canvas Shortcut */}
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  onOpenCanvas();
-                }}
-                className="w-full p-2.5 bg-zinc-950 border border-zinc-800 hover:border-fuchsia-500/50 rounded-2xl flex items-center justify-between text-xs text-zinc-300 transition-colors"
-              >
-                <span className="flex items-center gap-2">
-                  <Palette className="w-4 h-4 text-fuchsia-400" />
-                  <span>{isArabic ? 'فتح صانع الميم التفاعلي' : 'Draw Meme in Canvas Lab'}</span>
-                </span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-fuchsia-500/20 text-fuchsia-300 font-bold">
-                  {isArabic ? 'استوديو التصميم' : 'Meme Studio'}
-                </span>
-              </button>
+              <Tooltip content={isArabic ? 'فتح استوديو تصميم الميمز المتكامل' : 'Open Full Meme Canvas Studio'} position="top" className="w-full">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenCanvas();
+                  }}
+                  className="w-full p-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-fuchsia-500/50 rounded-2xl flex items-center justify-between text-xs text-zinc-700 dark:text-zinc-300 transition-colors shadow-sm"
+                >
+                  <span className="flex items-center gap-2">
+                    <Palette className="w-4 h-4 text-fuchsia-500 dark:text-fuchsia-400" />
+                    <span>{isArabic ? 'فتح صانع الميم التفاعلي' : 'Draw Meme in Canvas Lab'}</span>
+                  </span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-fuchsia-500/10 dark:bg-fuchsia-500/20 text-fuchsia-600 dark:text-fuchsia-300 font-bold border border-fuchsia-500/30">
+                    {isArabic ? 'استوديو التصميم' : 'Meme Studio'}
+                  </span>
+                </button>
+              </Tooltip>
 
               {error && (
-                <div className="p-2.5 bg-rose-950/40 border border-rose-800 text-xs text-rose-300 rounded-xl">
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 text-xs text-rose-600 dark:text-rose-300 rounded-xl">
                   {error}
                 </div>
               )}
 
-              <button
-                type="submit"
-                disabled={isSubmitting || !content.trim()}
-                className="w-full py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg spark-glow"
-              >
-                <Send className="w-4 h-4" />
-                <span>{isSubmitting ? (isArabic ? 'جاري النشر...' : 'Publishing...') : (isArabic ? 'نشر التدوينة ✨' : 'Publish Post ✨')}</span>
-              </button>
+              <Tooltip content={isArabic ? 'نشر التدوينة للجميع' : 'Publish post to feed'} position="top" className="w-full">
+                <button
+                  type="submit"
+                  disabled={isSubmitting || !content.trim()}
+                  className="w-full py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg spark-glow"
+                >
+                  <Send className="w-4 h-4" />
+                  <span>{isSubmitting ? (isArabic ? 'جاري النشر...' : 'Publishing...') : (isArabic ? 'نشر التدوينة ✨' : 'Publish Post ✨')}</span>
+                </button>
+              </Tooltip>
             </form>
           </motion.div>
         </div>

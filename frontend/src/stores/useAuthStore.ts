@@ -70,7 +70,20 @@ export const useAuthStore = create<AuthState>()(
       customPersonas: [],
       currentUser: null,
       centrifugoToken: null,
-      setPersona: (persona) => set({ currentPersona: persona }),
+      setPersona: (persona) => {
+        set({ currentPersona: persona });
+        if (persona.username !== 'guest') {
+          import('../services/apiClient').then(({ api }) => {
+            api.getUserProfile(persona.username).then((profile) => {
+              if (profile) {
+                import('./useThemeStore').then(({ useThemeStore }) => {
+                  useThemeStore.getState().syncFromUser(profile.preferredTheme, profile.preferredLanguage);
+                });
+              }
+            }).catch(() => {});
+          });
+        }
+      },
       addCustomPersona: (persona) =>
         set((state) => ({
           customPersonas: [
@@ -79,7 +92,14 @@ export const useAuthStore = create<AuthState>()(
           ],
           currentPersona: persona,
         })),
-      setUser: (user) => set({ currentUser: user }),
+      setUser: (user) => {
+        set({ currentUser: user });
+        if (user) {
+          import('./useThemeStore').then(({ useThemeStore }) => {
+            useThemeStore.getState().syncFromUser(user.preferredTheme, user.preferredLanguage);
+          });
+        }
+      },
       setCentrifugoToken: (token) => set({ centrifugoToken: token }),
       logout: () =>
         set({

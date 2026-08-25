@@ -33,13 +33,24 @@ public class User : AggregateRoot<Guid>
     public string? AvatarUrl { get; private set; }
     public string? Bio { get; private set; }
     public string? PasswordHash { get; private set; }
+    public string PreferredTheme { get; private set; } = "dark";
+    public string PreferredLanguage { get; private set; } = "en";
     public RepScore RepScore { get; private set; } = RepScore.Zero;
     public DateTime CreatedAtUtc { get; private set; }
     public IReadOnlyCollection<Badge> Badges => _badges.AsReadOnly();
 
     private User() : base() { }
 
-    public static User Create(Guid id, string username, string email, string displayName, string? avatarUrl = null, string? bio = null, string? passwordHash = null)
+    public static User Create(
+        Guid id,
+        string username,
+        string email,
+        string displayName,
+        string? avatarUrl = null,
+        string? bio = null,
+        string? passwordHash = null,
+        string preferredTheme = "dark",
+        string preferredLanguage = "en")
     {
         var user = new User
         {
@@ -50,6 +61,8 @@ public class User : AggregateRoot<Guid>
             AvatarUrl = avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={username}",
             Bio = bio,
             PasswordHash = passwordHash,
+            PreferredTheme = string.IsNullOrWhiteSpace(preferredTheme) ? "dark" : preferredTheme.Trim().ToLowerInvariant(),
+            PreferredLanguage = string.IsNullOrWhiteSpace(preferredLanguage) ? "en" : preferredLanguage.Trim().ToLowerInvariant(),
             RepScore = RepScore.Zero,
             CreatedAtUtc = DateTime.UtcNow
         };
@@ -62,7 +75,13 @@ public class User : AggregateRoot<Guid>
         PasswordHash = passwordHash;
     }
 
-    public void UpdateProfile(string displayName, string? bio, string? avatarUrl, string? email = null)
+    public void UpdateProfile(
+        string displayName,
+        string? bio,
+        string? avatarUrl,
+        string? email = null,
+        string? preferredTheme = null,
+        string? preferredLanguage = null)
     {
         if (!string.IsNullOrWhiteSpace(displayName))
         {
@@ -78,6 +97,16 @@ public class User : AggregateRoot<Guid>
         if (!string.IsNullOrWhiteSpace(avatarUrl))
         {
             AvatarUrl = avatarUrl;
+        }
+
+        if (!string.IsNullOrWhiteSpace(preferredTheme))
+        {
+            PreferredTheme = preferredTheme.Trim().ToLowerInvariant();
+        }
+
+        if (!string.IsNullOrWhiteSpace(preferredLanguage))
+        {
+            PreferredLanguage = preferredLanguage.Trim().ToLowerInvariant();
         }
     }
 

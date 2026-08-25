@@ -112,7 +112,9 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, A
             user.Bio,
             user.RepScore.Value,
             badges,
-            user.CreatedAtUtc
+            user.CreatedAtUtc,
+            user.PreferredTheme,
+            user.PreferredLanguage
         );
     }
 }
@@ -150,7 +152,7 @@ public class LoginUserCommandHandler : IRequestHandler<LoginUserCommand, AuthRes
                 normalized,
                 $"{normalized}@sparkloop.app",
                 normalized.ToUpperInvariant(),
-                $"https://api.dicebear.com/7.x/bottts/svg?seed={normalized}",
+                $"https://api.dicebear.com/10.x/bottts/svg?seed={normalized}",
                 "SparkLoop Creator & Storyteller",
                 passwordHash);
 
@@ -249,7 +251,7 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
                 normalizedUsername,
                 $"{normalizedUsername}@sparkloop.app",
                 displayName,
-                $"https://api.dicebear.com/7.x/bottts/svg?seed={normalizedUsername}",
+                $"https://api.dicebear.com/10.x/bottts/svg?seed={normalizedUsername}",
                 "SparkLoop Creator & Storyteller"
             );
 
@@ -329,6 +331,50 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
             )).ToList()
         )).ToList();
 
+        var followersCount = await _dbContext.UserFollows
+            .CountAsync(f => f.FollowingId == user.Id && f.Status == FollowStatus.Accepted, cancellationToken);
+
+        var followingCount = await _dbContext.UserFollows
+            .CountAsync(f => f.FollowerId == user.Id && f.Status == FollowStatus.Accepted, cancellationToken);
+
+        string followStatus = "none";
+        if (_currentUserService.UserId.HasValue)
+        {
+            var myId = _currentUserService.UserId.Value;
+            if (myId == user.Id)
+            {
+                followStatus = "self";
+            }
+            else
+            {
+                var outgoing = await _dbContext.UserFollows
+                    .FirstOrDefaultAsync(f => f.FollowerId == myId && f.FollowingId == user.Id, cancellationToken);
+                var incoming = await _dbContext.UserFollows
+                    .FirstOrDefaultAsync(f => f.FollowerId == user.Id && f.FollowingId == myId, cancellationToken);
+
+                if (outgoing != null && outgoing.Status == FollowStatus.Accepted && incoming != null && incoming.Status == FollowStatus.Accepted)
+                {
+                    followStatus = "mutual";
+                }
+                else if (outgoing != null && outgoing.Status == FollowStatus.Accepted)
+                {
+                    followStatus = "following";
+                }
+                else if (outgoing != null && outgoing.Status == FollowStatus.Pending)
+                {
+                    followStatus = "pending_outgoing";
+                }
+                else if (incoming != null && incoming.Status == FollowStatus.Accepted)
+                {
+                    followStatus = "follow_back";
+                }
+                else if (incoming != null && incoming.Status == FollowStatus.Pending)
+                {
+                    followStatus = "pending_incoming";
+                }
+            }
+        }
+
         return new UserProfileDto(
             user.Id,
             user.Username.Value,
@@ -344,7 +390,12 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
             userChains.Count,
             sparksWon,
             recentPostDtos,
-            recentChainDtos
+            recentChainDtos,
+            user.PreferredTheme,
+            user.PreferredLanguage,
+            followersCount,
+            followingCount,
+            followStatus
         );
     }
 }
@@ -353,7 +404,9 @@ public record UpdateUserProfileCommand(
     string DisplayName,
     string? Bio = null,
     string? AvatarUrl = null,
-    string? Email = null
+    string? Email = null,
+    string? PreferredTheme = null,
+    string? PreferredLanguage = null
 ) : IRequest<UserDto>;
 
 public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfileCommand, UserDto>
@@ -387,8 +440,11 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
                 normalizedUsername,
                 request.Email ?? $"{normalizedUsername}@sparkloop.app",
                 request.DisplayName,
-                request.AvatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={normalizedUsername}",
-                request.Bio ?? "SparkLoop Creator & Storyteller"
+                request.AvatarUrl ?? $"https://api.dicebear.com/10.x/bottts/svg?seed={normalizedUsername}",
+                request.Bio ?? "SparkLoop Creator & Storyteller",
+                null,
+                request.PreferredTheme ?? "dark",
+                request.PreferredLanguage ?? "en"
             );
             user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
             _dbContext.Users.Add(user);
@@ -405,7 +461,14 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
             }
         }
 
-        user.UpdateProfile(request.DisplayName, request.Bio, request.AvatarUrl, request.Email);
+        user.UpdateProfile(
+            request.DisplayName,
+            request.Bio,
+            request.AvatarUrl,
+            request.Email,
+            request.PreferredTheme,
+            request.PreferredLanguage
+        );
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return RegisterUserCommandHandler.MapUserToDto(user);
@@ -456,7 +519,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 normalizedUsername,
                 $"{normalizedUsername}@sparkloop.app",
                 _currentUserService.DisplayName ?? fallbackName,
-                $"https://api.dicebear.com/7.x/bottts/svg?seed={normalizedUsername}",
+                $"https://api.dicebear.com/10.x/bottts/svg?seed={normalizedUsername}",
                 "SparkLoop Creator & Storyteller"
             );
             user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");

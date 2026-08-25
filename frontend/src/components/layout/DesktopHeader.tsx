@@ -1,29 +1,36 @@
 import React from 'react';
 import { TabType } from './BottomNavBar';
 import { useThemeStore } from '../../stores/useThemeStore';
+import { Tooltip } from '../ui/Tooltip';
 import {
   Flame,
   GitBranch,
   MessageSquare,
+  Moon,
   Palette,
   Radio,
   Sparkles,
+  Sun,
   User,
   Zap,
+  Search,
 } from 'lucide-react';
 
 interface DesktopHeaderProps {
   activeTab: TabType | 'profile';
   onNavigateTab: (tab: TabType | 'profile') => void;
   isConnected?: boolean;
+  onOpenSearch?: () => void;
 }
 
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   activeTab,
   onNavigateTab,
+  onOpenSearch,
 }) => {
-  const { locale } = useThemeStore();
+  const { locale, theme, toggleTheme } = useThemeStore();
   const isArabic = locale === 'ar';
+  const isDark = theme === 'dark';
 
   const getHeaderInfo = () => {
     switch (activeTab) {
@@ -102,59 +109,102 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   const Icon = info.icon;
 
   return (
-    <header className="hidden md:block w-full glass-panel border-b border-zinc-800/80 px-6 py-3.5 backdrop-blur-xl shrink-0 z-30">
+    <header className="hidden md:block w-full glass-panel border-b border-zinc-200 dark:border-zinc-800/80 px-6 py-3.5 backdrop-blur-xl shrink-0 z-30 transition-colors duration-200">
       <div className="flex items-center justify-between gap-4">
         {/* Section Title, Subtitle & Icon */}
         <div className="flex items-center gap-3.5 min-w-0">
           <div
             className={`w-9 h-9 rounded-2xl bg-gradient-to-tr ${info.accent} p-0.5 shadow-lg flex items-center justify-center shrink-0`}
           >
-            <div className="w-full h-full bg-zinc-950 rounded-[14px] flex items-center justify-center">
-              <Icon className="w-4.5 h-4.5 text-white" />
+            <div className="w-full h-full bg-white dark:bg-zinc-950 rounded-[14px] flex items-center justify-center transition-colors">
+              <Icon className="w-4.5 h-4.5 text-zinc-900 dark:text-white" />
             </div>
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-black text-white tracking-tight truncate">
+              <h2 className="text-base font-black text-zinc-900 dark:text-white tracking-tight truncate">
                 {info.title}
               </h2>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-zinc-800/90 text-zinc-300 rounded-md border border-zinc-700/60 shrink-0">
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-zinc-200 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-300 rounded-md border border-zinc-300 dark:border-zinc-700/60 shrink-0">
                 {info.badge}
               </span>
             </div>
-            <p className="text-[11px] text-zinc-400 truncate max-w-xl">
+            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-xl">
               {info.subtitle}
             </p>
           </div>
         </div>
 
-        {/* Context Quick Action Shortcuts */}
-        <div className="flex items-center gap-2 shrink-0">
-          {activeTab === 'feed' && (
+        {/* Center/Right Actions: Universal Search & Context Shortcuts */}
+        <div className="flex items-center gap-2.5 shrink-0">
+          {/* Universal Search Bar Trigger */}
+          <button
+            onClick={onOpenSearch}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all shadow-sm group"
+          >
+            <Search className="w-3.5 h-3.5 text-fuchsia-500 group-hover:scale-110 transition-transform" />
+            <span className="hidden lg:inline font-medium">
+              {isArabic ? 'بحث شامل في المنصة...' : 'Search SparkLoop...'}
+            </span>
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+              ⌘K
+            </kbd>
+          </button>
+
+          {/* Quick Theme Toggle Icon */}
+          <Tooltip
+            content={
+              isDark
+                ? isArabic
+                  ? 'المظهر الفاتح'
+                  : 'Switch to Light Theme'
+                : isArabic
+                ? 'المظهر الداكن'
+                : 'Switch to Dark Theme'
+            }
+            position="bottom"
+          >
             <button
-              onClick={() => onNavigateTab('create')}
-              className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-fuchsia-600/20 transition-all active:scale-95"
+              onClick={toggleTheme}
+              className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors shadow-sm"
             >
-              <Palette className="w-3.5 h-3.5" />
-              <span>{isArabic ? 'إنشاء ميم' : 'New Meme'}</span>
+              {isDark ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-fuchsia-500" />
+              )}
             </button>
+          </Tooltip>
+
+          {activeTab === 'feed' && (
+            <Tooltip content={isArabic ? 'فتح استوديو تصميم الميمز' : 'Open Meme Studio Editor'} position="bottom">
+              <button
+                onClick={() => onNavigateTab('create')}
+                className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-fuchsia-600/20 transition-all active:scale-95"
+              >
+                <Palette className="w-3.5 h-3.5" />
+                <span>{isArabic ? 'إنشاء ميم' : 'New Meme'}</span>
+              </button>
+            </Tooltip>
           )}
 
           {activeTab === 'sparks' && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-bold text-amber-300">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-bold text-amber-600 dark:text-amber-300">
               <Zap className="w-3.5 h-3.5" />
               <span>{isArabic ? 'تحدي نشط' : 'Active Challenge'}</span>
             </div>
           )}
 
           {activeTab === 'pods' && (
-            <button
-              onClick={() => onNavigateTab('pods')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs font-bold text-cyan-300 hover:bg-cyan-500/20 transition-all"
-            >
-              <Radio className="w-3.5 h-3.5 animate-pulse" />
-              <span>{isArabic ? 'استكشف الغرف' : 'Explore Pods'}</span>
-            </button>
+            <Tooltip content={isArabic ? 'استكشف غرف المزاج التفاعلية' : 'Explore interactive audio pods'} position="bottom">
+              <button
+                onClick={() => onNavigateTab('pods')}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs font-bold text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20 transition-all"
+              >
+                <Radio className="w-3.5 h-3.5 animate-pulse" />
+                <span>{isArabic ? 'استكشف الغرف' : 'Explore Pods'}</span>
+              </button>
+            </Tooltip>
           )}
         </div>
       </div>

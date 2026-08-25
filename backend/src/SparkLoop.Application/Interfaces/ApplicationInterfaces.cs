@@ -20,6 +20,7 @@ public interface IAppDbContext
     DbSet<ChainStep> ChainSteps { get; }
     DbSet<MoodPod> MoodPods { get; }
     DbSet<PodMessage> PodMessages { get; }
+    DbSet<UserFollow> UserFollows { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

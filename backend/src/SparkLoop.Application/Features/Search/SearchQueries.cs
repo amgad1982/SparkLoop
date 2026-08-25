@@ -1,0 +1,211 @@
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using SparkLoop.Application.DTOs;
+using SparkLoop.Application.Features.Chains;
+using SparkLoop.Application.Features.MoodPods;
+using SparkLoop.Application.Features.Posts;
+using SparkLoop.Application.Features.Sparks;
+using SparkLoop.Application.Interfaces;
+
+namespace SparkLoop.Application.Features.Search;
+
+public record GlobalSearchQuery(
+    string Query,
+    string? Type = null,
+    int Limit = 20
+) : IRequest<GlobalSearchResultDto>;
+
+public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, GlobalSearchResultDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public GlobalSearchQueryHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<GlobalSearchResultDto> Handle(GlobalSearchQuery request, CancellationToken cancellationToken)
+    {
+        var rawQuery = request.Query?.Trim() ?? string.Empty;
+        var lowerQuery = rawQuery.ToLowerInvariant();
+        var filterType = request.Type?.Trim().ToLowerInvariant();
+        var currentUserId = _currentUserService.UserId;
+        var limit = Math.Clamp(request.Limit, 1, 50);
+
+        var posts = new List<PostDto>();
+        var users = new List<UserDto>();
+        var pods = new List<MoodPodDto>();
+        var chains = new List<ChainDto>();
+        var sparks = new List<SparkDto>();
+        var hashtags = new List<HashtagDto>();
+
+        if (string.IsNullOrWhiteSpace(rawQuery))
+        {
+            return new GlobalSearchResultDto(
+                Query: rawQuery,
+                FilterType: filterType,
+                TotalCount: 0,
+                Posts: posts,
+                Users: users,
+                MoodPods: pods,
+                Chains: chains,
+                Sparks: sparks,
+                Hashtags: hashtags
+            );
+        }
+
+        var isHashtagSearch = lowerQuery.StartsWith('#') || filterType == "hashtags";
+        var cleanTag = lowerQuery.TrimStart('#');
+
+        // 1. Search Posts
+        if (filterType == null || filterType == "all" || filterType == "posts")
+        {
+            var postQuery = _dbContext.Posts
+                .Include(p => p.Reactions)
+                .AsQueryable();
+
+            if (isHashtagSearch)
+            {
+                var tagPattern = "#" + cleanTag;
+                postQuery = postQuery.Where(p => ((string)p.Content).ToLower().Contains(tagPattern));
+            }
+            else
+            {
+                postQuery = postQuery.Where(p =>
+                    ((string)p.Content).ToLower().Contains(lowerQuery) ||
+                    p.AuthorUsername.ToLower().Contains(lowerQuery) ||
+                    (p.AuthorDisplayName != null && p.AuthorDisplayName.ToLower().Contains(lowerQuery)));
+            }
+
+            var postEntities = await postQuery
+                .OrderByDescending(p => p.CreatedAtUtc)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            posts = postEntities.Select(PostQueries.MapToDto).ToList();
+        }
+
+        // 2. Search Users
+        if (filterType == null || filterType == "all" || filterType == "users" || filterType == "creators")
+        {
+            var userEntities = await _dbContext.Users
+                .Include(u => u.Badges)
+                .Where(u =>
+                    ((string)u.Username).ToLower().Contains(cleanTag) ||
+                    (u.DisplayName != null && u.DisplayName.ToLower().Contains(cleanTag)) ||
+                    (u.Bio != null && u.Bio.ToLower().Contains(cleanTag)))
+                .OrderByDescending(u => u.RepScore)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            users = userEntities.Select(u => new UserDto(
+                u.Id,
+                u.Username.Value,
+                u.Email,
+                u.DisplayName,
+                u.AvatarUrl,
+                u.Bio,
+                u.RepScore.Value,
+                u.Badges.Select(b => new BadgeDto(b.Id, b.Name, b.Description, b.Icon, b.AwardedAtUtc)).ToList(),
+                u.CreatedAtUtc,
+                u.PreferredTheme,
+                u.PreferredLanguage
+            )).ToList();
+        }
+
+        // 3. Search Mood Pods
+        if (filterType == null || filterType == "all" || filterType == "pods")
+        {
+            var podEntities = await _dbContext.MoodPods
+                .Include(p => p.Messages)
+                .Where(p =>
+                    p.Title.ToLower().Contains(cleanTag) ||
+                    p.HostUsername.ToLower().Contains(cleanTag) ||
+                    (p.HostDisplayName != null && p.HostDisplayName.ToLower().Contains(cleanTag)) ||
+                    p.MoodEmoji.Contains(cleanTag))
+                .OrderByDescending(p => p.CreatedAtUtc)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            pods = podEntities.Select(MoodPodQueries.MapToDto).ToList();
+        }
+
+        // 4. Search Chains
+        if (filterType == null || filterType == "all" || filterType == "chains")
+        {
+            var chainEntities = await _dbContext.Chains
+                .Include(c => c.Steps)
+                .Where(c =>
+                    c.Title.ToLower().Contains(cleanTag) ||
+                    c.Theme.ToLower().Contains(cleanTag) ||
+                    c.CreatedByUsername.ToLower().Contains(cleanTag))
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            chains = chainEntities.Select(c => CreateChainCommandHandler.MapToDto(c, currentUserId)).ToList();
+        }
+
+        // 5. Search Sparks
+        if (filterType == null || filterType == "all" || filterType == "sparks")
+        {
+            var sparkEntities = await _dbContext.Sparks
+                .Include(s => s.Submissions)
+                    .ThenInclude(sub => sub.Votes)
+                .Where(s =>
+                    s.Title.ToLower().Contains(cleanTag) ||
+                    s.Prompt.ToLower().Contains(cleanTag) ||
+                    s.Category.ToLower().Contains(cleanTag))
+                .OrderByDescending(s => s.ActiveFromUtc)
+                .Take(limit)
+                .ToListAsync(cancellationToken);
+
+            sparks = sparkEntities.Select(s => SparkQueries.MapToDto(s, currentUserId)).ToList();
+        }
+
+        // 6. Search / Extract Hashtags
+        if (filterType == null || filterType == "all" || filterType == "hashtags")
+        {
+            var allPosts = await _dbContext.Posts
+                .Select(p => (string)p.Content)
+                .Take(100)
+                .ToListAsync(cancellationToken);
+
+            var tagCounts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var content in allPosts)
+            {
+                var matches = System.Text.RegularExpressions.Regex.Matches(content, @"#(\w+)");
+                foreach (System.Text.RegularExpressions.Match m in matches)
+                {
+                    var tag = m.Groups[1].Value;
+                    if (tag.Contains(cleanTag, StringComparison.OrdinalIgnoreCase))
+                    {
+                        tagCounts[tag] = tagCounts.GetValueOrDefault(tag, 0) + 1;
+                    }
+                }
+            }
+
+            hashtags = tagCounts
+                .OrderByDescending(kv => kv.Value)
+                .Take(limit)
+                .Select(kv => new HashtagDto(kv.Key, kv.Value, DateTime.UtcNow))
+                .ToList();
+        }
+
+        var totalCount = posts.Count + users.Count + pods.Count + chains.Count + sparks.Count + hashtags.Count;
+
+        return new GlobalSearchResultDto(
+            Query: rawQuery,
+            FilterType: filterType,
+            TotalCount: totalCount,
+            Posts: posts,
+            Users: users,
+            MoodPods: pods,
+            Chains: chains,
+            Sparks: sparks,
+            Hashtags: hashtags
+        );
+    }
+}

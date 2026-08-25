@@ -30,6 +30,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<ChainStep> ChainSteps => Set<ChainStep>();
     public DbSet<MoodPod> MoodPods => Set<MoodPod>();
     public DbSet<PodMessage> PodMessages => Set<PodMessage>();
+    public DbSet<UserFollow> UserFollows => Set<UserFollow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -14,6 +14,8 @@ interface MobileAppShellProps {
   isConnected?: boolean;
   activeSpark?: SparkDto | null;
   pods?: MoodPodDto[];
+  onOpenSearch?: () => void;
+  onSelectHashtag?: (tag: string) => void;
   children: React.ReactNode;
 }
 
@@ -23,6 +25,8 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
   isConnected = true,
   activeSpark,
   pods = [],
+  onOpenSearch,
+  onSelectHashtag,
   children,
 }) => {
   const [topCreators, setTopCreators] = useState<UserDto[]>([]);
@@ -35,7 +39,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
 
   return (
     <RTLProvider>
-      <div className="h-screen w-full bg-zinc-950 text-zinc-100 flex justify-center overflow-hidden selection:bg-fuchsia-500 selection:text-white">
+      <div className="h-screen w-full bg-[#f8fafc] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex justify-center overflow-hidden selection:bg-fuchsia-500 selection:text-white transition-colors duration-200">
         <div className="w-full max-w-7xl h-full flex justify-between relative overflow-hidden">
           {/* 1. Left Sticky Navigation Sidebar (Tablet & Desktop) */}
           <DesktopSidebar
@@ -45,15 +49,20 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
           />
 
           {/* 2. Center Content Column (Responsive: max-w-md on mobile, flex-1 on desktop) */}
-          <div className="w-full md:max-w-3xl xl:max-w-3xl h-full flex flex-col bg-zinc-950 border-x border-zinc-800/40 relative shadow-2xl overflow-hidden flex-1">
+          <div className="w-full md:max-w-2xl lg:max-w-2xl xl:max-w-3xl h-full flex flex-col bg-white/70 dark:bg-zinc-950 border-x border-zinc-200/80 dark:border-zinc-800/40 relative shadow-2xl overflow-hidden flex-1 transition-colors duration-200">
             {/* Mobile Header (Visible on < md) */}
-            <TopHeader isConnected={isConnected} onNavigateTab={onTabChange} />
+            <TopHeader
+              isConnected={isConnected}
+              onNavigateTab={onTabChange}
+              onOpenSearch={onOpenSearch}
+            />
 
             {/* Desktop Header (Visible on >= md) */}
             <DesktopHeader
               activeTab={activeTab}
               onNavigateTab={onTabChange}
               isConnected={isConnected}
+              onOpenSearch={onOpenSearch}
             />
 
             {/* Center Stream Content */}
@@ -71,6 +80,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
             pods={pods}
             topCreators={topCreators}
             onNavigateTab={onTabChange}
+            onSelectHashtag={onSelectHashtag}
           />
         </div>
       </div>

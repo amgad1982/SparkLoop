@@ -11,7 +11,13 @@ namespace SparkLoop.Application.Features.MoodPods;
 public record CreateMoodPodCommand(
     string Title,
     string MoodEmoji,
-    string BackgroundTheme
+    string BackgroundTheme,
+    bool IsPrivate = false,
+    string? InviteCode = null,
+    string? CustomBackgroundImageUrl = null,
+    bool AllowParticipantsChangeTheme = false,
+    bool AllowParticipantsPlayBgMusic = true,
+    bool AllowOpenMic = true
 ) : IRequest<MoodPodDto>;
 
 public class CreateMoodPodCommandValidator : AbstractValidator<CreateMoodPodCommand>
@@ -49,7 +55,13 @@ public class CreateMoodPodCommandHandler : IRequestHandler<CreateMoodPodCommand,
             userId,
             username,
             displayName,
-            avatarUrl);
+            avatarUrl,
+            isPrivate: request.IsPrivate,
+            inviteCode: request.InviteCode,
+            customBackgroundImageUrl: request.CustomBackgroundImageUrl,
+            allowParticipantsChangeTheme: request.AllowParticipantsChangeTheme,
+            allowParticipantsPlayBgMusic: request.AllowParticipantsPlayBgMusic,
+            allowOpenMic: request.AllowOpenMic);
 
         _dbContext.MoodPods.Add(pod);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -364,4 +376,208 @@ public class SendPodBgMusicCommandHandler : IRequestHandler<SendPodBgMusicComman
         return true;
     }
 }
+
+public record UpdatePodSettingsCommand(
+    Guid PodId,
+    string? Title = null,
+    string? MoodEmoji = null,
+    string? BackgroundTheme = null,
+    string? CustomBackgroundImageUrl = null,
+    bool? AllowParticipantsChangeTheme = null,
+    bool? AllowParticipantsPlayBgMusic = null,
+    bool? AllowOpenMic = null,
+    bool? IsPrivate = null
+) : IRequest<MoodPodDto>;
+
+public class UpdatePodSettingsCommandHandler : IRequestHandler<UpdatePodSettingsCommand, MoodPodDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICentrifugoService _centrifugoService;
+
+    public UpdatePodSettingsCommandHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICentrifugoService centrifugoService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _centrifugoService = centrifugoService;
+    }
+
+    public async Task<MoodPodDto> Handle(UpdatePodSettingsCommand request, CancellationToken cancellationToken)
+    {
+        var pod = await _dbContext.MoodPods
+            .Include(p => p.Messages)
+            .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
+            ?? throw new NotFoundException("MoodPod", request.PodId);
+
+        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        var isModOrHost = pod.IsModerator(currentUserId);
+
+        // If user is not host/moderator, check if participants are allowed to change theme/image
+        if (!isModOrHost)
+        {
+            var isOnlyVisualUpdate = request.AllowParticipantsChangeTheme == null &&
+                                     request.AllowParticipantsPlayBgMusic == null &&
+                                     request.AllowOpenMic == null &&
+                                     request.IsPrivate == null &&
+                                     request.Title == null;
+
+            if (!pod.AllowParticipantsChangeTheme || !isOnlyVisualUpdate)
+            {
+                throw new DomainRuleException("Only the host or moderators can update room settings.", "NOT_AUTHORIZED");
+            }
+        }
+
+        pod.UpdateSettings(
+            request.Title,
+            request.MoodEmoji,
+            request.BackgroundTheme,
+            request.CustomBackgroundImageUrl,
+            request.AllowParticipantsChangeTheme,
+            request.AllowParticipantsPlayBgMusic,
+            request.AllowOpenMic,
+            request.IsPrivate
+        );
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Real-time broadcast to all participants in pod
+        var channel = $"pod:{pod.Id}";
+        var updateEvent = new
+        {
+            type = "POD_SETTINGS_UPDATED",
+            podId = pod.Id,
+            title = pod.Title,
+            moodEmoji = pod.MoodEmoji,
+            backgroundTheme = pod.BackgroundTheme,
+            customBackgroundImageUrl = pod.CustomBackgroundImageUrl,
+            isPrivate = pod.IsPrivate,
+            inviteCode = pod.InviteCode,
+            allowParticipantsChangeTheme = pod.AllowParticipantsChangeTheme,
+            allowParticipantsPlayBgMusic = pod.AllowParticipantsPlayBgMusic,
+            allowOpenMic = pod.AllowOpenMic,
+            moderatorUserIds = pod.ModeratorUserIds.ToList(),
+            updatedByUserId = currentUserId,
+            timestamp = DateTime.UtcNow
+        };
+        await _centrifugoService.PublishAsync(channel, updateEvent, cancellationToken);
+
+        return MoodPodQueries.MapToDto(pod);
+    }
+}
+
+public record ModerateParticipantCommand(
+    Guid PodId,
+    Guid TargetUserId,
+    string TargetUsername,
+    string Action, // "kick", "remote_mute", "promote_moderator", "demote_moderator", "invite_to_mic"
+    string? Reason = null
+) : IRequest<bool>;
+
+public class ModerateParticipantCommandHandler : IRequestHandler<ModerateParticipantCommand, bool>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICentrifugoService _centrifugoService;
+
+    public ModerateParticipantCommandHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICentrifugoService centrifugoService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _centrifugoService = centrifugoService;
+    }
+
+    public async Task<bool> Handle(ModerateParticipantCommand request, CancellationToken cancellationToken)
+    {
+        var pod = await _dbContext.MoodPods
+            .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
+            ?? throw new NotFoundException("MoodPod", request.PodId);
+
+        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        var currentUsername = _currentUserService.Username ?? "moderator";
+
+        pod.ModerateParticipant(
+            currentUserId,
+            currentUsername,
+            request.TargetUserId,
+            request.TargetUsername,
+            request.Action,
+            request.Reason
+        );
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Real-time broadcast to room channel & specific target user channel
+        var channel = $"pod:{pod.Id}";
+        var modEvent = new
+        {
+            type = "MODERATION_ACTION",
+            podId = pod.Id,
+            action = request.Action,
+            targetUserId = request.TargetUserId,
+            targetUsername = request.TargetUsername,
+            moderatorUserId = currentUserId,
+            moderatorUsername = currentUsername,
+            reason = request.Reason,
+            timestamp = DateTime.UtcNow
+        };
+        await _centrifugoService.PublishAsync(channel, modEvent, cancellationToken);
+        await _centrifugoService.PublishAsync($"user:{request.TargetUserId}", modEvent, cancellationToken);
+
+        return true;
+    }
+}
+
+public record InviteUserToPodCommand(Guid PodId, Guid TargetUserId) : IRequest<bool>;
+
+public class InviteUserToPodCommandHandler : IRequestHandler<InviteUserToPodCommand, bool>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICentrifugoService _centrifugoService;
+
+    public InviteUserToPodCommandHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICentrifugoService centrifugoService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _centrifugoService = centrifugoService;
+    }
+
+    public async Task<bool> Handle(InviteUserToPodCommand request, CancellationToken cancellationToken)
+    {
+        var pod = await _dbContext.MoodPods
+            .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
+            ?? throw new NotFoundException("MoodPod", request.PodId);
+
+        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        var currentUsername = _currentUserService.Username ?? "host";
+
+        pod.InviteUser(request.TargetUserId, currentUsername);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var inviteEvent = new
+        {
+            type = "POD_INVITATION",
+            podId = pod.Id,
+            podTitle = pod.Title,
+            podMoodEmoji = pod.MoodEmoji,
+            inviteCode = pod.InviteCode,
+            hostUserId = currentUserId,
+            hostUsername = currentUsername,
+            timestamp = DateTime.UtcNow
+        };
+        await _centrifugoService.PublishAsync($"user:{request.TargetUserId}", inviteEvent, cancellationToken);
+
+        return true;
+    }
+}
+
 

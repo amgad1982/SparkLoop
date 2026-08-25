@@ -120,7 +120,17 @@ public class ReactToPostCommandHandler : IRequestHandler<ReactToPostCommand, Pos
         var userId = _currentUserService.UserId ?? Guid.Parse("22222222-2222-2222-2222-222222222222");
         var username = _currentUserService.Username ?? "sparkguest";
 
-        post.AddReaction(userId, username, request.ReactionType);
+        var reaction = post.ToggleOrAddReaction(userId, username, request.ReactionType, out var wasAdded, out var removedReaction);
+
+        if (wasAdded && reaction is not null)
+        {
+            _dbContext.Reactions.Add(reaction);
+        }
+        else if (removedReaction is not null)
+        {
+            _dbContext.Reactions.Remove(removedReaction);
+        }
+
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return PostQueries.MapToDto(post);

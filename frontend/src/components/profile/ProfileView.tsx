@@ -5,9 +5,14 @@ import { useThemeStore } from '../../stores/useThemeStore';
 import { api, getMediaUrl } from '../../services/apiClient';
 import { UserProfileDto } from '../../types/api';
 import { PersonaSwitcher } from '../layout/PersonaSwitcher';
+import { Tooltip } from '../ui/Tooltip';
+import { FollowButton } from '../ui/FollowButton';
+import { FollowListModal } from './FollowListModal';
+import { FollowRequestsDrawer } from './FollowRequestsDrawer';
 import {
   AlertCircle,
   Award,
+  Bell,
   Calendar,
   Camera,
   CheckCircle2,
@@ -16,19 +21,24 @@ import {
   EyeOff,
   Flame,
   GitBranch,
+  Globe,
   Heart,
   Key,
   Lock,
   LogOut,
   Mail,
   MessageSquare,
+  Moon,
   RefreshCw,
   ShieldCheck,
   Shuffle,
   Sparkles,
+  Sun,
   Trophy,
   Upload,
   User,
+  UserCheck,
+  UserPlus,
   Users,
   Zap,
 } from 'lucide-react';
@@ -40,7 +50,7 @@ interface ProfileViewProps {
 
 export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas }) => {
   const { currentPersona, setPersona, addCustomPersona, logout } = useAuthStore();
-  const { locale } = useThemeStore();
+  const { locale, theme, setTheme, setLocale } = useThemeStore();
   const isArabic = locale === 'ar';
 
   const targetUsername = username || currentPersona.username;
@@ -54,11 +64,29 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
   // Switcher Modal State
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
 
+  // Follow Modals & Drawers State
+  const [isFollowListOpen, setIsFollowListOpen] = useState(false);
+  const [followListType, setFollowListType] = useState<'followers' | 'following'>('followers');
+  const [isRequestsDrawerOpen, setIsRequestsDrawerOpen] = useState(false);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(0);
+
+  const fetchPendingRequestsCount = async () => {
+    if (!isOwnProfile) return;
+    try {
+      const pending = await api.getPendingFollowRequests();
+      setPendingRequestsCount(pending.length);
+    } catch {
+      // ignore
+    }
+  };
+
   // Edit Profile Form State
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editBio, setEditBio] = useState('');
   const [editEmail, setEditEmail] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [editPreferredTheme, setEditPreferredTheme] = useState<'dark' | 'light'>(theme);
+  const [editPreferredLanguage, setEditPreferredLanguage] = useState<'en' | 'ar'>(locale);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -83,6 +111,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
         setEditBio(data.bio || '');
         setEditEmail(data.email || '');
         setEditAvatarUrl(data.avatarUrl || currentPersona.avatarUrl);
+        setEditPreferredTheme(data.preferredTheme || theme);
+        setEditPreferredLanguage(data.preferredLanguage || locale);
       } catch (err) {
         console.error('Failed to load profile:', err);
       } finally {
@@ -91,6 +121,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
     };
 
     fetchProfile();
+    fetchPendingRequestsCount();
   }, [targetUsername, currentPersona.username]);
 
   // Handle Photo File Upload
@@ -150,7 +181,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
         bio: editBio.trim(),
         avatarUrl: editAvatarUrl.trim(),
         email: editEmail.trim(),
+        preferredTheme: editPreferredTheme,
+        preferredLanguage: editPreferredLanguage,
       });
+
+      // Apply theme and locale immediately
+      setTheme(editPreferredTheme, false);
+      setLocale(editPreferredLanguage, false);
 
       const updatedPersona: Persona = {
         id: updated.id,
@@ -172,6 +209,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
               bio: updated.bio || '',
               avatarUrl: updated.avatarUrl || editAvatarUrl,
               email: updated.email || editEmail,
+              preferredTheme: updated.preferredTheme || editPreferredTheme,
+              preferredLanguage: updated.preferredLanguage || editPreferredLanguage,
             }
           : null
       );
@@ -290,9 +329,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
   const repProgress = Math.min(100, Math.round((profile.repScore / repTier.max) * 100));
 
   return (
-    <div className="space-y-6 text-white pb-10">
+    <div className="space-y-6 text-zinc-900 dark:text-white pb-10 transition-colors duration-200">
       {/* 1. Header Banner & Profile Info Card */}
-      <div className="glass-card rounded-3xl border border-zinc-800/80 overflow-hidden shadow-2xl relative">
+      <div className="glass-card rounded-3xl border border-zinc-200 dark:border-zinc-800/80 overflow-hidden shadow-2xl relative">
         {/* Banner Graphic */}
         <div className="h-32 sm:h-44 w-full bg-gradient-to-r from-fuchsia-900 via-purple-900 to-cyan-900 relative">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-fuchsia-500/20 via-transparent to-transparent" />
@@ -311,83 +350,130 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
               <img
                 src={getMediaUrl(profile.avatarUrl) || `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.username}`}
                 alt={profile.username}
-                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-zinc-900 border-4 border-zinc-950 object-cover shadow-2xl"
+                className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-zinc-100 dark:bg-zinc-900 border-4 border-white dark:border-zinc-950 object-cover shadow-2xl transition-colors"
               />
-              <div className="absolute bottom-1 right-1 rtl:right-auto rtl:left-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-zinc-950" />
+              <div className="absolute bottom-1 right-1 rtl:right-auto rtl:left-1 w-5 h-5 bg-emerald-500 rounded-full border-2 border-white dark:border-zinc-950" />
 
               {isOwnProfile && (
-                <button
-                  onClick={() => {
-                    setActiveTab('edit');
-                    fileInputRef.current?.click();
-                  }}
-                  className="absolute inset-0 bg-black/60 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 border-4 border-transparent"
-                  title={isArabic ? 'تغيير الصورة' : 'Change Avatar'}
-                >
-                  <Camera className="w-5 h-5 text-fuchsia-400" />
-                  <span>{isArabic ? 'تغيير' : 'Upload'}</span>
-                </button>
+                <Tooltip content={isArabic ? 'تغيير الصورة الشخصية' : 'Change Profile Avatar'} position="top">
+                  <button
+                    onClick={() => {
+                      setActiveTab('edit');
+                      fileInputRef.current?.click();
+                    }}
+                    className="absolute inset-0 bg-black/60 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold gap-1 border-4 border-transparent"
+                  >
+                    <Camera className="w-5 h-5 text-fuchsia-400" />
+                    <span>{isArabic ? 'تغيير' : 'Upload'}</span>
+                  </button>
+                </Tooltip>
               )}
             </div>
 
-            {/* Actions: Portfolio / Edit Profile / Security / Switch Persona */}
-            {isOwnProfile && (
+            {/* Actions: Portfolio / Edit Profile / Security / Switch Persona / Follow */}
+            {isOwnProfile ? (
               <div className="flex flex-wrap items-center gap-2.5 self-start sm:self-auto">
-                <button
-                  onClick={() => setActiveTab('portfolio')}
-                  className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    activeTab === 'portfolio'
-                      ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
-                      : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isArabic ? 'الأعمال والأوسمة' : 'Portfolio'}</span>
-                </button>
+                <Tooltip content={isArabic ? 'عرض الأوسمة والمشاركات' : 'View your badges and creations'} position="top">
+                  <button
+                    onClick={() => setActiveTab('portfolio')}
+                    className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      activeTab === 'portfolio'
+                        ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
+                        : 'bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isArabic ? 'الأعمال والأوسمة' : 'Portfolio'}</span>
+                  </button>
+                </Tooltip>
 
-                <button
-                  onClick={() => setActiveTab('edit')}
-                  className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    activeTab === 'edit'
-                      ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
-                      : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>{isArabic ? 'تعديل البيانات' : 'Edit Profile'}</span>
-                </button>
+                <Tooltip content={isArabic ? 'عرض وإدارة طلبات المتابعة المعلقة' : 'View pending follow requests'} position="top">
+                  <button
+                    onClick={() => setIsRequestsDrawerOpen(true)}
+                    className="relative px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 transition-all shadow-sm"
+                  >
+                    <Bell className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="hidden sm:inline">{isArabic ? 'طلبات المتابعة' : 'Requests'}</span>
+                    {pendingRequestsCount > 0 && (
+                      <span className="px-1.5 py-0.5 bg-rose-500 text-white rounded-full text-[10px] font-black animate-pulse">
+                        {pendingRequestsCount}
+                      </span>
+                    )}
+                  </button>
+                </Tooltip>
 
-                <button
-                  onClick={() => setActiveTab('security')}
-                  className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                    activeTab === 'security'
-                      ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
-                      : 'bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-300'
-                  }`}
-                >
-                  <Key className="w-3.5 h-3.5" />
-                  <span>{isArabic ? 'الأمان وكلمة المرور' : 'Security'}</span>
-                </button>
+                <Tooltip content={isArabic ? 'تعديل البيانات والمظهر واللغة' : 'Edit profile info, theme & language'} position="top">
+                  <button
+                    onClick={() => setActiveTab('edit')}
+                    className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      activeTab === 'edit'
+                        ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
+                        : 'bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>{isArabic ? 'تعديل البيانات' : 'Edit Profile'}</span>
+                  </button>
+                </Tooltip>
 
-                <button
-                  onClick={() => setIsSwitcherOpen(true)}
-                  className="px-3.5 py-2.5 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-2xl text-xs font-bold text-zinc-300 flex items-center gap-1.5 transition-all"
-                  title={isArabic ? 'تبديل الحساب / تسجيل مستخدم جديد' : 'Switch Account'}
-                >
-                  <Users className="w-3.5 h-3.5 text-cyan-400" />
-                  <span className="hidden sm:inline">{isArabic ? 'تبديل الحساب' : 'Switch'}</span>
-                </button>
+                <Tooltip content={isArabic ? 'تغيير كلمة المرور وإعدادات الأمان' : 'Change password & security'} position="top">
+                  <button
+                    onClick={() => setActiveTab('security')}
+                    className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      activeTab === 'security'
+                        ? 'bg-fuchsia-600 text-white shadow-lg shadow-fuchsia-600/30'
+                        : 'bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300'
+                    }`}
+                  >
+                    <Key className="w-3.5 h-3.5" />
+                    <span>{isArabic ? 'الأمان وكلمة المرور' : 'Security'}</span>
+                  </button>
+                </Tooltip>
+
+                <Tooltip content={isArabic ? 'تبديل الحساب / تسجيل مستخدم جديد' : 'Switch Account / New User'} position="top">
+                  <button
+                    onClick={() => setIsSwitcherOpen(true)}
+                    className="px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5 transition-all shadow-sm"
+                  >
+                    <Users className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                    <span className="hidden sm:inline">{isArabic ? 'تبديل الحساب' : 'Switch'}</span>
+                  </button>
+                </Tooltip>
 
                 {currentPersona.username !== 'guest' && (
-                  <button
-                    onClick={() => logout()}
-                    className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 rounded-2xl text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1.5 transition-all"
-                    title={isArabic ? 'تسجيل الخروج' : 'Log Out'}
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                    <span className="hidden sm:inline">{isArabic ? 'خروج' : 'Log Out'}</span>
-                  </button>
+                  <Tooltip content={isArabic ? 'تسجيل الخروج من الحساب' : 'Log out of current persona'} position="top">
+                    <button
+                      onClick={() => logout()}
+                      className="px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 rounded-2xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 flex items-center gap-1.5 transition-all shadow-sm"
+                    >
+                      <LogOut className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">{isArabic ? 'خروج' : 'Log Out'}</span>
+                    </button>
+                  </Tooltip>
                 )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 self-start sm:self-auto">
+                <FollowButton
+                  targetUserId={profile.id}
+                  targetUsername={profile.username}
+                  initialStatus={profile.followStatus as any}
+                  size="md"
+                  onStatusChange={(newStatus) => {
+                    setProfile((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            followStatus: newStatus,
+                            followersCount:
+                              newStatus === 'following' || newStatus === 'mutual'
+                                ? (prev.followersCount || 0) + 1
+                                : Math.max(0, (prev.followersCount || 0) - 1),
+                          }
+                        : null
+                    );
+                  }}
+                />
               </div>
             )}
           </div>
@@ -395,49 +481,78 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
           {/* User Bio & Meta */}
           <div className="mt-5 space-y-2.5">
             <div className="flex items-center gap-3">
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
                 {profile.displayName}
               </h2>
-              <span className="text-xs sm:text-sm text-zinc-400 font-semibold">@{profile.username}</span>
+              <span className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-semibold">@{profile.username}</span>
             </div>
 
-            <p className="text-xs sm:text-sm text-zinc-300 max-w-2xl leading-relaxed">
+            <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 max-w-2xl leading-relaxed">
               {profile.bio ||
                 (isArabic
                   ? 'صانع محتوى وميمز ومشارك في سلاسل SparkLoop القصصية'
                   : 'SparkLoop Creator & Storyteller')}
             </p>
 
-            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-400 pt-1.5">
+            <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400 pt-1.5">
               <span className="flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5 text-zinc-500" />
+                <Mail className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
                 <span>{profile.email}</span>
               </span>
               <span className="flex items-center gap-1.5">
-                <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                <Calendar className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500" />
                 <span>
                   {isArabic ? 'انضم في' : 'Joined'} {new Date(profile.createdAtUtc).toLocaleDateString()}
                 </span>
               </span>
               <span className="flex items-center gap-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
                 <span>{isArabic ? 'حساب نشط' : 'Active Member'}</span>
               </span>
+            </div>
+
+            {/* Followers & Following Interactive Counts */}
+            <div className="flex items-center gap-4 text-xs font-bold pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setFollowListType('followers');
+                  setIsFollowListOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-500/20 transition-colors cursor-pointer shadow-sm"
+              >
+                <Users className="w-3.5 h-3.5 text-fuchsia-600 dark:text-fuchsia-400" />
+                <span className="font-black">{profile.followersCount || 0}</span>
+                <span className="font-semibold text-[11px] opacity-80">{isArabic ? 'متابع' : 'Followers'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setFollowListType('following');
+                  setIsFollowListOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 transition-colors cursor-pointer shadow-sm"
+              >
+                <UserCheck className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span className="font-black">{profile.followingCount || 0}</span>
+                <span className="font-semibold text-[11px] opacity-80">{isArabic ? 'يتابع' : 'Following'}</span>
+              </button>
             </div>
           </div>
 
           {/* Reputation XP Bar */}
-          <div className="mt-6 p-5 rounded-2xl bg-zinc-900/90 border border-zinc-800 space-y-2.5">
+          <div className="mt-6 p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 space-y-2.5 shadow-sm">
             <div className="flex items-center justify-between text-xs sm:text-sm">
-              <span className="font-bold flex items-center gap-1.5 text-amber-400">
-                <Zap className="w-4 h-4 text-amber-400" />
+              <span className="font-bold flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
+                <Zap className="w-4 h-4 text-amber-500 dark:text-amber-400" />
                 {isArabic ? 'نقاط السمعة والتفاعل' : 'Reputation Score'}
               </span>
-              <span className="font-mono font-bold text-zinc-200">
+              <span className="font-mono font-bold text-zinc-800 dark:text-zinc-200">
                 {profile.repScore} / {repTier.max} XP
               </span>
             </div>
-            <div className="w-full h-2.5 bg-zinc-950 rounded-full overflow-hidden border border-zinc-800/80">
+            <div className="w-full h-2.5 bg-zinc-200 dark:bg-zinc-950 rounded-full overflow-hidden border border-zinc-300 dark:border-zinc-800/80">
               <div
                 className="h-full bg-gradient-to-r from-amber-500 via-fuchsia-500 to-cyan-400 rounded-full transition-all duration-700"
                 style={{ width: `${repProgress}%` }}
@@ -610,17 +725,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
         </div>
       )}
 
-      {/* 3. TAB: EDIT PROFILE & PHOTO */}
+      {/* 3. TAB: EDIT PROFILE & PHOTO & PREFERENCES */}
       {activeTab === 'edit' && isOwnProfile && (
-        <div className="glass-card rounded-3xl p-6 border border-zinc-800 space-y-6">
-          <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
-            <Edit3 className="w-5 h-5 text-fuchsia-400" />
+        <div className="glass-card rounded-3xl p-6 border border-zinc-200 dark:border-zinc-800 space-y-6 shadow-xl transition-colors duration-200">
+          <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+            <Edit3 className="w-5 h-5 text-fuchsia-500 dark:text-fuchsia-400" />
             <div>
-              <h3 className="font-bold text-base text-white">
-                {isArabic ? 'تعديل البيانات الشخصية' : 'Edit Profile Information'}
+              <h3 className="font-bold text-base text-zinc-900 dark:text-white">
+                {isArabic ? 'تعديل البيانات الشخصية والتفضيلات' : 'Edit Profile Information & Preferences'}
               </h3>
-              <p className="text-xs text-zinc-400">
-                {isArabic ? 'حدّث اسمك المعروض، النبذة، البريد والصورة الشخصية' : 'Update your display name, bio, email and avatar'}
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                {isArabic ? 'حدّث اسمك المعروض، النبذة، المظهر المفضل، لغة الواجهة والصورة الشخصية' : 'Update your display name, bio, theme mode, language, and avatar'}
               </p>
             </div>
           </div>
@@ -635,12 +750,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
           />
 
           {/* Avatar Preview & Customization Section */}
-          <div className="p-4 bg-zinc-900/90 rounded-2xl border border-zinc-800 flex flex-col sm:flex-row items-center gap-4">
+          <div className="p-4 bg-zinc-50 dark:bg-zinc-900/90 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center gap-4 shadow-sm">
             <div className="relative">
               <img
                 src={getMediaUrl(editAvatarUrl) || getMediaUrl(profile.avatarUrl) || currentPersona.avatarUrl}
                 alt="Avatar preview"
-                className="w-20 h-20 rounded-2xl bg-zinc-950 border-2 border-fuchsia-500/50 object-cover shadow-lg"
+                className="w-20 h-20 rounded-2xl bg-white dark:bg-zinc-950 border-2 border-fuchsia-500/50 object-cover shadow-lg"
               />
               {isUploadingPhoto && (
                 <div className="absolute inset-0 bg-black/70 rounded-2xl flex items-center justify-center">
@@ -650,42 +765,134 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
             </div>
 
             <div className="flex-1 space-y-2 text-center sm:text-left rtl:sm:text-right">
-              <div className="text-xs font-bold text-zinc-200">
+              <div className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
                 {isArabic ? 'الصورة الشخصية (Avatar)' : 'Profile Avatar'}
               </div>
-              <div className="text-[11px] text-zinc-400">
+              <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
                 {isArabic
                   ? 'يمكنك رفع صورة من جهازك أو إنشاء شخصية عشوائية فورية'
                   : 'Upload an image from your device or randomize a creative avatar'}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 justify-center sm:justify-start rtl:sm:justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploadingPhoto}
-                  className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                >
-                  <Upload className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>{isUploadingPhoto ? (isArabic ? 'جاري الرفع...' : 'Uploading...') : (isArabic ? 'رفع صورة' : 'Upload Image')}</span>
-                </button>
+                <Tooltip content={isArabic ? 'رفع صورة من جهازك (حتى 5 ميغابايت)' : 'Upload image from device (max 5MB)'} position="top">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploadingPhoto}
+                    className="px-3 py-1.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                    <span>{isUploadingPhoto ? (isArabic ? 'جاري الرفع...' : 'Uploading...') : (isArabic ? 'رفع صورة' : 'Upload Image')}</span>
+                  </button>
+                </Tooltip>
 
-                <button
-                  type="button"
-                  onClick={randomizeAvatar}
-                  className="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors"
-                >
-                  <Shuffle className="w-3.5 h-3.5 text-fuchsia-400" />
-                  <span>{isArabic ? 'توليد شخصية' : 'Randomize Avatar'}</span>
-                </button>
+                <Tooltip content={isArabic ? 'توليد شخصية عشوائية جديدة' : 'Generate random creative avatar'} position="top">
+                  <button
+                    type="button"
+                    onClick={randomizeAvatar}
+                    className="px-3 py-1.5 bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 text-zinc-800 dark:text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Shuffle className="w-3.5 h-3.5 text-fuchsia-600 dark:text-fuchsia-400" />
+                    <span>{isArabic ? 'توليد شخصية' : 'Randomize Avatar'}</span>
+                  </button>
+                </Tooltip>
               </div>
             </div>
           </div>
 
           <form onSubmit={handleSaveProfile} className="space-y-4">
+            {/* Preferences & Appearance Section */}
+            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/60 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 space-y-3 shadow-sm">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                  {isArabic ? 'تفضيلات المظهر واللغة (Theme & Language)' : 'Appearance & Language Preferences'}
+                </h4>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Theme Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                    {isArabic ? 'المظهر الافتراضي للواجهة' : 'Preferred Theme'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Tooltip content={isArabic ? 'الوضع الداكن المريح للعين' : 'Dark Mode (Night)'} position="top" className="w-full">
+                      <button
+                        type="button"
+                        onClick={() => setEditPreferredTheme('dark')}
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                          editPreferredTheme === 'dark'
+                            ? 'bg-zinc-900 text-white border-fuchsia-500 shadow-md ring-1 ring-fuchsia-500/50'
+                            : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100'
+                        }`}
+                      >
+                        <Moon className="w-3.5 h-3.5 text-fuchsia-400" />
+                        <span>{isArabic ? 'داكن 🌙' : 'Dark 🌙'}</span>
+                      </button>
+                    </Tooltip>
+
+                    <Tooltip content={isArabic ? 'الوضع الفاتح فائق الوضوح' : 'Light Mode (Day)'} position="top" className="w-full">
+                      <button
+                        type="button"
+                        onClick={() => setEditPreferredTheme('light')}
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                          editPreferredTheme === 'light'
+                            ? 'bg-white text-zinc-900 border-amber-500 shadow-md ring-1 ring-amber-500/50 font-black'
+                            : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100'
+                        }`}
+                      >
+                        <Sun className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{isArabic ? 'فاتح ☀️' : 'Light ☀️'}</span>
+                      </button>
+                    </Tooltip>
+                  </div>
+                </div>
+
+                {/* Language Selector */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold text-zinc-600 dark:text-zinc-400">
+                    {isArabic ? 'لغة الواجهة والاتجاه' : 'Interface Language'}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Tooltip content="English interface with LTR direction" position="top" className="w-full">
+                      <button
+                        type="button"
+                        onClick={() => setEditPreferredLanguage('en')}
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                          editPreferredLanguage === 'en'
+                            ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white border-cyan-400 shadow-md'
+                            : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100'
+                        }`}
+                      >
+                        <Globe className="w-3.5 h-3.5 text-cyan-300" />
+                        <span>English (EN)</span>
+                      </button>
+                    </Tooltip>
+
+                    <Tooltip content="الواجهة باللغة العربية مع اتجاه من اليمين لليسار" position="top" className="w-full">
+                      <button
+                        type="button"
+                        onClick={() => setEditPreferredLanguage('ar')}
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition-all ${
+                          editPreferredLanguage === 'ar'
+                            ? 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white border-fuchsia-400 shadow-md'
+                            : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100'
+                        }`}
+                      >
+                        <Globe className="w-3.5 h-3.5 text-fuchsia-300" />
+                        <span>العربية (AR)</span>
+                      </button>
+                    </Tooltip>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-300">
+                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                   {isArabic ? 'الاسم المعروض' : 'Display Name'}
                 </label>
                 <input
@@ -693,12 +900,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   required
                   value={editDisplayName}
                   onChange={(e) => setEditDisplayName(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-fuchsia-500"
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-fuchsia-500 shadow-sm"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-zinc-300">
+                <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                   {isArabic ? 'البريد الإلكتروني' : 'Email Address'}
                 </label>
                 <input
@@ -706,13 +913,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   required
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-fuchsia-500"
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-fuchsia-500 shadow-sm"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-300">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 {isArabic ? 'رابط الصورة الشخصية المخصص (اختياري)' : 'Custom Avatar Image URL (Optional)'}
               </label>
               <input
@@ -720,12 +927,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 value={editAvatarUrl}
                 onChange={(e) => setEditAvatarUrl(e.target.value)}
                 placeholder="https://..."
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-fuchsia-500"
+                className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-fuchsia-500 shadow-sm"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-300">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 {isArabic ? 'النبذة التعريفية' : 'Bio'}
               </label>
               <textarea
@@ -733,7 +940,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 value={editBio}
                 onChange={(e) => setEditBio(e.target.value)}
                 placeholder={isArabic ? 'اكتب نبذة عن اهتماماتك وإبداعك...' : 'Tell the community about yourself...'}
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white resize-none focus:outline-none focus:border-fuchsia-500"
+                className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white resize-none focus:outline-none focus:border-fuchsia-500 shadow-sm"
               />
             </div>
 
@@ -741,28 +948,30 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
               <div
                 className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
                   profileMessage.type === 'success'
-                    ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-300'
-                    : 'bg-rose-950/60 border border-rose-800 text-rose-300'
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
+                    : 'bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300'
                 }`}
               >
                 {profileMessage.type === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
                 ) : (
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
                 )}
                 <span>{profileMessage.text}</span>
               </div>
             )}
 
             <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="submit"
-                disabled={isSavingProfile}
-                className="px-6 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-fuchsia-600/25 active:scale-95"
-              >
-                {isSavingProfile && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                <span>{isSavingProfile ? (isArabic ? 'جاري الحفظ...' : 'Saving Changes...') : (isArabic ? 'حفظ التعديلات' : 'Save Changes')}</span>
-              </button>
+              <Tooltip content={isArabic ? 'حفظ البيانات وتطبيق التفضيلات وحفظها في الحساب' : 'Save details & persist preferences in profile'} position="top">
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="px-6 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-fuchsia-600/25 active:scale-95"
+                >
+                  {isSavingProfile && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isSavingProfile ? (isArabic ? 'جاري الحفظ...' : 'Saving Changes...') : (isArabic ? 'حفظ التعديلات' : 'Save Changes')}</span>
+                </button>
+              </Tooltip>
             </div>
           </form>
         </div>
@@ -770,14 +979,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
       {/* 4. TAB: SECURITY & CHANGE PASSWORD */}
       {activeTab === 'security' && isOwnProfile && (
-        <div className="glass-card rounded-3xl p-6 border border-zinc-800 space-y-6">
-          <div className="flex items-center gap-2 border-b border-zinc-800 pb-3">
-            <Lock className="w-5 h-5 text-fuchsia-400" />
+        <div className="glass-card rounded-3xl p-6 border border-zinc-200 dark:border-zinc-800 space-y-6 shadow-xl transition-colors duration-200">
+          <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+            <Lock className="w-5 h-5 text-fuchsia-500 dark:text-fuchsia-400" />
             <div>
-              <h3 className="font-bold text-base text-white">
+              <h3 className="font-bold text-base text-zinc-900 dark:text-white">
                 {isArabic ? 'الأمان وتغيير كلمة المرور' : 'Account Security & Password'}
               </h3>
-              <p className="text-xs text-zinc-400">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">
                 {isArabic ? 'قم بتحديث كلمة المرور لحماية حسابك' : 'Update your password to keep your account safe'}
               </p>
             </div>
@@ -785,7 +994,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
           <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-300">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 {isArabic ? 'كلمة المرور الحالية' : 'Current Password'}
               </label>
               <div className="relative">
@@ -795,20 +1004,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   value={currentPassword}
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white pr-10 rtl:pr-3.5 rtl:pl-10 focus:outline-none focus:border-fuchsia-500"
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white pr-10 rtl:pr-3.5 rtl:pl-10 focus:outline-none focus:border-fuchsia-500 shadow-sm"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword((prev) => !prev)}
-                  className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-                >
-                  {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+                <Tooltip content={showCurrentPassword ? (isArabic ? 'إخفاء كلمة المرور' : 'Hide password') : (isArabic ? 'إظهار كلمة المرور' : 'Show password')} position="left">
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-white"
+                  >
+                    {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </Tooltip>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-300">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 {isArabic ? 'كلمة المرور الجديدة' : 'New Password'}
               </label>
               <div className="relative">
@@ -818,20 +1029,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="•••••••• (Min. 6 chars)"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white pr-10 rtl:pr-3.5 rtl:pl-10 focus:outline-none focus:border-fuchsia-500"
+                  className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white pr-10 rtl:pr-3.5 rtl:pl-10 focus:outline-none focus:border-fuchsia-500 shadow-sm"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword((prev) => !prev)}
-                  className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
-                >
-                  {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+                <Tooltip content={showNewPassword ? (isArabic ? 'إخفاء كلمة المرور' : 'Hide password') : (isArabic ? 'إظهار كلمة المرور' : 'Show password')} position="left">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((prev) => !prev)}
+                    className="absolute right-3 rtl:right-auto rtl:left-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 dark:hover:text-white"
+                  >
+                    {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </Tooltip>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-300">
+              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
                 {isArabic ? 'تأكيد كلمة المرور الجديدة' : 'Confirm New Password'}
               </label>
               <input
@@ -840,7 +1053,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-fuchsia-500"
+                className="w-full bg-white dark:bg-zinc-950 border border-zinc-300 dark:border-zinc-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-900 dark:text-white focus:outline-none focus:border-fuchsia-500 shadow-sm"
               />
             </div>
 
@@ -848,38 +1061,40 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
               <div
                 className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
                   passwordMessage.type === 'success'
-                    ? 'bg-emerald-950/60 border border-emerald-800 text-emerald-300'
-                    : 'bg-rose-950/60 border border-rose-800 text-rose-300'
+                    ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
+                    : 'bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300'
                 }`}
               >
                 {passwordMessage.type === 'success' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
                 ) : (
-                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <AlertCircle className="w-4 h-4 text-rose-500 dark:text-rose-400 shrink-0" />
                 )}
                 <span>{passwordMessage.text}</span>
               </div>
             )}
 
             <div className="pt-2">
-              <button
-                type="submit"
-                disabled={isChangingPassword}
-                className="px-6 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-fuchsia-600/25 active:scale-95"
-              >
-                {isChangingPassword && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                <span>{isChangingPassword ? (isArabic ? 'جاري التغيير...' : 'Updating Password...') : (isArabic ? 'تحديث كلمة المرور' : 'Update Password')}</span>
-              </button>
+              <Tooltip content={isArabic ? 'تحديث وتعيين كلمة المرور الجديدة' : 'Update and apply new password'} position="top">
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="px-6 py-2.5 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-fuchsia-600/25 active:scale-95"
+                >
+                  {isChangingPassword && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{isChangingPassword ? (isArabic ? 'جاري التغيير...' : 'Updating Password...') : (isArabic ? 'تحديث كلمة المرور' : 'Update Password')}</span>
+                </button>
+              </Tooltip>
             </div>
           </form>
 
           {/* Session & Account Actions */}
-          <div className="pt-6 border-t border-zinc-800 space-y-3">
+          <div className="pt-6 border-t border-zinc-200 dark:border-zinc-800 space-y-3">
             <div>
-              <h4 className="text-sm font-bold text-zinc-200">
+              <h4 className="text-sm font-bold text-zinc-900 dark:text-zinc-200">
                 {isArabic ? 'إدارة الجلسة والحساب' : 'Session & Account Actions'}
               </h4>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
                 {isArabic
                   ? 'تسجيل الخروج من الجلسة الحالية على هذا الجهاز'
                   : 'Log out of your current session on this device.'}
@@ -887,23 +1102,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => logout()}
-                className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 rounded-xl text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-2 transition-all active:scale-95"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>{isArabic ? 'تسجيل الخروج من SparkLoop' : 'Log Out of SparkLoop'}</span>
-              </button>
+              <Tooltip content={isArabic ? 'تسجيل الخروج وإنهاء الجلسة' : 'Log out and end current session'} position="top">
+                <button
+                  type="button"
+                  onClick={() => logout()}
+                  className="px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 hover:border-rose-500/50 rounded-xl text-xs font-bold text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 flex items-center gap-2 transition-all active:scale-95 shadow-sm"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>{isArabic ? 'تسجيل الخروج من SparkLoop' : 'Log Out of SparkLoop'}</span>
+                </button>
+              </Tooltip>
 
-              <button
-                type="button"
-                onClick={() => setIsSwitcherOpen(true)}
-                className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 hover:text-white flex items-center gap-2 transition-all"
-              >
-                <Users className="w-4 h-4 text-cyan-400" />
-                <span>{isArabic ? 'تبديل أو إضافة حساب' : 'Switch or Add Persona'}</span>
-              </button>
+              <Tooltip content={isArabic ? 'تبديل الحساب أو إنشاء مستخدم جديد' : 'Switch persona or create account'} position="top">
+                <button
+                  type="button"
+                  onClick={() => setIsSwitcherOpen(true)}
+                  className="px-4 py-2.5 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white flex items-center gap-2 transition-all shadow-sm"
+                >
+                  <Users className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                  <span>{isArabic ? 'تبديل أو إضافة حساب' : 'Switch or Add Persona'}</span>
+                </button>
+              </Tooltip>
             </div>
           </div>
         </div>
@@ -914,6 +1133,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
         isOpen={isSwitcherOpen}
         initialTab="switch"
         onClose={() => setIsSwitcherOpen(false)}
+      />
+
+      {/* Follow List Modal (Followers / Following) */}
+      <FollowListModal
+        isOpen={isFollowListOpen}
+        onClose={() => setIsFollowListOpen(false)}
+        username={targetUsername}
+        type={followListType}
+      />
+
+      {/* Follow Requests Management Drawer */}
+      <FollowRequestsDrawer
+        isOpen={isRequestsDrawerOpen}
+        onClose={() => setIsRequestsDrawerOpen(false)}
+        onRequestHandled={() => {
+          fetchPendingRequestsCount();
+          // Reload profile to refresh follower count
+          api.getUserProfile(targetUsername).then(setProfile).catch(console.error);
+        }}
       />
     </div>
   );

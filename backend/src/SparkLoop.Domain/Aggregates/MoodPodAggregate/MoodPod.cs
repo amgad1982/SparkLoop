@@ -57,10 +57,18 @@ public class PodMessage : Entity<Guid>
 public class MoodPod : AggregateRoot<Guid>
 {
     private readonly List<PodMessage> _messages = [];
+    private readonly List<Guid> _moderatorUserIds = [];
+    private readonly List<Guid> _invitedUserIds = [];
 
     public string Title { get; private set; } = string.Empty;
     public string MoodEmoji { get; private set; } = "🔥";
     public string BackgroundTheme { get; private set; } = "cosmic-purple";
+    public string? CustomBackgroundImageUrl { get; private set; }
+    public bool IsPrivate { get; private set; } = false;
+    public string InviteCode { get; private set; } = string.Empty;
+    public bool AllowParticipantsChangeTheme { get; private set; } = false;
+    public bool AllowParticipantsPlayBgMusic { get; private set; } = true;
+    public bool AllowOpenMic { get; private set; } = true;
     public Guid HostUserId { get; private set; }
     public string HostUsername { get; private set; } = string.Empty;
     public string? HostDisplayName { get; private set; }
@@ -71,6 +79,8 @@ public class MoodPod : AggregateRoot<Guid>
     public int ActiveParticipantCount { get; private set; } = 1;
 
     public IReadOnlyCollection<PodMessage> Messages => _messages.AsReadOnly();
+    public IReadOnlyCollection<Guid> ModeratorUserIds => _moderatorUserIds.AsReadOnly();
+    public IReadOnlyCollection<Guid> InvitedUserIds => _invitedUserIds.AsReadOnly();
 
     private MoodPod() : base() { }
 
@@ -83,18 +93,34 @@ public class MoodPod : AggregateRoot<Guid>
         string hostUsername,
         string? hostDisplayName,
         string? hostAvatarUrl,
+        bool isPrivate = false,
+        string? inviteCode = null,
+        string? customBackgroundImageUrl = null,
+        bool allowParticipantsChangeTheme = false,
+        bool allowParticipantsPlayBgMusic = true,
+        bool allowOpenMic = true,
         TimeSpan? customTtl = null)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new DomainRuleException("Mood pod title cannot be empty.", "EMPTY_POD_TITLE");
 
         var now = DateTime.UtcNow;
+        var generatedCode = !string.IsNullOrWhiteSpace(inviteCode)
+            ? inviteCode.Trim().ToUpperInvariant()
+            : $"POD-{Guid.NewGuid().ToString("N")[..4].ToUpperInvariant()}";
+
         var pod = new MoodPod
         {
             Id = id,
             Title = title.Trim(),
             MoodEmoji = string.IsNullOrWhiteSpace(moodEmoji) ? "🔥" : moodEmoji.Trim(),
             BackgroundTheme = string.IsNullOrWhiteSpace(backgroundTheme) ? "cosmic-purple" : backgroundTheme.Trim(),
+            CustomBackgroundImageUrl = customBackgroundImageUrl,
+            IsPrivate = isPrivate,
+            InviteCode = generatedCode,
+            AllowParticipantsChangeTheme = allowParticipantsChangeTheme,
+            AllowParticipantsPlayBgMusic = allowParticipantsPlayBgMusic,
+            AllowOpenMic = allowOpenMic,
             HostUserId = hostUserId,
             HostUsername = hostUsername,
             HostDisplayName = hostDisplayName ?? hostUsername,
@@ -105,6 +131,9 @@ public class MoodPod : AggregateRoot<Guid>
             ActiveParticipantCount = 1
         };
 
+        // Host is inherently a moderator
+        pod._moderatorUserIds.Add(hostUserId);
+
         pod.AddDomainEvent(new MoodPodCreatedEvent(
             pod.Id,
             pod.Title,
@@ -113,6 +142,129 @@ public class MoodPod : AggregateRoot<Guid>
             pod.ExpiresAtUtc));
 
         return pod;
+    }
+
+    public void UpdateSettings(
+        string? title,
+        string? moodEmoji,
+        string? backgroundTheme,
+        string? customBackgroundImageUrl,
+        bool? allowParticipantsChangeTheme,
+        bool? allowParticipantsPlayBgMusic,
+        bool? allowOpenMic,
+        bool? isPrivate)
+    {
+        CheckActive();
+
+        if (!string.IsNullOrWhiteSpace(title)) Title = title.Trim();
+        if (!string.IsNullOrWhiteSpace(moodEmoji)) MoodEmoji = moodEmoji.Trim();
+        if (!string.IsNullOrWhiteSpace(backgroundTheme)) BackgroundTheme = backgroundTheme.Trim();
+        if (customBackgroundImageUrl != null) CustomBackgroundImageUrl = customBackgroundImageUrl;
+        if (allowParticipantsChangeTheme.HasValue) AllowParticipantsChangeTheme = allowParticipantsChangeTheme.Value;
+        if (allowParticipantsPlayBgMusic.HasValue) AllowParticipantsPlayBgMusic = allowParticipantsPlayBgMusic.Value;
+        if (allowOpenMic.HasValue) AllowOpenMic = allowOpenMic.Value;
+        if (isPrivate.HasValue) IsPrivate = isPrivate.Value;
+
+        AddDomainEvent(new MoodPodSettingsUpdatedEvent(
+            Id,
+            Title,
+            MoodEmoji,
+            BackgroundTheme,
+            CustomBackgroundImageUrl,
+            IsPrivate,
+            InviteCode,
+            AllowParticipantsChangeTheme,
+            AllowParticipantsPlayBgMusic,
+            AllowOpenMic,
+            _moderatorUserIds.AsReadOnly()));
+    }
+
+    public bool IsModerator(Guid userId)
+    {
+        return HostUserId == userId || _moderatorUserIds.Contains(userId);
+    }
+
+    public void AddModerator(Guid userId)
+    {
+        CheckActive();
+        if (!_moderatorUserIds.Contains(userId))
+        {
+            _moderatorUserIds.Add(userId);
+        }
+    }
+
+    public void RemoveModerator(Guid userId)
+    {
+        CheckActive();
+        if (userId != HostUserId)
+        {
+            _moderatorUserIds.Remove(userId);
+        }
+    }
+
+    public void InviteUser(Guid userId, string hostUsername)
+    {
+        CheckActive();
+        if (!_invitedUserIds.Contains(userId))
+        {
+            _invitedUserIds.Add(userId);
+        }
+
+        AddDomainEvent(new MoodPodInvitationSentEvent(
+            Id,
+            Title,
+            MoodEmoji,
+            HostUserId,
+            hostUsername,
+            userId,
+            InviteCode));
+    }
+
+    public bool CanUserAccess(Guid userId, string? inviteCodeProvided = null)
+    {
+        if (!IsPrivate) return true;
+        if (HostUserId == userId || _moderatorUserIds.Contains(userId) || _invitedUserIds.Contains(userId)) return true;
+        if (!string.IsNullOrWhiteSpace(inviteCodeProvided) &&
+            string.Equals(InviteCode.Trim(), inviteCodeProvided.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    public void ModerateParticipant(
+        Guid moderatorUserId,
+        string moderatorUsername,
+        Guid targetUserId,
+        string targetUsername,
+        string action,
+        string? reason = null)
+    {
+        CheckActive();
+
+        if (!IsModerator(moderatorUserId))
+        {
+            throw new DomainRuleException("Only the host or moderators can perform moderation actions.", "NOT_AUTHORIZED");
+        }
+
+        if (action == "promote_moderator")
+        {
+            AddModerator(targetUserId);
+        }
+        else if (action == "demote_moderator")
+        {
+            RemoveModerator(targetUserId);
+        }
+
+        AddDomainEvent(new MoodPodModerationActionEvent(
+            Id,
+            moderatorUserId,
+            moderatorUsername,
+            targetUserId,
+            targetUsername,
+            action,
+            reason));
     }
 
     public PodMessage AddMessage(

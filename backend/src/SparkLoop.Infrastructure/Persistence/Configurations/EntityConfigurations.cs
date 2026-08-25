@@ -42,6 +42,14 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.PasswordHash)
             .HasMaxLength(500);
 
+        builder.Property(u => u.PreferredTheme)
+            .HasMaxLength(20)
+            .HasDefaultValue("dark");
+
+        builder.Property(u => u.PreferredLanguage)
+            .HasMaxLength(10)
+            .HasDefaultValue("en");
+
         builder.Property(u => u.RepScore)
             .HasConversion(r => r.Value, v => RepScore.From(v))
             .IsRequired();
@@ -233,9 +241,37 @@ public class MoodPodConfiguration : IEntityTypeConfiguration<MoodPod>
         builder.Property(p => p.Title).HasMaxLength(100).IsRequired();
         builder.Property(p => p.MoodEmoji).HasMaxLength(10).IsRequired();
         builder.Property(p => p.BackgroundTheme).HasMaxLength(50).IsRequired();
+        builder.Property(p => p.CustomBackgroundImageUrl).HasMaxLength(2000000);
+        builder.Property(p => p.IsPrivate).HasDefaultValue(false);
+        builder.Property(p => p.InviteCode).HasMaxLength(20);
+        builder.Property(p => p.AllowParticipantsChangeTheme).HasDefaultValue(false);
+        builder.Property(p => p.AllowParticipantsPlayBgMusic).HasDefaultValue(true);
+        builder.Property(p => p.AllowOpenMic).HasDefaultValue(true);
         builder.Property(p => p.HostUsername).HasMaxLength(30).IsRequired();
         builder.Property(p => p.HostDisplayName).HasMaxLength(100);
         builder.Property(p => p.HostAvatarUrl).HasMaxLength(500);
+
+        var guidListComparer = new Microsoft.EntityFrameworkCore.ChangeTracking.ValueComparer<List<Guid>>(
+            (c1, c2) => (c1 == null && c2 == null) || (c1 != null && c2 != null && c1.SequenceEqual(c2)),
+            c => c.Aggregate(0, (a, v) => HashCode.Combine(a, v.GetHashCode())),
+            c => c.ToList()
+        );
+
+        builder.Property<List<Guid>>("_moderatorUserIds")
+            .HasColumnName("moderator_user_ids")
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<Guid>()
+            )
+            .Metadata.SetValueComparer(guidListComparer);
+
+        builder.Property<List<Guid>>("_invitedUserIds")
+            .HasColumnName("invited_user_ids")
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<Guid>()
+            )
+            .Metadata.SetValueComparer(guidListComparer);
 
         builder.HasMany(p => p.Messages)
             .WithOne()
@@ -247,6 +283,7 @@ public class MoodPodConfiguration : IEntityTypeConfiguration<MoodPod>
 
         builder.HasIndex(p => p.ExpiresAtUtc);
         builder.HasIndex(p => p.IsActive);
+        builder.HasIndex(p => p.InviteCode);
     }
 }
 
@@ -265,5 +302,29 @@ public class PodMessageConfiguration : IEntityTypeConfiguration<PodMessage>
         builder.Property(m => m.AudioUrl).HasMaxLength(1000);
 
         builder.HasIndex(m => new { m.PodId, m.CreatedAtUtc });
+    }
+}
+
+public class UserFollowConfiguration : IEntityTypeConfiguration<UserFollow>
+{
+    public void Configure(EntityTypeBuilder<UserFollow> builder)
+    {
+        builder.ToTable("user_follows");
+        builder.HasKey(f => f.Id);
+
+        builder.Property(f => f.FollowerUsername).HasMaxLength(30).IsRequired();
+        builder.Property(f => f.FollowerDisplayName).HasMaxLength(100);
+        builder.Property(f => f.FollowerAvatarUrl).HasMaxLength(500);
+
+        builder.Property(f => f.FollowingUsername).HasMaxLength(30).IsRequired();
+        builder.Property(f => f.FollowingDisplayName).HasMaxLength(100);
+        builder.Property(f => f.FollowingAvatarUrl).HasMaxLength(500);
+
+        builder.Property(f => f.Status).HasConversion<int>().IsRequired();
+
+        builder.HasIndex(f => new { f.FollowerId, f.FollowingId }).IsUnique();
+        builder.HasIndex(f => f.FollowingId);
+        builder.HasIndex(f => f.FollowerId);
+        builder.HasIndex(f => f.Status);
     }
 }

@@ -9,6 +9,7 @@ import { CreateChainModal } from './components/chains/CreateChainModal';
 import { MoodPodsView } from './components/pods/MoodPodsView';
 import { MemeCanvasEditor } from './components/meme-canvas/MemeCanvasEditor';
 import { ProfileView } from './components/profile/ProfileView';
+import { GlobalSearchModal } from './components/search/GlobalSearchModal';
 import { useCentrifugo } from './hooks/useCentrifugo';
 import { useThemeStore } from './stores/useThemeStore';
 import { api } from './services/apiClient';
@@ -20,12 +21,22 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('feed');
   const [isCreateChainOpen, setIsCreateChainOpen] = useState(false);
   const [selectedPodId, setSelectedPodId] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchHashtag, setSearchHashtag] = useState<string | null>(null);
 
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
 
-  // Global Centrifugo connection status
-  const { isConnected } = useCentrifugo();
+  // Global Centrifugo connection status & Real-time query cache updates
+  const { isConnected } = useCentrifugo('feed:global', (data) => {
+    if (data.type === 'POST_CREATED' && data.post) {
+      queryClient.setQueryData<PostDto[]>(['posts'], (old = []) => {
+        const newPost = data.post as PostDto;
+        if (old.some((p) => p.id === newPost.id)) return old;
+        return [newPost, ...old];
+      });
+    }
+  });
 
   // Queries for initial data
   const { data: posts = [], refetch: refetchPosts } = useQuery<PostDto[]>({
@@ -48,29 +59,56 @@ export const App: React.FC = () => {
     queryFn: () => api.getActivePods(),
   });
 
+  const handleSelectHashtag = (tag: string) => {
+    setSearchHashtag(tag);
+    setActiveTab('feed');
+  };
+
+  const handleClearHashtag = () => {
+    setSearchHashtag(null);
+  };
+
   return (
-    <MobileAppShell
-      activeTab={activeTab}
-      onTabChange={setActiveTab}
-      isConnected={isConnected}
-      activeSpark={spark}
-      pods={pods}
-    >
-      {/* 1. Feed Tab */}
-      {activeTab === 'feed' && (
-        <FeedView
-          initialPosts={posts}
-          onOpenCanvas={() => setActiveTab('create')}
-        />
-      )}
+    <>
+      <MobileAppShell
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+        }}
+        isConnected={isConnected}
+        activeSpark={spark}
+        pods={pods}
+        onOpenSearch={() => setIsSearchOpen(true)}
+        onSelectHashtag={handleSelectHashtag}
+      >
+        {/* 1. Feed Tab */}
+        {activeTab === 'feed' && (
+          <FeedView
+            initialPosts={posts}
+            onOpenCanvas={() => setActiveTab('create')}
+            selectedHashtag={searchHashtag}
+            onSelectHashtag={handleSelectHashtag}
+            onClearHashtag={handleClearHashtag}
+            onOpenSearch={() => setIsSearchOpen(true)}
+          />
+        )}
 
       {/* 2. Daily Sparks Tab */}
-      {activeTab === 'sparks' && spark && (
+      {activeTab === 'sparks' && (
         <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 pb-24 md:pb-8">
-          <SparkHeroCard
-            initialSpark={spark}
-            onOpenCanvas={() => setActiveTab('create')}
-          />
+          {spark ? (
+            <SparkHeroCard
+              initialSpark={spark}
+              onOpenCanvas={() => setActiveTab('create')}
+            />
+          ) : (
+            <div className="glass-card rounded-3xl p-8 border border-zinc-200 dark:border-zinc-800 text-center space-y-4 my-6">
+              <Flame className="w-10 h-10 text-amber-500 mx-auto animate-pulse" />
+              <h3 className="font-bold text-base text-zinc-900 dark:text-white">
+                {isArabic ? 'جاري تحميل تحدي اليوم...' : 'Loading Daily Spark Challenge...'}
+              </h3>
+            </div>
+          )}
         </div>
       )}
 
@@ -155,5 +193,19 @@ export const App: React.FC = () => {
         </div>
       )}
     </MobileAppShell>
+
+    <GlobalSearchModal
+      isOpen={isSearchOpen}
+      onClose={() => setIsSearchOpen(false)}
+      onNavigateTab={(tab) => {
+        setActiveTab(tab);
+      }}
+      onSelectHashtag={handleSelectHashtag}
+      onSelectPodId={(podId) => {
+        setSelectedPodId(podId);
+        setActiveTab('pods');
+      }}
+    />
+  </>
   );
 };

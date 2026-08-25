@@ -127,13 +127,93 @@ public sealed record PostCreatedEvent(
     Guid PostId,
     Guid AuthorId,
     string AuthorUsername,
+    string? AuthorDisplayName,
+    string? AuthorAvatarUrl,
     string Content,
-    string? MediaUrl
+    string? MediaUrl,
+    string? MediaType = null,
+    IReadOnlyList<string>? Hashtags = null
 ) : BaseDomainEvent;
+
+public sealed record ReactionDetail(
+    Guid Id,
+    Guid UserId,
+    string Username,
+    string Type,
+    DateTime CreatedAtUtc
+);
 
 public sealed record PostReactedEvent(
     Guid PostId,
     Guid UserId,
+    string Username,
     string ReactionType,
-    int TotalReactionCount
+    int TotalReactionCount,
+    IReadOnlyList<ReactionDetail>? Reactions = null
 ) : BaseDomainEvent;
+
+// ==========================================
+// User Follow Events
+// ==========================================
+public sealed record UserFollowRequestedEvent(
+    Guid FollowId,
+    Guid FollowerId,
+    string FollowerUsername,
+    string FollowerDisplayName,
+    string? FollowerAvatarUrl,
+    Guid FollowingId,
+    string FollowingUsername
+) : BaseDomainEvent;
+
+public sealed record UserFollowAcceptedEvent(
+    Guid FollowId,
+    Guid FollowerId,
+    string FollowerUsername,
+    string FollowerDisplayName,
+    string? FollowerAvatarUrl,
+    Guid FollowingId,
+    string FollowingUsername
+) : BaseDomainEvent;
+
+public sealed record UserUnfollowedEvent(
+    Guid FollowerId,
+    Guid FollowingId
+) : BaseDomainEvent;
+
+// ==========================================
+// Mood Pod Moderation & Settings Events
+// ==========================================
+public sealed record MoodPodSettingsUpdatedEvent(
+    Guid PodId,
+    string Title,
+    string MoodEmoji,
+    string BackgroundTheme,
+    string? CustomBackgroundImageUrl,
+    bool IsPrivate,
+    string InviteCode,
+    bool AllowParticipantsChangeTheme,
+    bool AllowParticipantsPlayBgMusic,
+    bool AllowOpenMic,
+    IReadOnlyList<Guid> ModeratorUserIds
+) : BaseDomainEvent;
+
+public sealed record MoodPodModerationActionEvent(
+    Guid PodId,
+    Guid ModeratorUserId,
+    string ModeratorUsername,
+    Guid TargetUserId,
+    string TargetUsername,
+    string Action,
+    string? Reason = null
+) : BaseDomainEvent;
+
+public sealed record MoodPodInvitationSentEvent(
+    Guid PodId,
+    string PodTitle,
+    string PodMoodEmoji,
+    Guid HostUserId,
+    string HostUsername,
+    Guid TargetUserId,
+    string InviteCode
+) : BaseDomainEvent;
+

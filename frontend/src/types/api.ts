@@ -8,6 +8,8 @@ export interface UserDto {
   repScore: number;
   badges: BadgeDto[];
   createdAtUtc: string;
+  preferredTheme?: 'dark' | 'light';
+  preferredLanguage?: 'en' | 'ar';
 }
 
 export interface BadgeDto {
@@ -147,6 +149,13 @@ export interface MoodPodDto {
   isActive: boolean;
   activeParticipantCount: number;
   recentMessages: PodMessageDto[];
+  customBackgroundImageUrl?: string;
+  isPrivate?: boolean;
+  inviteCode?: string;
+  allowParticipantsChangeTheme?: boolean;
+  allowParticipantsPlayBgMusic?: boolean;
+  allowOpenMic?: boolean;
+  moderatorUserIds?: string[];
 }
 
 export interface AuthResultDto {
@@ -177,6 +186,11 @@ export interface UserProfileDto {
   sparksWonCount: number;
   recentPosts: PostDto[];
   recentChains: ChainDto[];
+  preferredTheme?: 'dark' | 'light';
+  preferredLanguage?: 'en' | 'ar';
+  followersCount?: number;
+  followingCount?: number;
+  followStatus?: 'none' | 'pending_outgoing' | 'pending_incoming' | 'following' | 'follow_back' | 'mutual' | 'self';
 }
 
 export interface HashtagDto {
@@ -184,5 +198,40 @@ export interface HashtagDto {
   count: number;
   lastUsedAtUtc: string;
 }
+
+export interface UserFollowDto {
+  id: string;
+  followerId: string;
+  followerUsername: string;
+  followerDisplayName: string;
+  followerAvatarUrl?: string;
+  followingId: string;
+  followingUsername: string;
+  followingDisplayName: string;
+  followingAvatarUrl?: string;
+  status: 'pending' | 'accepted' | 'declined';
+  createdAtUtc: string;
+  respondedAtUtc?: string;
+}
+
+export interface FollowStatusDto {
+  targetUsername: string;
+  status: 'none' | 'pending_outgoing' | 'pending_incoming' | 'following' | 'follow_back' | 'mutual' | 'self';
+  followersCount: number;
+  followingCount: number;
+}
+
+export interface GlobalSearchResultDto {
+  query: string;
+  filterType?: string;
+  totalCount: number;
+  posts: PostDto[];
+  users: UserDto[];
+  moodPods: MoodPodDto[];
+  chains: ChainDto[];
+  sparks: SparkDto[];
+  hashtags: HashtagDto[];
+}
+
 
 

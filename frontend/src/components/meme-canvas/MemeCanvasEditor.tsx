@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
+import { Tooltip } from '../ui/Tooltip';
 import {
   Download,
   Image as ImageIcon,
@@ -686,43 +687,48 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         <div className="flex items-center gap-1.5 flex-wrap">
           <div className="flex bg-zinc-900 border border-zinc-800 p-1 rounded-xl gap-1">
             {ASPECT_RATIOS.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => handleSelectAspectRatio(r)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
-                  aspectRatio.id === r.id
-                    ? 'bg-fuchsia-600 text-white shadow-md'
-                    : 'text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                {r.name}
-              </button>
+              <Tooltip key={r.id} content={`${isArabic ? 'أبعاد الكانفاس' : 'Canvas Ratio'}: ${r.name}`} position="bottom">
+                <button
+                  onClick={() => handleSelectAspectRatio(r)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                    aspectRatio.id === r.id
+                      ? 'bg-fuchsia-600 text-white shadow-md'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                >
+                  {r.name}
+                </button>
+              </Tooltip>
             ))}
           </div>
 
-          <button
-            onClick={handleUndo}
-            title={isArabic ? 'تراجع' : 'Undo'}
-            className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
-          >
-            <Undo2 className="w-4 h-4" />
-          </button>
+          <Tooltip content={isArabic ? 'تراجع عن آخر خطوة رسم أو إضافة' : 'Undo last brush stroke or action'} position="bottom">
+            <button
+              onClick={handleUndo}
+              className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
+            >
+              <Undo2 className="w-4 h-4" />
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={handleResetCanvas}
-            title={isArabic ? 'إعادة ضبط' : 'Reset'}
-            className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <Tooltip content={isArabic ? 'إعادة ضبط الكانفاس وتنظيف الطبقات' : 'Reset canvas and clear layers'} position="bottom">
+            <button
+              onClick={handleResetCanvas}
+              className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={handleDownload}
-            className="px-3 py-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{isArabic ? 'تصدير' : 'Export'}</span>
-          </button>
+          <Tooltip content={isArabic ? 'تنزيل الميم كصورة WebP عالية الدقة' : 'Download meme as high-res WebP image'} position="bottom">
+            <button
+              onClick={handleDownload}
+              className="px-3 py-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isArabic ? 'تصدير' : 'Export'}</span>
+            </button>
+          </Tooltip>
         </div>
       </div>
 
@@ -780,30 +786,31 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         {/* Studio Tool Navigation Dock */}
         <div className="flex items-center justify-center gap-1.5 p-1.5 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl overflow-x-auto no-scrollbar">
           {[
-            { id: 'text' as StudioTab, label: isArabic ? 'النصوص' : 'Text', icon: Type },
-            { id: 'templates' as StudioTab, label: isArabic ? 'القوالب' : 'Templates', icon: ImageIcon },
-            { id: 'stickers' as StudioTab, label: isArabic ? 'الملصقات' : 'Stickers', icon: Sparkles },
-            { id: 'draw' as StudioTab, label: isArabic ? 'الرسم' : 'Brush', icon: Paintbrush },
-            { id: 'filters' as StudioTab, label: isArabic ? 'الفلاتر' : 'Filters', icon: Palette },
+            { id: 'text' as StudioTab, label: isArabic ? 'النصوص' : 'Text', icon: Type, tip: isArabic ? 'إضافة وتنسيق النصوص' : 'Add & style text layers' },
+            { id: 'templates' as StudioTab, label: isArabic ? 'القوالب' : 'Templates', icon: ImageIcon, tip: isArabic ? 'اختيار صور وقوالب ميمز جاهزة' : 'Select meme templates' },
+            { id: 'stickers' as StudioTab, label: isArabic ? 'الملصقات' : 'Stickers', icon: Sparkles, tip: isArabic ? 'إضافة إيموجي وملصقات' : 'Add emoji stickers' },
+            { id: 'draw' as StudioTab, label: isArabic ? 'الرسم' : 'Brush', icon: Paintbrush, tip: isArabic ? 'الرسم الحر بالفرشاة' : 'Freehand brush drawing' },
+            { id: 'filters' as StudioTab, label: isArabic ? 'الفلاتر' : 'Filters', icon: Palette, tip: isArabic ? 'تأثيرات وفلاتر بصرية' : 'Visual filters & adjustments' },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeStudioTab === tab.id;
             return (
-              <button
-                key={tab.id}
-                onClick={() => {
-                  setActiveStudioTab(tab.id);
-                  setIsBrushMode(tab.id === 'draw');
-                }}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-600/30'
-                    : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
-              </button>
+              <Tooltip key={tab.id} content={tab.tip} position="top">
+                <button
+                  onClick={() => {
+                    setActiveStudioTab(tab.id);
+                    setIsBrushMode(tab.id === 'draw');
+                  }}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                    isActive
+                      ? 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-600/30'
+                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{tab.label}</span>
+                </button>
+              </Tooltip>
             );
           })}
         </div>
@@ -1225,14 +1232,15 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
             </label>
             <div className="flex gap-1.5">
               {['#meme', '#sparkloop', '#devhumor', '#vibes'].map((tag) => (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => setCaption((prev) => (prev ? `${prev} ${tag}` : tag))}
-                  className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-850 text-fuchsia-400 border border-zinc-800 transition-colors"
-                >
-                  {tag}
-                </button>
+                <Tooltip key={tag} content={`${isArabic ? 'إدراج الوسم' : 'Insert tag'} ${tag}`} position="top">
+                  <button
+                    type="button"
+                    onClick={() => setCaption((prev) => (prev ? `${prev} ${tag}` : tag))}
+                    className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-850 text-fuchsia-400 border border-zinc-800 transition-colors"
+                  >
+                    {tag}
+                  </button>
+                </Tooltip>
               ))}
             </div>
           </div>
@@ -1262,25 +1270,29 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          <button
-            type="button"
-            onClick={() => handlePublish('feed')}
-            disabled={isUploading}
-            className="py-3.5 px-4 bg-zinc-900 hover:bg-zinc-850 border border-zinc-700 hover:border-zinc-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md"
-          >
-            {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-cyan-400" />}
-            <span>{isArabic ? 'نشر في الموجز العام 📱' : 'Post to Feed 📱'}</span>
-          </button>
+          <Tooltip content={isArabic ? 'نشر هذا الميم كمنشور جديد في الموجز العام' : 'Publish this meme artwork to global feed'} position="top">
+            <button
+              type="button"
+              onClick={() => handlePublish('feed')}
+              disabled={isUploading}
+              className="w-full py-3.5 px-4 bg-zinc-900 hover:bg-zinc-850 border border-zinc-700 hover:border-zinc-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md"
+            >
+              {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-cyan-400" />}
+              <span>{isArabic ? 'نشر في الموجز العام 📱' : 'Post to Feed 📱'}</span>
+            </button>
+          </Tooltip>
 
-          <button
-            type="button"
-            onClick={() => handlePublish('spark')}
-            disabled={isUploading}
-            className="py-3.5 px-4 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-fuchsia-600/30"
-          >
-            {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Flame className="w-4 h-4 text-amber-300 fill-amber-300" />}
-            <span>{isArabic ? 'مشاركة في تحدي اليوم 🏆' : 'Submit to Daily Spark 🏆'}</span>
-          </button>
+          <Tooltip content={isArabic ? 'تقديم هذا الميم كمشاركة في تحدي السبارك اليومي' : 'Submit meme entry to active Daily Spark challenge'} position="top">
+            <button
+              type="button"
+              onClick={() => handlePublish('spark')}
+              disabled={isUploading}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-fuchsia-600/30"
+            >
+              {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Flame className="w-4 h-4 text-amber-300 fill-amber-300" />}
+              <span>{isArabic ? 'مشاركة في تحدي اليوم 🏆' : 'Submit to Daily Spark 🏆'}</span>
+            </button>
+          </Tooltip>
         </div>
       </div>
     </div>

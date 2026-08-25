@@ -72,13 +72,13 @@ public class GetFeedPostsQueryHandler : IRequestHandler<GetFeedPostsQuery, IRead
         {
             var cleanTag = request.Hashtag.Trim().TrimStart('#');
             var tagWithHash = "#" + cleanTag;
-            query = query.Where(p => p.Content.Value.ToLower().Contains(tagWithHash.ToLower()));
+            query = query.Where(p => ((string)p.Content).ToLower().Contains(tagWithHash.ToLower()));
         }
 
         if (!string.IsNullOrWhiteSpace(request.SearchQuery))
         {
             var search = request.SearchQuery.Trim().ToLower();
-            query = query.Where(p => p.Content.Value.ToLower().Contains(search) ||
+            query = query.Where(p => ((string)p.Content).ToLower().Contains(search) ||
                                      p.AuthorUsername.ToLower().Contains(search) ||
                                      (p.AuthorDisplayName != null && p.AuthorDisplayName.ToLower().Contains(search)));
         }

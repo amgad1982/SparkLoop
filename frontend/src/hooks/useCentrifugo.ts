@@ -1,19 +1,132 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Centrifuge, Subscription, PublicationContext } from 'centrifuge';
 import { useAuthStore } from '../stores/useAuthStore';
 import { api } from '../services/apiClient';
 
-interface CentrifugoMessage {
+export interface CentrifugoMessage {
   type: string;
   [key: string]: unknown;
 }
 
-export function useCentrifugo(channelName?: string, onMessage?: (data: CentrifugoMessage) => void) {
-  const [isConnected, setIsConnected] = useState<boolean>(false);
+// Global shared Centrifugo client and subscription registry
+let globalCentrifuge: Centrifuge | null = null;
+let currentClientUserId: string | null = null;
+let connectionPromise: Promise<Centrifuge | null> | null = null;
+const channelSubscribers = new Map<string, Set<(data: CentrifugoMessage) => void>>();
+const activeSubscriptions = new Map<string, Subscription>();
+const connectionStateListeners = new Set<(connected: boolean) => void>();
+
+function notifyConnectionState(connected: boolean) {
+  connectionStateListeners.forEach((listener) => {
+    try {
+      listener(connected);
+    } catch (e) {
+      console.error('Error in Centrifugo connection state listener:', e);
+    }
+  });
+}
+
+function subscribeToChannel(client: Centrifuge, channel: string) {
+  if (activeSubscriptions.has(channel)) return;
+
+  const sub = client.newSubscription(channel);
+  sub.on('publication', (ctx: PublicationContext) => {
+    const data = ctx.data as CentrifugoMessage;
+    const listeners = channelSubscribers.get(channel);
+    if (listeners) {
+      listeners.forEach((listener) => {
+        try {
+          listener(data);
+        } catch (e) {
+          console.error(`Error in Centrifugo listener for channel ${channel}:`, e);
+        }
+      });
+    }
+  });
+
+  sub.subscribe();
+  activeSubscriptions.set(channel, sub);
+}
+
+async function getOrCreateCentrifuge(
+  userId: string,
+  username: string,
+  displayName: string
+): Promise<Centrifuge | null> {
+  if (globalCentrifuge && currentClientUserId === userId) {
+    return globalCentrifuge;
+  }
+
+  if (connectionPromise && currentClientUserId === userId) {
+    return connectionPromise;
+  }
+
+  connectionPromise = (async () => {
+    try {
+      if (globalCentrifuge) {
+        activeSubscriptions.forEach((sub) => sub.unsubscribe());
+        activeSubscriptions.clear();
+        globalCentrifuge.disconnect();
+        globalCentrifuge = null;
+      }
+
+      currentClientUserId = userId;
+      const tokenRes = await api.getCentrifugoToken(userId, username);
+
+      const client = new Centrifuge('ws://localhost:8000/connection/websocket', {
+        token: tokenRes.token,
+        data: {
+          user: username,
+          name: displayName,
+        },
+      });
+
+      client.on('connected', () => {
+        notifyConnectionState(true);
+      });
+
+      client.on('disconnected', () => {
+        notifyConnectionState(false);
+      });
+
+      client.on('error', (ctx) => {
+        console.warn('Centrifugo connection issue:', ctx);
+      });
+
+      client.connect();
+      globalCentrifuge = client;
+
+      // Subscribe to user private channel
+      const userChannel = `user:${userId}`;
+      subscribeToChannel(client, userChannel);
+
+      // Re-subscribe all registered channels
+      channelSubscribers.forEach((_, channel) => {
+        subscribeToChannel(client, channel);
+      });
+
+      return client;
+    } catch (err) {
+      console.warn('Could not establish real-time Centrifugo connection:', err);
+      notifyConnectionState(false);
+      return null;
+    } finally {
+      connectionPromise = null;
+    }
+  })();
+
+  return connectionPromise;
+}
+
+export function useCentrifugo(
+  channelName?: string,
+  onMessage?: (data: CentrifugoMessage) => void
+) {
+  const [isConnected, setIsConnected] = useState<boolean>(() => {
+    return globalCentrifuge?.state === 'connected';
+  });
+
   const currentPersona = useAuthStore((state) => state.currentPersona);
-  const centrifugeRef = useRef<Centrifuge | null>(null);
-  const subscriptionRef = useRef<Subscription | null>(null);
-  const userSubRef = useRef<Subscription | null>(null);
   const onMessageRef = useRef(onMessage);
 
   useEffect(() => {
@@ -21,95 +134,63 @@ export function useCentrifugo(channelName?: string, onMessage?: (data: Centrifug
   }, [onMessage]);
 
   useEffect(() => {
+    const handleStateChange = (connected: boolean) => {
+      setIsConnected(connected);
+    };
+
+    connectionStateListeners.add(handleStateChange);
+    setIsConnected(globalCentrifuge?.state === 'connected');
+
+    return () => {
+      connectionStateListeners.delete(handleStateChange);
+    };
+  }, []);
+
+  useEffect(() => {
     let isCancelled = false;
 
-    async function initCentrifuge() {
-      try {
-        const tokenRes = await api.getCentrifugoToken(currentPersona.id, currentPersona.username);
-        if (isCancelled) return;
+    getOrCreateCentrifuge(
+      currentPersona.id,
+      currentPersona.username,
+      currentPersona.displayName
+    ).then((client) => {
+      if (isCancelled || !client) return;
 
-        // Disconnect previous instance if exists
-        if (subscriptionRef.current) {
-          subscriptionRef.current.unsubscribe();
-          subscriptionRef.current = null;
-        }
-        if (userSubRef.current) {
-          userSubRef.current.unsubscribe();
-          userSubRef.current = null;
-        }
-        if (centrifugeRef.current) {
-          centrifugeRef.current.disconnect();
-          centrifugeRef.current = null;
+      if (channelName) {
+        if (!channelSubscribers.has(channelName)) {
+          channelSubscribers.set(channelName, new Set());
         }
 
-        const centrifuge = new Centrifuge('ws://localhost:8000/connection/websocket', {
-          token: tokenRes.token,
-          data: {
-            user: currentPersona.username,
-            name: currentPersona.displayName,
-          },
-        });
-
-        centrifuge.on('connected', () => {
-          if (!isCancelled) setIsConnected(true);
-        });
-
-        centrifuge.on('disconnected', () => {
-          if (!isCancelled) setIsConnected(false);
-        });
-
-        centrifuge.on('error', (ctx) => {
-          console.warn('Centrifugo connection issue:', ctx);
-        });
-
-        centrifuge.connect();
-        centrifugeRef.current = centrifuge;
-
-        // Subscribe to user private channel
-        const userChannel = `user:${currentPersona.id}`;
-        const userSub = centrifuge.newSubscription(userChannel);
-        userSub.on('publication', (ctx: PublicationContext) => {
+        const listener = (data: CentrifugoMessage) => {
           if (onMessageRef.current) {
-            onMessageRef.current(ctx.data as CentrifugoMessage);
+            onMessageRef.current(data);
           }
-        });
-        userSub.subscribe();
-        userSubRef.current = userSub;
+        };
 
-        // Subscribe to target channel if specified
-        if (channelName) {
-          const sub = centrifuge.newSubscription(channelName);
-          sub.on('publication', (ctx: PublicationContext) => {
-            if (onMessageRef.current) {
-              onMessageRef.current(ctx.data as CentrifugoMessage);
+        channelSubscribers.get(channelName)!.add(listener);
+        subscribeToChannel(client, channelName);
+
+        return () => {
+          const listeners = channelSubscribers.get(channelName);
+          if (listeners) {
+            listeners.delete(listener);
+            if (listeners.size === 0) {
+              channelSubscribers.delete(channelName);
+              const sub = activeSubscriptions.get(channelName);
+              if (sub) {
+                sub.unsubscribe();
+                activeSubscriptions.delete(channelName);
+              }
             }
-          });
-          sub.subscribe();
-          subscriptionRef.current = sub;
-        }
-      } catch (err) {
-        console.warn('Could not establish real-time Centrifugo connection:', err);
+          }
+        };
       }
-    }
-
-    initCentrifuge();
+    });
 
     return () => {
       isCancelled = true;
-      if (subscriptionRef.current) {
-        subscriptionRef.current.unsubscribe();
-        subscriptionRef.current = null;
-      }
-      if (userSubRef.current) {
-        userSubRef.current.unsubscribe();
-        userSubRef.current = null;
-      }
-      if (centrifugeRef.current) {
-        centrifugeRef.current.disconnect();
-        centrifugeRef.current = null;
-      }
     };
-  }, [currentPersona.id, currentPersona.username, channelName]);
+  }, [currentPersona.id, currentPersona.username, currentPersona.displayName, channelName]);
 
   return { isConnected };
 }

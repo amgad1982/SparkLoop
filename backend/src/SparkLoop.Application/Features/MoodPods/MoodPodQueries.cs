@@ -47,7 +47,14 @@ public static class MoodPodQueries
             timeRemaining,
             pod.IsActive && timeRemaining > TimeSpan.Zero,
             pod.ActiveParticipantCount,
-            messages
+            messages,
+            pod.CustomBackgroundImageUrl,
+            pod.IsPrivate,
+            pod.InviteCode,
+            pod.AllowParticipantsChangeTheme,
+            pod.AllowParticipantsPlayBgMusic,
+            pod.AllowOpenMic,
+            pod.ModeratorUserIds.ToList()
         );
     }
 }
@@ -76,15 +83,17 @@ public class GetActivePodsQueryHandler : IRequestHandler<GetActivePodsQuery, IRe
     }
 }
 
-public record GetPodByIdQuery(Guid PodId) : IRequest<MoodPodDto>;
+public record GetPodByIdQuery(Guid PodId, string? InviteCode = null) : IRequest<MoodPodDto>;
 
 public class GetPodByIdQueryHandler : IRequestHandler<GetPodByIdQuery, MoodPodDto>
 {
     private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
 
-    public GetPodByIdQueryHandler(IAppDbContext dbContext)
+    public GetPodByIdQueryHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
     {
         _dbContext = dbContext;
+        _currentUserService = currentUserService;
     }
 
     public async Task<MoodPodDto> Handle(GetPodByIdQuery request, CancellationToken cancellationToken)
@@ -94,6 +103,49 @@ public class GetPodByIdQueryHandler : IRequestHandler<GetPodByIdQuery, MoodPodDt
             .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
             ?? throw new NotFoundException("MoodPod", request.PodId);
 
+        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        if (pod.IsPrivate && !pod.CanUserAccess(currentUserId, request.InviteCode))
+        {
+            throw new DomainRuleException("This Mood Pod is private and requires a valid invite code or host invitation.", "PRIVATE_POD_ACCESS_DENIED");
+        }
+
         return MoodPodQueries.MapToDto(pod);
     }
 }
+
+public record JoinPodByCodeCommand(string InviteCode) : IRequest<MoodPodDto>;
+
+public class JoinPodByCodeCommandHandler : IRequestHandler<JoinPodByCodeCommand, MoodPodDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public JoinPodByCodeCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<MoodPodDto> Handle(JoinPodByCodeCommand request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.InviteCode))
+        {
+            throw new DomainRuleException("Invite code cannot be empty.", "EMPTY_CODE");
+        }
+
+        var normalizedCode = request.InviteCode.Trim().ToUpperInvariant();
+        var now = DateTime.UtcNow;
+
+        var pod = await _dbContext.MoodPods
+            .Include(p => p.Messages)
+            .FirstOrDefaultAsync(p => p.InviteCode == normalizedCode && p.IsActive && p.ExpiresAtUtc > now, cancellationToken);
+
+        if (pod is null)
+        {
+            throw new DomainRuleException("No active mood pod found with this invite code.", "POD_NOT_FOUND_OR_EXPIRED");
+        }
+
+        return MoodPodQueries.MapToDto(pod);
+    }
+}
+

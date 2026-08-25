@@ -9,7 +9,9 @@ public record UserDto(
     string? Bio,
     int RepScore,
     IReadOnlyList<BadgeDto> Badges,
-    DateTime CreatedAtUtc
+    DateTime CreatedAtUtc,
+    string PreferredTheme = "dark",
+    string PreferredLanguage = "en"
 );
 
 public record BadgeDto(
@@ -144,7 +146,14 @@ public record MoodPodDto(
     TimeSpan TimeRemaining,
     bool IsActive,
     int ActiveParticipantCount,
-    IReadOnlyList<PodMessageDto> RecentMessages
+    IReadOnlyList<PodMessageDto> RecentMessages,
+    string? CustomBackgroundImageUrl = null,
+    bool IsPrivate = false,
+    string InviteCode = "",
+    bool AllowParticipantsChangeTheme = false,
+    bool AllowParticipantsPlayBgMusic = true,
+    bool AllowOpenMic = true,
+    IReadOnlyList<Guid>? ModeratorUserIds = null
 );
 
 public record AuthResultDto(
@@ -174,7 +183,12 @@ public record UserProfileDto(
     int ChainsCount,
     int SparksWonCount,
     IReadOnlyList<PostDto> RecentPosts,
-    IReadOnlyList<ChainDto> RecentChains
+    IReadOnlyList<ChainDto> RecentChains,
+    string PreferredTheme = "dark",
+    string PreferredLanguage = "en",
+    int FollowersCount = 0,
+    int FollowingCount = 0,
+    string FollowStatus = "none"
 );
 
 public record HashtagDto(
@@ -182,4 +196,39 @@ public record HashtagDto(
     int Count,
     DateTime LastUsedAtUtc
 );
+
+public record UserFollowDto(
+    Guid Id,
+    Guid FollowerId,
+    string FollowerUsername,
+    string FollowerDisplayName,
+    string? FollowerAvatarUrl,
+    Guid FollowingId,
+    string FollowingUsername,
+    string FollowingDisplayName,
+    string? FollowingAvatarUrl,
+    string Status,
+    DateTime CreatedAtUtc,
+    DateTime? RespondedAtUtc
+);
+
+public record FollowStatusDto(
+    string TargetUsername,
+    string Status, // "none", "pending_outgoing", "pending_incoming", "following", "mutual"
+    int FollowersCount,
+    int FollowingCount
+);
+
+public record GlobalSearchResultDto(
+    string Query,
+    string? FilterType,
+    int TotalCount,
+    IReadOnlyList<PostDto> Posts,
+    IReadOnlyList<UserDto> Users,
+    IReadOnlyList<MoodPodDto> MoodPods,
+    IReadOnlyList<ChainDto> Chains,
+    IReadOnlyList<SparkDto> Sparks,
+    IReadOnlyList<HashtagDto> Hashtags
+);
+
 

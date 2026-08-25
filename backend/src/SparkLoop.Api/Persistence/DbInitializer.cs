@@ -23,6 +23,132 @@ public static class DbInitializer
         {
             await dbContext.Database.EnsureCreatedAsync();
 
+            if (dbContext.Database.IsSqlite())
+            {
+                // Safe column check for existing SQLite databases without triggering EF Core failed command logs
+                try
+                {
+                var connection = dbContext.Database.GetDbConnection();
+                if (connection.State != System.Data.ConnectionState.Open)
+                {
+                    await connection.OpenAsync();
+                }
+
+                using var checkCmd = connection.CreateCommand();
+                checkCmd.CommandText = "PRAGMA table_info(users);";
+                using var reader = await checkCmd.ExecuteReaderAsync();
+                var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                while (await reader.ReadAsync())
+                {
+                    // column 'name' is at index 1 in PRAGMA table_info output
+                    columns.Add(reader.GetString(1));
+                }
+                await reader.CloseAsync();
+
+                if (!columns.Contains("PreferredTheme"))
+                {
+                    using var addCmd = connection.CreateCommand();
+                    addCmd.CommandText = "ALTER TABLE users ADD COLUMN PreferredTheme TEXT DEFAULT 'dark';";
+                    await addCmd.ExecuteNonQueryAsync();
+                }
+
+                if (!columns.Contains("PreferredLanguage"))
+                {
+                    using var addCmd = connection.CreateCommand();
+                    addCmd.CommandText = "ALTER TABLE users ADD COLUMN PreferredLanguage TEXT DEFAULT 'en';";
+                    await addCmd.ExecuteNonQueryAsync();
+                }
+
+                // Mood Pods new columns check
+                using var podCheckCmd = connection.CreateCommand();
+                podCheckCmd.CommandText = "PRAGMA table_info(mood_pods);";
+                using var podReader = await podCheckCmd.ExecuteReaderAsync();
+                var podColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                while (await podReader.ReadAsync())
+                {
+                    podColumns.Add(podReader.GetString(1));
+                }
+                await podReader.CloseAsync();
+
+                if (!podColumns.Contains("CustomBackgroundImageUrl"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN CustomBackgroundImageUrl TEXT NULL;";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                if (!podColumns.Contains("IsPrivate"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN IsPrivate INTEGER DEFAULT 0;";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                if (!podColumns.Contains("InviteCode"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN InviteCode TEXT DEFAULT '';";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                if (!podColumns.Contains("AllowParticipantsChangeTheme"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN AllowParticipantsChangeTheme INTEGER DEFAULT 0;";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                if (!podColumns.Contains("AllowParticipantsPlayBgMusic"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN AllowParticipantsPlayBgMusic INTEGER DEFAULT 1;";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                if (!podColumns.Contains("AllowOpenMic"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN AllowOpenMic INTEGER DEFAULT 1;";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                if (!podColumns.Contains("moderator_user_ids"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN moderator_user_ids TEXT DEFAULT '[]';";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+                if (!podColumns.Contains("invited_user_ids"))
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN invited_user_ids TEXT DEFAULT '[]';";
+                    await cmd.ExecuteNonQueryAsync();
+                }
+
+                // User Follows table creation check
+                using var tableCheckCmd = connection.CreateCommand();
+                tableCheckCmd.CommandText = @"
+                    CREATE TABLE IF NOT EXISTS user_follows (
+                        Id TEXT PRIMARY KEY,
+                        FollowerId TEXT NOT NULL,
+                        FollowerUsername TEXT NOT NULL,
+                        FollowerDisplayName TEXT NOT NULL,
+                        FollowerAvatarUrl TEXT,
+                        FollowingId TEXT NOT NULL,
+                        FollowingUsername TEXT NOT NULL,
+                        FollowingDisplayName TEXT NOT NULL,
+                        FollowingAvatarUrl TEXT,
+                        Status INTEGER NOT NULL,
+                        CreatedAtUtc TEXT NOT NULL,
+                        RespondedAtUtc TEXT
+                    );
+                    CREATE UNIQUE INDEX IF NOT EXISTS IX_user_follows_FollowerId_FollowingId ON user_follows (FollowerId, FollowingId);
+                    CREATE INDEX IF NOT EXISTS IX_user_follows_FollowingId ON user_follows (FollowingId);
+                    CREATE INDEX IF NOT EXISTS IX_user_follows_FollowerId ON user_follows (FollowerId);
+                    CREATE INDEX IF NOT EXISTS IX_user_follows_Status ON user_follows (Status);
+                ";
+                await tableCheckCmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Column check or migration skipped");
+            }
+            }
+
             if (await dbContext.Users.AnyAsync())
             {
                 return; // Already seeded

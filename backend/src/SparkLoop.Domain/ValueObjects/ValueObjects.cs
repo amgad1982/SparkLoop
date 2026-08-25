@@ -30,6 +30,11 @@ public sealed class PostText : ValueObject
         return new PostText(trimmed);
     }
 
+    public IReadOnlyList<string> Hashtags => Regex.Matches(Value, @"#(\w+)")
+        .Select(m => m.Groups[1].Value)
+        .Distinct()
+        .ToList();
+
     protected override IEnumerable<object?> GetEqualityComponents()
     {
         yield return Value;

@@ -48,7 +48,7 @@ public class Reaction : Entity<Guid>
     public Guid PostId { get; private set; }
     public Guid UserId { get; private set; }
     public string Username { get; private set; } = string.Empty;
-    public string Type { get; private set; } = "fire"; // e.g. "fire", "laugh", "spark", "heart", "mindblown"
+    public string Type { get; private set; } = "fire"; // e.g. "fire", "spark", "laugh", "mindblown", "heart"
     public DateTime CreatedAtUtc { get; private set; }
 
     private Reaction() : base() { }
@@ -60,6 +60,11 @@ public class Reaction : Entity<Guid>
         Username = username;
         Type = string.IsNullOrWhiteSpace(type) ? "fire" : type.Trim().ToLowerInvariant();
         CreatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void UpdateType(string newType)
+    {
+        Type = string.IsNullOrWhiteSpace(newType) ? "fire" : newType.Trim().ToLowerInvariant();
     }
 }
 
@@ -107,33 +112,55 @@ public class Post : AggregateRoot<Guid>
             post.Id,
             post.AuthorId,
             post.AuthorUsername,
+            post.AuthorDisplayName,
+            post.AuthorAvatarUrl,
             post.Content.Value,
-            post.Media?.Url));
+            post.Media?.Url,
+            post.Media?.Type.ToString(),
+            post.Content.Hashtags.ToList()));
 
         return post;
     }
 
-    public void AddReaction(Guid userId, string username, string reactionType)
+    public Reaction? ToggleOrAddReaction(Guid userId, string username, string reactionType, out bool wasAdded, out Reaction? removedReaction)
     {
+        var normalizedType = string.IsNullOrWhiteSpace(reactionType) ? "fire" : reactionType.Trim().ToLowerInvariant();
+        wasAdded = false;
+        removedReaction = null;
+
         var existing = _reactions.FirstOrDefault(r => r.UserId == userId);
         if (existing is not null)
         {
-            if (existing.Type == reactionType)
+            if (existing.Type.Equals(normalizedType, StringComparison.OrdinalIgnoreCase))
             {
-                // Remove reaction if clicking the same one (toggle)
+                // Remove reaction if clicking the same one (toggle off)
                 _reactions.Remove(existing);
-                ReactionCount = Math.Max(0, ReactionCount - 1);
-                return;
+                ReactionCount = _reactions.Count;
+                removedReaction = existing;
+                var currentReactions = _reactions.Select(r => new ReactionDetail(r.Id, r.UserId, r.Username, r.Type, r.CreatedAtUtc)).ToList();
+                AddDomainEvent(new PostReactedEvent(Id, userId, username, normalizedType, ReactionCount, currentReactions));
+                return null;
             }
 
-            // Otherwise update type
-            _reactions.Remove(existing);
+            // Otherwise update type in place without recreating entity
+            existing.UpdateType(normalizedType);
+            var updatedReactions = _reactions.Select(r => new ReactionDetail(r.Id, r.UserId, r.Username, r.Type, r.CreatedAtUtc)).ToList();
+            AddDomainEvent(new PostReactedEvent(Id, userId, username, normalizedType, ReactionCount, updatedReactions));
+            return existing;
         }
 
-        var reaction = new Reaction(Guid.NewGuid(), Id, userId, username, reactionType);
+        var reaction = new Reaction(Guid.NewGuid(), Id, userId, username, normalizedType);
         _reactions.Add(reaction);
         ReactionCount = _reactions.Count;
+        wasAdded = true;
 
-        AddDomainEvent(new PostReactedEvent(Id, userId, reactionType, ReactionCount));
+        var allReactions = _reactions.Select(r => new ReactionDetail(r.Id, r.UserId, r.Username, r.Type, r.CreatedAtUtc)).ToList();
+        AddDomainEvent(new PostReactedEvent(Id, userId, username, normalizedType, ReactionCount, allReactions));
+        return reaction;
+    }
+
+    public void AddReaction(Guid userId, string username, string reactionType)
+    {
+        ToggleOrAddReaction(userId, username, reactionType, out _, out _);
     }
 }

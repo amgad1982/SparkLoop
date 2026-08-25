@@ -71,6 +71,27 @@ public class SparkSubmission : Entity<Guid>
 
     public bool HasUserVoted(Guid userId) => _votes.Any(v => v.UserId == userId);
 
+    public SparkVote? ToggleOrAddVote(Guid userId, out bool wasAdded, out SparkVote? removedVote)
+    {
+        wasAdded = false;
+        removedVote = null;
+
+        var existing = _votes.FirstOrDefault(v => v.UserId == userId);
+        if (existing is not null)
+        {
+            _votes.Remove(existing);
+            VoteCount = _votes.Count;
+            removedVote = existing;
+            return null;
+        }
+
+        var vote = new SparkVote(Guid.NewGuid(), Id, userId);
+        _votes.Add(vote);
+        VoteCount = _votes.Count;
+        wasAdded = true;
+        return vote;
+    }
+
     public void AddVote(Guid userId)
     {
         if (HasUserVoted(userId))

@@ -3,14 +3,15 @@ import { TabType } from './BottomNavBar';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { PersonaSwitcher } from './PersonaSwitcher';
-import { Languages, Radio, Sparkles, User, Users } from 'lucide-react';
+import { Languages, Radio, Sparkles, User, Users, Search } from 'lucide-react';
 
 interface TopHeaderProps {
   isConnected?: boolean;
   onNavigateTab?: (tab: TabType) => void;
+  onOpenSearch?: () => void;
 }
 
-export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true, onNavigateTab }) => {
+export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true, onNavigateTab, onOpenSearch }) => {
   const { currentPersona } = useAuthStore();
   const { locale, toggleLocale } = useThemeStore();
   const [modalConfig, setModalConfig] = useState<{ isOpen: boolean; tab: 'switch' | 'register' }>({
@@ -50,8 +51,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true, onNavi
             </div>
           </div>
 
-          {/* Controls: Language Toggle & Persona Profile */}
+          {/* Controls: Search, Language Toggle & Persona Profile */}
           <div className="flex items-center gap-2">
+            {/* Search Trigger Button */}
+            <button
+              onClick={onOpenSearch}
+              className="p-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 transition-colors"
+              title={isArabic ? 'بحث' : 'Search'}
+            >
+              <Search className="w-3.5 h-3.5 text-fuchsia-400" />
+            </button>
+
             {/* Arabic / English Toggle */}
             <button
               onClick={toggleLocale}

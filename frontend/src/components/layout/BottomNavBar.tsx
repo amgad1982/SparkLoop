@@ -1,5 +1,6 @@
 import React from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
+import { Tooltip } from '../ui/Tooltip';
 import { Flame, GitBranch, MessageSquare, Palette, Radio, User } from 'lucide-react';
 
 export type TabType = 'feed' | 'sparks' | 'chains' | 'pods' | 'create' | 'profile';
@@ -44,7 +45,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onTabChan
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-zinc-800/90 pb-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 glass-panel border-t border-zinc-200 dark:border-zinc-800/90 pb-safe transition-colors duration-200">
       <div className="max-w-md mx-auto px-3 py-2 flex items-center justify-around">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -52,45 +53,47 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onTabChan
 
           if (tab.isSpecial) {
             return (
-              <button
-                key={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                className="relative -top-5 flex flex-col items-center group focus:outline-none"
-              >
-                <div
-                  className={`w-14 h-14 rounded-full p-0.5 shadow-xl transition-transform active:scale-95 ${
-                    isActive
-                      ? 'bg-gradient-to-tr from-fuchsia-500 via-purple-500 to-cyan-400 spark-glow scale-105'
-                      : 'bg-gradient-to-tr from-fuchsia-600 to-cyan-500 hover:scale-105'
-                  }`}
+              <Tooltip key={tab.id} content={tab.label} position="top">
+                <button
+                  onClick={() => onTabChange(tab.id)}
+                  className="relative -top-5 flex flex-col items-center group focus:outline-none"
                 >
-                  <div className="w-full h-full bg-zinc-950 rounded-full flex items-center justify-center">
-                    <Icon className="w-6 h-6 text-white group-hover:text-fuchsia-300 transition-colors" />
+                  <div
+                    className={`w-14 h-14 rounded-full p-0.5 shadow-xl transition-transform active:scale-95 ${
+                      isActive
+                        ? 'bg-gradient-to-tr from-fuchsia-500 via-purple-500 to-cyan-400 spark-glow scale-105'
+                        : 'bg-gradient-to-tr from-fuchsia-600 to-cyan-500 hover:scale-105'
+                    }`}
+                  >
+                    <div className="w-full h-full bg-white dark:bg-zinc-950 rounded-full flex items-center justify-center transition-colors">
+                      <Icon className="w-6 h-6 text-fuchsia-600 dark:text-white group-hover:text-fuchsia-400 transition-colors" />
+                    </div>
                   </div>
-                </div>
-                <span className="text-[10px] font-bold text-zinc-300 mt-1">{tab.label}</span>
-              </button>
+                  <span className="text-[10px] font-bold text-zinc-700 dark:text-zinc-300 mt-1">{tab.label}</span>
+                </button>
+              </Tooltip>
             );
           }
 
           return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all relative ${
-                isActive ? 'text-fuchsia-400 font-bold' : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              <div className="relative">
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
-                {tab.badge && (
-                  <span className="absolute -top-1.5 -right-2 px-1 text-[8px] font-black bg-amber-500 text-black rounded-full">
-                    {tab.badge}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] mt-1 tracking-tight">{tab.label}</span>
-            </button>
+            <Tooltip key={tab.id} content={tab.label} position="top">
+              <button
+                onClick={() => onTabChange(tab.id)}
+                className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all relative ${
+                  isActive ? 'text-fuchsia-600 dark:text-fuchsia-400 font-bold' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                }`}
+              >
+                <div className="relative">
+                  <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
+                  {tab.badge && (
+                    <span className="absolute -top-1.5 -right-2 px-1 text-[8px] font-black bg-amber-500 text-black rounded-full">
+                      {tab.badge}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] mt-1 tracking-tight">{tab.label}</span>
+              </button>
+            </Tooltip>
           );
         })}
       </div>

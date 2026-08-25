@@ -12,6 +12,7 @@
     "*"
   ],
   "allow_anonymous_connect_with_empty_token": true,
+  "allow_subscribe_for_client": true,
   "client_presence": true,
   "namespaces": [
     {
@@ -38,6 +39,14 @@
       "history_ttl": "24h",
       "allow_subscribe_for_client": true,
       "allow_publish_for_client": true
+    },
+    {
+      "name": "feed",
+      "presence": true,
+      "history_size": 100,
+      "history_ttl": "24h",
+      "allow_subscribe_for_client": true,
+      "allow_publish_for_client": false
     },
     {
       "name": "user",

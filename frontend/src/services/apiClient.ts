@@ -12,6 +12,9 @@ import {
   UserDto,
   UserProfileDto,
   HashtagDto,
+  UserFollowDto,
+  FollowStatusDto,
+  GlobalSearchResultDto,
 } from '../types/api';
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5195/api';
@@ -89,7 +92,14 @@ export const api = {
   // User Profile
   getUserProfile: (username?: string) =>
     fetchWithAuth<UserProfileDto>(username ? `/users/profile/${encodeURIComponent(username)}` : '/users/me'),
-  updateProfile: (data: { displayName: string; bio?: string; avatarUrl?: string; email?: string }) =>
+  updateProfile: (data: {
+    displayName?: string;
+    bio?: string;
+    avatarUrl?: string;
+    email?: string;
+    preferredTheme?: string;
+    preferredLanguage?: string;
+  }) =>
     fetchWithAuth<UserDto>('/users/profile', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -163,18 +173,93 @@ export const api = {
       body: JSON.stringify({ type }),
     }),
 
-  // Hashtags
+  // Hashtags & Search
   getTrendingHashtags: (limit = 10) => fetchWithAuth<HashtagDto[]>(`/hashtags/trending?limit=${limit}`),
   searchHashtags: (query: string, limit = 8) =>
     fetchWithAuth<HashtagDto[]>(`/hashtags/search?query=${encodeURIComponent(query)}&limit=${limit}`),
+  globalSearch: (query: string, type?: string, limit = 20) => {
+    let url = `/search?query=${encodeURIComponent(query)}&limit=${limit}`;
+    if (type && type !== 'all') {
+      url += `&type=${encodeURIComponent(type)}`;
+    }
+    return fetchWithAuth<GlobalSearchResultDto>(url);
+  },
+
+  // Mood Pods
+  // Follow System
+  followUser: (targetUserId: string) =>
+    fetchWithAuth<UserFollowDto>(`/users/${targetUserId}/follow`, { method: 'POST' }),
+  acceptFollowRequest: (requestId: string) =>
+    fetchWithAuth<UserFollowDto>(`/users/follow-requests/${requestId}/accept`, { method: 'POST' }),
+  declineFollowRequest: (requestId: string) =>
+    fetchWithAuth<boolean>(`/users/follow-requests/${requestId}/decline`, { method: 'POST' }),
+  unfollowUser: (targetUserId: string) =>
+    fetchWithAuth<boolean>(`/users/${targetUserId}/unfollow`, { method: 'DELETE' }),
+  getPendingFollowRequests: () =>
+    fetchWithAuth<UserFollowDto[]>('/users/follow-requests/pending'),
+  getFollowers: (username: string) =>
+    fetchWithAuth<UserFollowDto[]>(`/users/${encodeURIComponent(username)}/followers`),
+  getFollowing: (username: string) =>
+    fetchWithAuth<UserFollowDto[]>(`/users/${encodeURIComponent(username)}/following`),
+  getFollowStatus: (username: string) =>
+    fetchWithAuth<FollowStatusDto>(`/users/${encodeURIComponent(username)}/follow-status`),
 
   // Mood Pods
   getActivePods: () => fetchWithAuth<MoodPodDto[]>('/moodpods'),
-  getPodById: (id: string) => fetchWithAuth<MoodPodDto>(`/moodpods/${id}`),
-  createPod: (title: string, moodEmoji: string, backgroundTheme: string) =>
+  getPodById: (id: string, inviteCode?: string) =>
+    fetchWithAuth<MoodPodDto>(`/moodpods/${id}${inviteCode ? `?inviteCode=${encodeURIComponent(inviteCode)}` : ''}`),
+  joinPodByCode: (inviteCode: string) =>
+    fetchWithAuth<MoodPodDto>('/moodpods/join-by-code', {
+      method: 'POST',
+      body: JSON.stringify({ inviteCode }),
+    }),
+  createPod: (data: {
+    title: string;
+    moodEmoji: string;
+    backgroundTheme: string;
+    isPrivate?: boolean;
+    inviteCode?: string;
+    customBackgroundImageUrl?: string;
+    allowParticipantsChangeTheme?: boolean;
+    allowParticipantsPlayBgMusic?: boolean;
+    allowOpenMic?: boolean;
+  }) =>
     fetchWithAuth<MoodPodDto>('/moodpods', {
       method: 'POST',
-      body: JSON.stringify({ title, moodEmoji, backgroundTheme }),
+      body: JSON.stringify(data),
+    }),
+  updatePodSettings: (
+    podId: string,
+    settings: {
+      title?: string;
+      moodEmoji?: string;
+      backgroundTheme?: string;
+      customBackgroundImageUrl?: string;
+      allowParticipantsChangeTheme?: boolean;
+      allowParticipantsPlayBgMusic?: boolean;
+      allowOpenMic?: boolean;
+      isPrivate?: boolean;
+    }
+  ) =>
+    fetchWithAuth<MoodPodDto>(`/moodpods/${podId}/settings`, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+  moderatePodParticipant: (
+    podId: string,
+    targetUserId: string,
+    targetUsername: string,
+    action: string,
+    reason?: string
+  ) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/moderate`, {
+      method: 'POST',
+      body: JSON.stringify({ targetUserId, targetUsername, action, reason }),
+    }),
+  inviteUserToPod: (podId: string, targetUserId: string) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/invite`, {
+      method: 'POST',
+      body: JSON.stringify({ targetUserId }),
     }),
   sendPodMessage: (podId: string, text: string, emojiReaction?: string, audioUrl?: string, durationSeconds?: number) =>
     fetchWithAuth<PodMessageDto>(`/moodpods/${podId}/message`, {
