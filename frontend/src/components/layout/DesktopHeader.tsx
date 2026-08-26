@@ -41,7 +41,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             ? 'تفاعل لحظي، تدوينات سريعة وتصميم ميمز إبداعية'
             : 'Real-time social stream, micro-posts & custom meme creations',
           icon: MessageSquare,
-          accent: 'from-fuchsia-500 to-purple-500',
+          accent: 'from-indigo-500 to-sky-500',
           badge: isArabic ? 'مباشر' : 'Live Stream',
         };
       case 'sparks':
@@ -61,7 +61,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             ? 'قصص تعاونية مبتكرة بنظام الأدوار والتسجيل الصوتي'
             : 'Collaborative chain stories with turn-based audio and text',
           icon: GitBranch,
-          accent: 'from-purple-500 to-indigo-500',
+          accent: 'from-indigo-500 to-sky-500',
           badge: isArabic ? 'قصص جماعية' : 'Co-Op Stories',
         };
       case 'pods':
@@ -71,7 +71,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             ? 'غرف صوتية تفاعلية تنتهي تلقائياً بعد 24 ساعة مع مشاركة صوتية'
             : '24h rooms with live audio sharing, speakers, and reaction bursts',
           icon: Radio,
-          accent: 'from-cyan-500 to-blue-500',
+          accent: 'from-sky-500 to-indigo-500',
           badge: isArabic ? 'غرف صوتية' : 'Live Audio',
         };
       case 'create':
@@ -81,7 +81,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             ? 'محرر متكامل للنصوص، الملصقات، والرسم بالفرشاة ومشاركة التصاميم'
             : 'Multi-layer text, custom image upload, stickers, and drawing tools',
           icon: Palette,
-          accent: 'from-fuchsia-500 to-cyan-500',
+          accent: 'from-indigo-500 to-sky-500',
           badge: isArabic ? 'محرر رسومي' : 'Studio Editor',
         };
       case 'profile':
@@ -91,7 +91,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             ? 'تعديل البيانات الشخصية، تغيير كلمة المرور، ورفع الصورة الشخصية والأوسمة'
             : 'Edit profile data, change password, upload avatar, and view badges',
           icon: User,
-          accent: 'from-emerald-500 to-cyan-500',
+          accent: 'from-emerald-500 to-sky-500',
           badge: isArabic ? 'لوحة المبدع' : 'Creator Hub',
         };
       default:
@@ -99,7 +99,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           title: 'SparkLoop',
           subtitle: 'Real-time social entertainment platform',
           icon: Sparkles,
-          accent: 'from-fuchsia-500 to-purple-500',
+          accent: 'from-indigo-500 to-sky-500',
           badge: 'Live',
         };
     }
@@ -109,27 +109,27 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   const Icon = info.icon;
 
   return (
-    <header className="hidden md:block w-full glass-panel border-b border-zinc-200 dark:border-zinc-800/80 px-6 py-3.5 backdrop-blur-xl shrink-0 z-30 transition-colors duration-200">
+    <header className="hidden md:block w-full glass-panel border-b border-slate-200 dark:border-slate-800/80 px-6 py-3.5 backdrop-blur-xl shrink-0 z-30 transition-colors duration-200">
       <div className="flex items-center justify-between gap-4">
         {/* Section Title, Subtitle & Icon */}
         <div className="flex items-center gap-3.5 min-w-0">
           <div
-            className={`w-9 h-9 rounded-2xl bg-gradient-to-tr ${info.accent} p-0.5 shadow-lg flex items-center justify-center shrink-0`}
+            className={`w-9 h-9 rounded-2xl bg-gradient-to-tr ${info.accent} p-0.5 shadow-md flex items-center justify-center shrink-0`}
           >
-            <div className="w-full h-full bg-white dark:bg-zinc-950 rounded-[14px] flex items-center justify-center transition-colors">
-              <Icon className="w-4.5 h-4.5 text-zinc-900 dark:text-white" />
+            <div className="w-full h-full bg-white dark:bg-[#0e1520] rounded-[14px] flex items-center justify-center transition-colors">
+              <Icon className="w-4.5 h-4.5 text-slate-900 dark:text-white" />
             </div>
           </div>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-black text-zinc-900 dark:text-white tracking-tight truncate">
+              <h2 className="text-base font-black text-slate-900 dark:text-white tracking-tight truncate">
                 {info.title}
               </h2>
-              <span className="px-2 py-0.5 text-[10px] font-bold bg-zinc-200 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-300 rounded-md border border-zinc-300 dark:border-zinc-700/60 shrink-0">
+              <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 rounded-md border border-slate-200 dark:border-slate-700/60 shrink-0">
                 {info.badge}
               </span>
             </div>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-xl">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-xl">
               {info.subtitle}
             </p>
           </div>
@@ -140,13 +140,13 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           {/* Universal Search Bar Trigger */}
           <button
             onClick={onOpenSearch}
-            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200/70 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-all shadow-sm group"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200/70 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/80 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-all shadow-sm group"
           >
-            <Search className="w-3.5 h-3.5 text-fuchsia-500 group-hover:scale-110 transition-transform" />
+            <Search className="w-3.5 h-3.5 text-indigo-500 group-hover:scale-110 transition-transform" />
             <span className="hidden lg:inline font-medium">
               {isArabic ? 'بحث شامل في المنصة...' : 'Search SparkLoop...'}
             </span>
-            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+            <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-slate-200 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300">
               ⌘K
             </kbd>
           </button>
@@ -166,12 +166,12 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           >
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 transition-colors shadow-sm"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 transition-colors shadow-sm"
             >
               {isDark ? (
                 <Sun className="w-4 h-4 text-amber-400" />
               ) : (
-                <Moon className="w-4 h-4 text-fuchsia-500" />
+                <Moon className="w-4 h-4 text-indigo-500" />
               )}
             </button>
           </Tooltip>
@@ -180,7 +180,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             <Tooltip content={isArabic ? 'فتح استوديو تصميم الميمز' : 'Open Meme Studio Editor'} position="bottom">
               <button
                 onClick={() => onNavigateTab('create')}
-                className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-fuchsia-600/20 transition-all active:scale-95"
+                className="py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
               >
                 <Palette className="w-3.5 h-3.5" />
                 <span>{isArabic ? 'إنشاء ميم' : 'New Meme'}</span>
@@ -199,7 +199,7 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
             <Tooltip content={isArabic ? 'استكشف غرف المزاج التفاعلية' : 'Explore interactive audio pods'} position="bottom">
               <button
                 onClick={() => onNavigateTab('pods')}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 text-xs font-bold text-cyan-600 dark:text-cyan-300 hover:bg-cyan-500/20 transition-all"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/10 border border-sky-500/30 text-xs font-bold text-sky-600 dark:text-sky-300 hover:bg-sky-500/20 transition-all"
               >
                 <Radio className="w-3.5 h-3.5 animate-pulse" />
                 <span>{isArabic ? 'استكشف الغرف' : 'Explore Pods'}</span>

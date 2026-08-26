@@ -13,18 +13,21 @@ public class CurrentUserService : ICurrentUserService
         _httpContextAccessor = httpContextAccessor;
     }
 
+    private ClaimsPrincipal? User => _httpContextAccessor.HttpContext?.User;
+
     public Guid? UserId
     {
         get
         {
-            var headerUserId = _httpContextAccessor.HttpContext?.Request.Headers["X-User-Id"].FirstOrDefault();
-            if (!string.IsNullOrEmpty(headerUserId) && Guid.TryParse(headerUserId, out var parsedHeaderId))
+            var user = User;
+            if (user == null || !(user.Identity?.IsAuthenticated ?? false))
             {
-                return parsedHeaderId;
+                return null;
             }
 
-            var claim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier)
-                ?? _httpContextAccessor.HttpContext?.User.FindFirst("sub");
+            var claim = user.FindFirst(ClaimTypes.NameIdentifier)
+                ?? user.FindFirst("sub")
+                ?? user.FindFirst("id");
 
             if (claim != null && Guid.TryParse(claim.Value, out var guid))
             {
@@ -39,15 +42,15 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
-            var headerUsername = _httpContextAccessor.HttpContext?.Request.Headers["X-Username"].FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(headerUsername))
+            var user = User;
+            if (user == null || !(user.Identity?.IsAuthenticated ?? false))
             {
-                try { return Uri.UnescapeDataString(headerUsername.Trim()); }
-                catch { return headerUsername.Trim(); }
+                return null;
             }
 
-            return _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.Name)?.Value
-                ?? _httpContextAccessor.HttpContext?.User.FindFirst("name")?.Value;
+            return user.FindFirst(ClaimTypes.Name)?.Value
+                ?? user.FindFirst("unique_name")?.Value
+                ?? user.FindFirst("name")?.Value;
         }
     }
 
@@ -55,14 +58,14 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
-            var headerDisplayName = _httpContextAccessor.HttpContext?.Request.Headers["X-DisplayName"].FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(headerDisplayName))
+            var user = User;
+            if (user == null || !(user.Identity?.IsAuthenticated ?? false))
             {
-                try { return Uri.UnescapeDataString(headerDisplayName.Trim()); }
-                catch { return headerDisplayName.Trim(); }
+                return null;
             }
 
-            return Username;
+            return user.FindFirst("display_name")?.Value
+                ?? Username;
         }
     }
 
@@ -70,16 +73,22 @@ public class CurrentUserService : ICurrentUserService
     {
         get
         {
-            var headerAvatar = _httpContextAccessor.HttpContext?.Request.Headers["X-Avatar-Url"].FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(headerAvatar))
+            var user = User;
+            if (user == null || !(user.Identity?.IsAuthenticated ?? false))
             {
-                try { return Uri.UnescapeDataString(headerAvatar.Trim()); }
-                catch { return headerAvatar.Trim(); }
+                return null;
             }
 
-            return Username != null ? $"https://api.dicebear.com/7.x/bottts/svg?seed={Username}" : null;
+            var avatar = user.FindFirst("avatar_url")?.Value;
+            if (!string.IsNullOrWhiteSpace(avatar))
+            {
+                return avatar;
+            }
+
+            var username = Username;
+            return username != null ? $"https://api.dicebear.com/7.x/bottts/svg?seed={username}" : null;
         }
     }
 
-    public bool IsAuthenticated => UserId.HasValue || (_httpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated ?? false);
+    public bool IsAuthenticated => User?.Identity?.IsAuthenticated ?? false;
 }

@@ -364,15 +364,15 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
   const getThemeBackground = (theme?: string) => {
     switch (theme) {
       case 'cyber-neon':
-        return 'from-cyan-50 via-white to-fuchsia-50/40 dark:from-zinc-950 dark:via-cyan-950/30 dark:to-fuchsia-950/30';
+        return 'from-sky-50/90 via-white to-slate-50/70 dark:from-[#0e1726] dark:via-[#0c1420] dark:to-[#0b0f17]';
       case 'lofi-chill':
-        return 'from-amber-50 via-white to-orange-50/40 dark:from-zinc-950 dark:via-amber-950/30 dark:to-stone-950/40';
+        return 'from-amber-50/90 via-white to-stone-50/70 dark:from-[#1a1512] dark:via-[#14100e] dark:to-[#0b0f17]';
       case 'rain-forest':
-        return 'from-emerald-50 via-white to-teal-50/40 dark:from-zinc-950 dark:via-emerald-950/30 dark:to-teal-950/30';
+        return 'from-emerald-50/90 via-white to-teal-50/70 dark:from-[#0d1a16] dark:via-[#0b1411] dark:to-[#0b0f17]';
       case 'neon-amber':
-        return 'from-rose-50 via-white to-amber-50/40 dark:from-zinc-950 dark:via-rose-950/30 dark:to-amber-950/30';
+        return 'from-rose-50/90 via-white to-amber-50/70 dark:from-[#1c1116] dark:via-[#160e12] dark:to-[#0b0f17]';
       default:
-        return 'from-purple-50 via-white to-indigo-50/40 dark:from-zinc-950 dark:via-purple-950/30 dark:to-indigo-950/30';
+        return 'from-indigo-50/90 via-white to-slate-50/70 dark:from-[#131b28] dark:via-[#0f1724] dark:to-[#0b0f17]';
     }
   };
 
@@ -406,11 +406,11 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
             initial={{ opacity: 0, y: -20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-2 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-500 rounded-2xl text-white font-bold text-xs shadow-2xl flex items-center gap-2 border border-white/20"
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-40 px-4 py-2 bg-slate-900 border border-slate-700 rounded-2xl text-white font-bold text-xs shadow-md flex items-center gap-2"
           >
-            <Sparkles className="w-4 h-4 animate-spin text-amber-300" />
+            <Sparkles className="w-4 h-4 text-amber-400" />
             <span>{activeSoundBanner.senderName} {isArabic ? 'شغّل:' : 'played:'}</span>
-            <span className="font-extrabold text-amber-200">{activeSoundBanner.effect}</span>
+            <span className="font-extrabold text-amber-300">{activeSoundBanner.effect}</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -433,23 +433,21 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
       )}
 
       {/* Pod Room Header */}
-      <div className="p-3.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-white/85 dark:bg-zinc-950/75 backdrop-blur-xl flex items-center justify-between z-10 gap-3 transition-colors">
+      <div className="p-3.5 border-b border-slate-200 dark:border-slate-800/80 bg-white/85 dark:bg-slate-950/75 backdrop-blur-xl flex items-center justify-between z-10 gap-3 transition-colors">
         <div className="flex items-center gap-3 min-w-0">
           {onBack && (
             <Tooltip content={isArabic ? 'العودة لقائمة الحجرات الصوتية' : 'Back to Mood Pods'} position="bottom">
               <button
                 onClick={onBack}
-                className="p-2 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-700 dark:text-zinc-300 transition-colors shrink-0 shadow-sm"
+                className="p-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-700 dark:text-slate-300 transition-colors shrink-0 shadow-sm"
               >
                 <ArrowLeft className="w-4 h-4 rtl:rotate-180" />
               </button>
             </Tooltip>
           )}
 
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-cyan-500 p-0.5 flex items-center justify-center text-xl shadow-lg shrink-0">
-            <div className="w-full h-full bg-white dark:bg-zinc-950 rounded-[14px] flex items-center justify-center">
-              {pod.moodEmoji}
-            </div>
+          <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-xl shadow-sm shrink-0">
+            <span>{pod.moodEmoji}</span>
           </div>
 
           <div className="min-w-0">
@@ -667,14 +665,14 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
                   className="w-7 h-7 rounded-xl border border-zinc-300 dark:border-zinc-700 object-cover flex-shrink-0"
                 />
                 <div
-                  className={`max-w-[80%] p-3 rounded-2xl text-xs space-y-1.5 shadow-md ${
+                  className={`max-w-[80%] p-3 rounded-2xl text-xs space-y-1.5 shadow-sm ${
                     isMe
-                      ? 'bg-gradient-to-tr from-fuchsia-600 to-purple-600 text-white rounded-tr-none'
-                      : 'bg-white/95 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 rounded-tl-none'
+                      ? 'bg-indigo-600 text-white rounded-tr-none'
+                      : 'bg-white/95 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
                   }`}
                 >
                   {!isMe && (
-                    <span className="text-[10px] font-bold text-fuchsia-600 dark:text-fuchsia-400 block">
+                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 block">
                       {msg.senderDisplayName || msg.senderUsername}
                     </span>
                   )}
@@ -699,15 +697,15 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
       </div>
 
       {/* Floating Reaction Fountain Bar */}
-      <div className="px-4 py-1.5 border-t border-zinc-200 dark:border-zinc-800/60 bg-white/90 dark:bg-zinc-950/85 backdrop-blur-md flex items-center justify-between gap-1 overflow-x-auto no-scrollbar z-10 transition-colors">
-        <span className="text-[10px] font-bold text-zinc-500 flex-shrink-0">
+      <div className="px-4 py-1.5 border-t border-slate-200 dark:border-slate-800/60 bg-white/90 dark:bg-slate-950/85 backdrop-blur-md flex items-center justify-between gap-1 overflow-x-auto no-scrollbar z-10 transition-colors">
+        <span className="text-[10px] font-bold text-slate-500 flex-shrink-0">
           {isArabic ? 'تفاعل سريع:' : 'Burst:'}
         </span>
         {BURST_EMOJIS.map((emoji) => (
           <Tooltip key={emoji} content={`${isArabic ? 'إطلاق تفاعل' : 'Send burst'} ${emoji}`} position="top">
             <button
               onClick={() => handleReactionBurst(emoji)}
-              className="text-xl p-1.5 hover:scale-125 active:scale-90 transition-transform rounded-xl hover:bg-zinc-100 dark:hover:bg-zinc-800/60 flex-shrink-0"
+              className="text-xl p-1.5 hover:scale-125 active:scale-90 transition-transform rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 flex-shrink-0"
             >
               {emoji}
             </button>
@@ -716,7 +714,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
       </div>
 
       {/* Message & Voice Note Input Bar */}
-      <div className="p-3 border-t border-zinc-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 z-10 transition-colors">
+      <div className="p-3 border-t border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-950/95 z-10 transition-colors">
         {isRecording ? (
           /* Live Audio Recording Status Bar */
           <div className="flex items-center justify-between gap-3 p-2 bg-rose-100 dark:bg-rose-950/50 border border-rose-300 dark:border-rose-800/60 rounded-2xl animate-pulse">
@@ -733,7 +731,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
                 <button
                   type="button"
                   onClick={cancelVoiceRecording}
-                  className="p-2 text-zinc-500 hover:text-rose-600 dark:hover:text-rose-300 rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-900 transition-colors"
+                  className="p-2 text-slate-500 hover:text-rose-600 dark:hover:text-rose-300 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-900 transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -744,7 +742,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
                   type="button"
                   onClick={stopAndSendVoiceRecording}
                   disabled={isSending}
-                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg shadow-rose-600/30 transition-all active:scale-95"
+                  className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors active:scale-95"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>{isArabic ? 'إرسال المقطع' : 'Send Voice'}</span>
@@ -759,7 +757,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
               <button
                 type="button"
                 onClick={startVoiceRecording}
-                className="p-2.5 bg-zinc-100 dark:bg-zinc-900 hover:bg-cyan-500/10 dark:hover:bg-cyan-600/20 text-cyan-600 dark:text-cyan-400 border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/40 rounded-2xl transition-all shadow-sm shrink-0"
+                className="p-2.5 bg-slate-100 dark:bg-slate-900 hover:bg-indigo-500/10 dark:hover:bg-indigo-600/20 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/40 rounded-2xl transition-colors shadow-sm shrink-0"
               >
                 <Mic className="w-4 h-4" />
               </button>
@@ -774,14 +772,14 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
                   ? 'اكتب رسالة أو افتح المايك للتحدث...'
                   : 'Drop a thought or open mic to talk live...'
               }
-              className="flex-1 px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-zinc-600 focus:outline-none focus:border-cyan-500 transition-colors"
+              className="flex-1 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
             />
 
             <Tooltip content={isArabic ? 'إرسال الرسالة النصية' : 'Send text message'} position="top">
               <button
                 type="submit"
                 disabled={isSending || !inputText.trim()}
-                className="p-2.5 bg-gradient-to-tr from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:opacity-50 text-white rounded-2xl active:scale-95 transition-all shadow-lg shrink-0"
+                className="p-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white rounded-2xl transition-colors shadow-sm shrink-0"
               >
                 <Send className="w-4 h-4" />
               </button>

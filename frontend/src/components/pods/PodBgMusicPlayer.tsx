@@ -322,7 +322,7 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                         <button
                           type="button"
                           onClick={() => onTakeOverDjBooth?.()}
-                          className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-amber-600 via-purple-600 to-fuchsia-600 hover:opacity-90 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer"
+                          className="w-full py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-colors cursor-pointer"
                         >
                           <Crown className="w-3.5 h-3.5" />
                           <span>{isArabic ? 'تولي كابينة الـ DJ الآن (صلاحية المشرف) 👑' : 'Take Over DJ Booth (Moderator) 👑'}</span>

@@ -10,6 +10,8 @@ export interface UserDto {
   createdAtUtc: string;
   preferredTheme?: 'dark' | 'light';
   preferredLanguage?: 'en' | 'ar';
+  bannerUrl?: string;
+  isEmailConfirmed?: boolean;
 }
 
 export interface BadgeDto {
@@ -158,10 +160,27 @@ export interface MoodPodDto {
   moderatorUserIds?: string[];
 }
 
+export interface DeviceSessionDto {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  deviceType: string;
+  ipAddress?: string;
+  userAgent?: string;
+  isTrusted: boolean;
+  createdAtUtc: string;
+  lastActiveAtUtc: string;
+  expiresAtUtc: string;
+  isActive: boolean;
+}
+
 export interface AuthResultDto {
   token: string;
+  refreshToken: string;
+  refreshTokenExpiresAtUtc: string;
   centrifugoToken: string;
   user: UserDto;
+  session?: DeviceSessionDto;
 }
 
 export interface CentrifugoTokenDto {
@@ -191,6 +210,37 @@ export interface UserProfileDto {
   followersCount?: number;
   followingCount?: number;
   followStatus?: 'none' | 'pending_outgoing' | 'pending_incoming' | 'following' | 'follow_back' | 'mutual' | 'self';
+  bannerUrl?: string;
+  isEmailConfirmed?: boolean;
+}
+
+export interface LinkedSocialAccountDto {
+  id: string;
+  provider: 'google' | 'facebook' | 'twitter' | 'custom' | string;
+  providerUserId: string;
+  providerEmail?: string;
+  displayName?: string;
+  avatarUrl?: string;
+  linkedAtUtc: string;
+}
+
+export interface EmailVerificationResultDto {
+  success: boolean;
+  message: string;
+  user?: UserDto;
+  code?: string;
+}
+
+export interface SocialLoginRequest {
+  provider: 'google' | 'facebook' | 'twitter' | 'custom' | string;
+  providerUserId: string;
+  email: string;
+  displayName: string;
+  avatarUrl?: string;
+  deviceId?: string;
+  deviceName?: string;
+  deviceType?: string;
+  isTrusted?: boolean;
 }
 
 export interface HashtagDto {
@@ -241,5 +291,17 @@ export interface LiveKitTokenDto {
   isOnStage: boolean;
 }
 
+export interface OAuthUrlResponse {
+  url: string;
+  state: string;
+}
 
-
+export interface OAuthCallbackRequest {
+  code: string;
+  state: string;
+  redirectUri: string;
+  deviceId?: string;
+  deviceName?: string;
+  deviceType?: string;
+  isTrusted?: boolean;
+}

@@ -36,6 +36,9 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.AvatarUrl)
             .HasMaxLength(500);
 
+        builder.Property(u => u.BannerUrl)
+            .HasMaxLength(1000);
+
         builder.Property(u => u.Bio)
             .HasMaxLength(300);
 
@@ -54,10 +57,45 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasConversion(r => r.Value, v => RepScore.From(v))
             .IsRequired();
 
+        builder.Property(u => u.IsEmailConfirmed)
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(u => u.EmailConfirmationCode)
+            .HasMaxLength(20);
+
+        builder.Property(u => u.EmailConfirmationCodeExpiresAtUtc);
+
         builder.HasMany(u => u.Badges)
             .WithOne()
             .HasForeignKey(b => b.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(u => u.SocialAccounts)
+            .WithOne()
+            .HasForeignKey(s => s.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+public class UserSocialAccountConfiguration : IEntityTypeConfiguration<UserSocialAccount>
+{
+    public void Configure(EntityTypeBuilder<UserSocialAccount> builder)
+    {
+        builder.ToTable("user_social_accounts");
+        builder.HasKey(s => s.Id);
+
+        builder.Property(s => s.UserId).IsRequired();
+        builder.Property(s => s.Provider).HasMaxLength(50).IsRequired();
+        builder.Property(s => s.ProviderUserId).HasMaxLength(200).IsRequired();
+        builder.Property(s => s.ProviderEmail).HasMaxLength(150);
+        builder.Property(s => s.DisplayName).HasMaxLength(100);
+        builder.Property(s => s.AvatarUrl).HasMaxLength(500);
+        builder.Property(s => s.LinkedAtUtc).IsRequired();
+
+        builder.HasIndex(s => new { s.Provider, s.ProviderUserId }).IsUnique();
+        builder.HasIndex(s => new { s.UserId, s.Provider }).IsUnique();
+        builder.HasIndex(s => s.UserId);
     }
 }
 

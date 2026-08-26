@@ -153,9 +153,7 @@ public class JoinPodByCodeCommandHandler : IRequestHandler<JoinPodByCodeCommand,
 public record GetPodVoiceTokenQuery(
     Guid PodId,
     bool IsOnStage = false,
-    string? UserId = null,
-    string? Username = null,
-    string? DisplayName = null
+    string? InviteCode = null
 ) : IRequest<LiveKitTokenDto>;
 
 public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuery, LiveKitTokenDto>
@@ -180,26 +178,35 @@ public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuer
             .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
             ?? throw new NotFoundException("MoodPod", request.PodId);
 
-        var uid = request.UserId
-            ?? _currentUserService.UserId?.ToString()
-            ?? Guid.NewGuid().ToString();
+        if (!pod.IsActive || DateTime.UtcNow >= pod.ExpiresAtUtc)
+        {
+            throw new DomainRuleException("This mood pod has expired or been closed.", "POD_CLOSED");
+        }
 
-        var uname = request.Username
-            ?? _currentUserService.Username
-            ?? "sparkguest";
+        var userId = _currentUserService.UserId ?? Guid.NewGuid();
+        var username = _currentUserService.Username ?? "guest";
+        var displayName = _currentUserService.DisplayName ?? username;
 
-        var dname = request.DisplayName
-            ?? _currentUserService.DisplayName
-            ?? uname;
+        var isHost = pod.HostUserId == userId;
+        var isModerator = pod.IsModerator(userId);
 
-        var isHost = pod.HostUserId.ToString() == uid || pod.HostUsername.Equals(uname, StringComparison.OrdinalIgnoreCase);
-        var isOnStage = request.IsOnStage || isHost || pod.AllowOpenMic;
+        if (pod.IsPrivate && !isHost && !isModerator)
+        {
+            if (string.IsNullOrWhiteSpace(request.InviteCode) ||
+                !string.Equals(pod.InviteCode?.Trim(), request.InviteCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                throw new UnauthorizedDomainException("Access denied. A valid invite code is required to join this private room.");
+            }
+        }
+
+        // Only allow publishing if host, moderator, or open mic with explicit on-stage request
+        var isOnStage = isHost || isModerator || (pod.AllowOpenMic && request.IsOnStage);
 
         var token = _liveKitService.GenerateVoiceToken(
             podId: pod.Id.ToString(),
-            userId: uid,
-            username: uname,
-            displayName: dname,
+            userId: userId.ToString(),
+            username: username,
+            displayName: displayName,
             isOnStage: isOnStage
         );
 
@@ -210,7 +217,7 @@ public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuer
             Token: token,
             ServerUrl: serverUrl,
             RoomName: roomName,
-            Identity: uid,
+            Identity: userId.ToString(),
             IsOnStage: isOnStage
         );
     }

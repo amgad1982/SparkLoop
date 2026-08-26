@@ -10,8 +10,10 @@ import { MoodPodsView } from './components/pods/MoodPodsView';
 import { MemeCanvasEditor } from './components/meme-canvas/MemeCanvasEditor';
 import { ProfileView } from './components/profile/ProfileView';
 import { GlobalSearchModal } from './components/search/GlobalSearchModal';
+import { AuthModal } from './components/auth/AuthModal';
 import { useCentrifugo } from './hooks/useCentrifugo';
 import { useThemeStore } from './stores/useThemeStore';
+import { useAuthStore } from './stores/useAuthStore';
 import { api } from './services/apiClient';
 import { ChainDto, MoodPodDto, PostDto, SparkDto } from './types/api';
 import { Flame, GitBranch, Plus, Radio, Sparkles } from 'lucide-react';
@@ -26,6 +28,21 @@ export const App: React.FC = () => {
 
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
+
+  // Ensure active JWT session on startup
+  useEffect(() => {
+    const { accessToken, refreshToken, setTokens, setUser } = useAuthStore.getState();
+    if (!accessToken && refreshToken) {
+      api.refreshToken(refreshToken)
+        .then((res) => {
+          setTokens(res.token, res.refreshToken, res.centrifugoToken, res.refreshTokenExpiresAtUtc);
+          setUser(res.user);
+        })
+        .catch(() => {
+          useAuthStore.getState().logout();
+        });
+    }
+  }, []);
 
   // Global Centrifugo connection status & Real-time query cache updates
   const { isConnected } = useCentrifugo('feed:global', (data) => {
@@ -206,6 +223,8 @@ export const App: React.FC = () => {
         setActiveTab('pods');
       }}
     />
+
+    <AuthModal />
   </>
   );
 };

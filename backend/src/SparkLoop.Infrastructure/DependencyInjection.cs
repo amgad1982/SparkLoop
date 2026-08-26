@@ -1,10 +1,16 @@
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
+using SparkLoop.Application.Common.Security;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Infrastructure.BackgroundJobs;
 using SparkLoop.Infrastructure.Persistence;
 using SparkLoop.Infrastructure.RealTime;
+using SparkLoop.Infrastructure.Security;
+using SparkLoop.Infrastructure.Security.OAuth;
 using SparkLoop.Infrastructure.Services;
 using SparkLoop.Infrastructure.Storage;
 
@@ -14,53 +20,95 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
     {
-        var provider = configuration["DatabaseProvider"] ?? "Sqlite";
-
         services.AddDbContext<AppDbContext>(options =>
         {
-            if (provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
-            {
-                var connectionString = configuration.GetConnectionString("DefaultConnection")
-                    ?? "Host=localhost;Port=5432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!";
+            var connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? "Host=localhost;Port=5432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!";
 
-                options.UseNpgsql(connectionString, npgsqlOptions =>
-                {
-                    npgsqlOptions.EnableRetryOnFailure(3);
-                    npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                    npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
-                });
-            }
-            else
+            options.UseNpgsql(connectionString, npgsqlOptions =>
             {
-                // Zero-config SQLite provider for seamless instant local testing & offline development
-                var sqliteConn = configuration.GetConnectionString("Sqlite") ?? "Data Source=sparkloop.db";
-                options.UseSqlite(sqliteConn, sqliteOptions =>
-                {
-                    sqliteOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
-                    sqliteOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
-                });
-            }
+                npgsqlOptions.EnableRetryOnFailure(3);
+                npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
+                npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+            });
         });
 
         services.AddScoped<IAppDbContext>(p => p.GetRequiredService<AppDbContext>());
 
-        // Centrifugo RealTime
+        // 1. JWT Security & Password Management
+        var jwtSettings = new JwtSettings();
+        configuration.GetSection(JwtSettings.SectionName).Bind(jwtSettings);
+        services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
+
+        services.AddSingleton<IJwtTokenGenerator, JwtTokenService>();
+        services.AddSingleton<IPasswordHasherService, PasswordHasherService>();
+        services.AddSingleton<IRefreshTokenService, RefreshTokenService>();
+
+        var key = Encoding.UTF8.GetBytes(jwtSettings.SecretKey);
+
+        services.AddAuthentication(options =>
+        {
+            options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+        })
+        .AddJwtBearer(options =>
+        {
+            options.RequireHttpsMetadata = false; // Set to true in strict TLS prod environments
+            options.SaveToken = true;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(key),
+                ValidateIssuer = true,
+                ValidIssuer = jwtSettings.Issuer,
+                ValidateAudience = true,
+                ValidAudience = jwtSettings.Audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.FromSeconds(30),
+                NameClaimType = "unique_name",
+                RoleClaimType = "role"
+            };
+
+            // Allow WebSocket authentication via query string (for real-time hubs if needed)
+            options.Events = new JwtBearerEvents
+            {
+                OnMessageReceived = context =>
+                {
+                    var accessToken = context.Request.Query["access_token"];
+                    var path = context.HttpContext.Request.Path;
+                    if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/ws"))
+                    {
+                        context.Token = accessToken;
+                    }
+                    return Task.CompletedTask;
+                }
+            };
+        });
+
+        services.AddAuthorization();
+
+        // 2. Centrifugo RealTime
         services.AddHttpClient<ICentrifugoService, CentrifugoService>();
 
-        // LiveKit SFU RealTime Voice
+        // 3. LiveKit SFU RealTime Voice
         services.AddSingleton<ILiveKitService, LiveKitService>();
 
-        // MinIO Blob Storage
+        // 4. MinIO Blob Storage
         services.AddSingleton<IBlobStorageService, MinioStorageService>();
 
-        // Redis Caching
+        // 5. Redis Caching
         services.AddSingleton<ICacheService, RedisCacheService>();
 
-        // Current User Context
+        // 6. Current User Context
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-        // Background Workers
+        // 7. OAuth Provider Services
+        services.Configure<OAuthSettings>(configuration.GetSection(OAuthSettings.SectionName));
+        services.AddHttpClient();
+        services.AddScoped<IOAuthService, OAuthService>();
+
+        // 8. Background Workers
         services.AddHostedService<SparkRotationWorker>();
         services.AddHostedService<PodTtlCleanerWorker>();
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Flame, Sparkles } from 'lucide-react';
+import { Flame } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Tooltip } from '../ui/Tooltip';
 import { useThemeStore } from '../../stores/useThemeStore';
@@ -42,17 +42,18 @@ export const VoteButton: React.FC<VoteButtonProps> = ({ initialCount, hasVoted, 
   return (
     <Tooltip content={voted ? (isArabic ? 'تم التصويت لهذه المشاركة' : 'You voted for this entry') : (isArabic ? 'صوّت لهذه المشاركة' : 'Vote for this spark submission')} position="top">
       <motion.button
-        whileTap={{ scale: 0.88 }}
+        type="button"
+        whileTap={{ scale: 0.92 }}
         onClick={handleClick}
         disabled={isVoting}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-2xl border text-xs font-bold transition-all ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs transition-colors duration-150 ${
           voted
-            ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-500 dark:text-amber-300 border-amber-500/50 shadow-md shadow-amber-500/10'
-            : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:border-zinc-300 dark:hover:border-zinc-700'
+            ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-600 font-bold shadow-sm'
+            : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 font-medium shadow-sm'
         }`}
       >
-        <motion.div animate={voted ? { scale: [1, 1.3, 1] } : {}}>
-          <Flame className={`w-4 h-4 ${voted ? 'text-amber-500 dark:text-amber-400 fill-amber-500 dark:fill-amber-400' : ''}`} />
+        <motion.div animate={voted ? { scale: [1, 1.25, 1] } : {}}>
+          <Flame className={`w-4 h-4 ${voted ? 'text-slate-950 fill-slate-950' : 'text-amber-500'}`} />
         </motion.div>
         <span>{count}</span>
       </motion.button>

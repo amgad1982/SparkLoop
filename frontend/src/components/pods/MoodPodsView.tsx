@@ -10,12 +10,11 @@ import {
   MessageSquare,
   Plus,
   Radio,
-  Sparkles,
   Users,
   Volume2,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { api, getMediaUrl } from '../../services/apiClient';
+import { api } from '../../services/apiClient';
 import { createPortal } from 'react-dom';
 
 interface MoodPodsViewProps {
@@ -80,19 +79,18 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
   const getThemeCardStyle = (theme?: string) => {
     switch (theme) {
       case 'cyber-neon':
-        return 'from-cyan-50 via-white to-fuchsia-50/50 dark:from-cyan-950/60 dark:via-zinc-900 dark:to-fuchsia-950/40 border-cyan-300/80 dark:border-cyan-500/40 hover:border-cyan-500 dark:hover:border-cyan-400 text-zinc-900 dark:text-white shadow-cyan-500/5';
+        return 'from-sky-50/90 via-white to-slate-50/80 border-sky-200/90 hover:border-sky-300 dark:from-[#0e1726] dark:via-[#0c1420] dark:to-[#0b0f17] dark:border-sky-500/30 dark:hover:border-sky-500/50 text-slate-900 dark:text-white';
       case 'lofi-chill':
-        return 'from-amber-50 via-white to-orange-50/50 dark:from-amber-950/60 dark:via-zinc-900 dark:to-stone-950/60 border-amber-300/80 dark:border-amber-500/40 hover:border-amber-500 dark:hover:border-amber-400 text-zinc-900 dark:text-white shadow-amber-500/5';
+        return 'from-amber-50/90 via-white to-stone-50/80 border-amber-200/90 hover:border-amber-300 dark:from-[#1a1512] dark:via-[#14100e] dark:to-[#0b0f17] dark:border-amber-500/30 dark:hover:border-amber-500/50 text-slate-900 dark:text-white';
       case 'rain-forest':
-        return 'from-emerald-50 via-white to-teal-50/50 dark:from-emerald-950/60 dark:via-zinc-900 dark:to-teal-950/40 border-emerald-300/80 dark:border-emerald-500/40 hover:border-emerald-500 dark:hover:border-emerald-400 text-zinc-900 dark:text-white shadow-emerald-500/5';
+        return 'from-emerald-50/90 via-white to-teal-50/80 border-emerald-200/90 hover:border-emerald-300 dark:from-[#0d1a16] dark:via-[#0b1411] dark:to-[#0b0f17] dark:border-emerald-500/30 dark:hover:border-emerald-500/50 text-slate-900 dark:text-white';
       case 'neon-amber':
-        return 'from-rose-50 via-white to-amber-50/50 dark:from-rose-950/60 dark:via-zinc-900 dark:to-amber-950/40 border-rose-300/80 dark:border-rose-500/40 hover:border-rose-500 dark:hover:border-rose-400 text-zinc-900 dark:text-white shadow-rose-500/5';
+        return 'from-rose-50/90 via-white to-amber-50/80 border-rose-200/90 hover:border-rose-300 dark:from-[#1c1116] dark:via-[#160e12] dark:to-[#0b0f17] dark:border-rose-500/30 dark:hover:border-rose-500/50 text-slate-900 dark:text-white';
       default:
-        return 'from-purple-50 via-white to-indigo-50/50 dark:from-purple-950/60 dark:via-zinc-900 dark:to-indigo-950/40 border-purple-300/80 dark:border-purple-500/40 hover:border-purple-500 dark:hover:border-purple-400 text-zinc-900 dark:text-white shadow-purple-500/5';
+        return 'from-indigo-50/90 via-white to-slate-50/80 border-indigo-200/90 hover:border-indigo-300 dark:from-[#131b28] dark:via-[#0f1724] dark:to-[#0b0f17] dark:border-indigo-500/30 dark:hover:border-indigo-500/50 text-slate-900 dark:text-white';
     }
   };
 
-  // If a pod room is currently active, show the room view!
   if (selectedPod) {
     return (
       <div className="space-y-4">
@@ -101,7 +99,7 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
           <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
             <button
               onClick={() => setActivePodId(null)}
-              className="px-3 py-1.5 rounded-2xl text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white shrink-0 transition-colors shadow-sm"
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 shrink-0 transition-colors shadow-sm"
             >
               {isArabic ? '← جميع الحجرات' : '← All Pods'}
             </button>
@@ -109,10 +107,10 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
               <button
                 key={p.id}
                 onClick={() => setActivePodId(p.id)}
-                className={`px-3 py-1.5 rounded-2xl text-xs font-bold flex items-center gap-1.5 border transition-all shrink-0 shadow-sm ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-colors shrink-0 shadow-sm ${
                   activePodId === p.id
-                    ? 'bg-cyan-500/20 border-cyan-500 text-cyan-700 dark:text-cyan-300 shadow-md'
-                    : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                 }`}
               >
                 <span>{p.moodEmoji}</span>
@@ -121,7 +119,7 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
             ))}
             <button
               onClick={() => setIsCreateModalOpen(true)}
-              className="p-1.5 rounded-xl bg-cyan-600/10 dark:bg-cyan-600/20 border border-cyan-500/40 text-cyan-600 dark:text-cyan-300 hover:bg-cyan-600/20 dark:hover:bg-cyan-600/30 shrink-0"
+              className="p-1.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-500 shrink-0 shadow-sm"
               title="Create Pod"
             >
               <Plus className="w-4 h-4" />
@@ -144,22 +142,22 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
     );
   }
 
-  // Otherwise, show the Pods Explorer Grid!
+  // Pods Explorer Grid
   return (
-    <div className="space-y-5 text-zinc-900 dark:text-white">
+    <div className="space-y-5 text-slate-900 dark:text-white">
       {/* Header Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-800">
+      <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 flex items-center justify-center shadow-lg">
-            <div className="w-full h-full bg-white dark:bg-zinc-950 rounded-[14px] flex items-center justify-center">
-              <Radio className="w-4 h-4 text-cyan-500 dark:text-cyan-400 animate-pulse" />
+          <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-indigo-500 to-sky-500 p-0.5 flex items-center justify-center shadow-sm">
+            <div className="w-full h-full bg-white dark:bg-[#0e1520] rounded-[14px] flex items-center justify-center">
+              <Radio className="w-4 h-4 text-indigo-500 dark:text-indigo-400 animate-pulse" />
             </div>
           </div>
           <div>
-            <h2 className="font-black text-base sm:text-lg tracking-tight text-zinc-900 dark:text-white">
+            <h2 className="font-black text-base sm:text-lg tracking-tight text-slate-900 dark:text-white">
               {isArabic ? 'حجرات المزاج اللحظية (Mood Pods)' : 'Ephemeral Mood Pods'}
             </h2>
-            <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               {isArabic ? 'غرف صوت ومحادثة مؤقتة تنتهي بعد 24 ساعة مع مؤثرات محيطية' : '24h real-time rooms with ambient soundscapes & live reaction bursts'}
             </p>
           </div>
@@ -169,15 +167,15 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
           <button
             type="button"
             onClick={() => setIsJoinCodeModalOpen(true)}
-            className="px-3.5 py-2.5 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-sm active:scale-95 transition-all"
+            className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm active:scale-95 transition-colors"
           >
-            <Key className="w-3.5 h-3.5 text-purple-500" />
+            <Key className="w-3.5 h-3.5 text-indigo-500" />
             <span>{isArabic ? 'دخول بكود 🔑' : 'Join with Code 🔑'}</span>
           </button>
 
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-4 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-2xl text-xs font-bold flex items-center gap-1.5 shadow-xl shadow-cyan-600/25 active:scale-95 transition-all"
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm active:scale-95 transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>{isArabic ? 'إنشاء حجرة جديدة' : 'Launch Mood Pod'}</span>
@@ -187,15 +185,15 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
 
       {/* Pods Grid */}
       {pods.length === 0 ? (
-        <div className="glass-card rounded-3xl p-10 text-center space-y-4 border border-zinc-200 dark:border-zinc-800/80">
-          <div className="w-16 h-16 rounded-3xl bg-cyan-100 dark:bg-cyan-950/60 border border-cyan-300 dark:border-cyan-800/60 flex items-center justify-center mx-auto text-3xl">
+        <div className="glass-card rounded-3xl p-10 text-center space-y-4 border border-slate-200 dark:border-slate-800/80 shadow-sm">
+          <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/60 flex items-center justify-center mx-auto text-3xl">
             🎧
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
+            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
               {isArabic ? 'لا توجد حجرات نشطة حالياً' : 'No Active Mood Pods'}
             </h3>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400 max-w-sm mx-auto">
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
               {isArabic
                 ? 'كن أول من ينشئ حجرة مزاج مؤقتة لجمع المبدعين حول موضوع أو مقطوعة صوتية هادئة!'
                 : 'Start the first ephemeral room to gather creators around a mood, topic, or lo-fi audio session!'}
@@ -203,7 +201,7 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
           </div>
           <button
             onClick={() => setIsCreateModalOpen(true)}
-            className="px-5 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs sm:text-sm rounded-2xl transition-all shadow-lg"
+            className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm rounded-xl transition-colors shadow-sm"
           >
             {isArabic ? 'إطلاق أول حجرة الآن 🚀' : 'Launch First Mood Pod 🚀'}
           </button>
@@ -213,42 +211,42 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
           {pods.map((pod) => (
             <motion.div
               key={pod.id}
-              whileHover={{ y: -3 }}
+              whileHover={{ y: -2 }}
               onClick={() => setActivePodId(pod.id)}
               className={`p-6 sm:p-7 rounded-3xl border bg-gradient-to-br ${getThemeCardStyle(
                 pod.backgroundTheme
-              )} shadow-lg cursor-pointer transition-all space-y-4.5 relative overflow-hidden group`}
+              )} shadow-sm cursor-pointer transition-all space-y-4 relative overflow-hidden group`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3.5">
-                  <span className="text-3xl p-3.5 bg-white dark:bg-zinc-950/80 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-inner shrink-0 group-hover:scale-110 transition-transform">
+                  <span className="text-3xl p-3 bg-white dark:bg-[#131b28] rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm shrink-0 group-hover:scale-105 transition-transform">
                     {pod.moodEmoji}
                   </span>
                   <div>
-                    <h3 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100 group-hover:text-zinc-950 dark:group-hover:text-white leading-snug line-clamp-1">
+                    <h3 className="font-bold text-sm sm:text-base text-slate-900 dark:text-white leading-snug line-clamp-1">
                       {pod.title}
                     </h3>
-                    <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mt-1">
+                    <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
                       <img
                         src={pod.hostAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${pod.hostUsername}`}
                         alt={pod.hostUsername}
-                        className="w-5 h-5 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover"
+                        className="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-700 object-cover"
                       />
-                      <span className="text-zinc-700 dark:text-zinc-300 font-medium">@{pod.hostUsername}</span>
+                      <span className="text-slate-700 dark:text-slate-300 font-medium">@{pod.hostUsername}</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
                   {pod.isPrivate && (
-                    <div className="flex items-center gap-1 px-2.5 py-1 bg-purple-500/15 text-purple-700 dark:text-purple-300 rounded-full border border-purple-500/30 text-[10px] font-black uppercase">
-                      <Lock className="w-3 h-3 text-purple-500" />
+                    <div className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 rounded-full border border-indigo-500/30 text-[10px] font-black uppercase">
+                      <Lock className="w-3 h-3 text-indigo-500" />
                       <span>{isArabic ? 'خاصة' : 'Private'}</span>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-1.5 px-3 py-1 bg-cyan-500/10 dark:bg-cyan-500/20 text-cyan-600 dark:text-cyan-300 rounded-full border border-cyan-500/30 text-[10px] font-black uppercase">
-                    <Radio className="w-3 h-3 text-cyan-500 dark:text-cyan-400 animate-pulse" />
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-sky-500/10 dark:bg-sky-500/20 text-sky-600 dark:text-sky-300 rounded-full border border-sky-500/30 text-[10px] font-black uppercase">
+                    <Radio className="w-3 h-3 text-sky-500 animate-pulse" />
                     <span>LIVE</span>
                   </div>
                 </div>
@@ -256,25 +254,25 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
 
               {/* Recent Message Snippet Preview */}
               {pod.recentMessages.length > 0 ? (
-                <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800/80 text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 space-y-1 shadow-sm">
-                  <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
-                    <span className="font-semibold">{pod.recentMessages[pod.recentMessages.length - 1].senderDisplayName || pod.recentMessages[pod.recentMessages.length - 1].senderUsername}:</span>
-                    <MessageSquare className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-600" />
+                <div className="p-3.5 rounded-2xl bg-white/80 dark:bg-[#0b0f17]/70 border border-slate-200/80 dark:border-slate-800 text-xs sm:text-sm text-slate-700 dark:text-slate-300 space-y-1 shadow-sm">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                    <span className="font-semibold text-slate-800 dark:text-slate-200">{pod.recentMessages[pod.recentMessages.length - 1].senderDisplayName || pod.recentMessages[pod.recentMessages.length - 1].senderUsername}:</span>
+                    <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
                   </div>
-                  <p className="line-clamp-1 italic text-zinc-800 dark:text-zinc-200">
+                  <p className="line-clamp-1 italic text-slate-800 dark:text-slate-200">
                     "{pod.recentMessages[pod.recentMessages.length - 1].text}"
                   </p>
                 </div>
               ) : (
-                <div className="p-3.5 rounded-2xl bg-white/50 dark:bg-zinc-950/40 border border-zinc-200 dark:border-zinc-800/50 text-xs text-zinc-500 italic">
+                <div className="p-3.5 rounded-2xl bg-white/60 dark:bg-[#0b0f17]/50 border border-slate-200/80 dark:border-slate-800/60 text-xs text-slate-500 dark:text-slate-400 italic">
                   {isArabic ? 'الحجرة هادئة وجاهزة للدردشة والموسيقى...' : 'Room is quiet and ready for chat & lo-fi vibes...'}
                 </div>
               )}
 
               {/* Bottom Meta & Join Button */}
-              <div className="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800/60 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
+              <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800/80 text-xs sm:text-sm text-slate-500">
                 <div className="flex items-center gap-3.5">
-                  <span className="flex items-center gap-1.5 text-cyan-600 dark:text-cyan-400 font-bold">
+                  <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-bold">
                     <Users className="w-4 h-4" />
                     <span>{pod.activeParticipantCount}</span>
                   </span>
@@ -290,7 +288,7 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
                     e.stopPropagation();
                     setActivePodId(pod.id);
                   }}
-                  className="px-4 py-2 bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 group-hover:bg-cyan-600 group-hover:text-white border border-zinc-200 dark:border-zinc-800 group-hover:border-cyan-500 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                  className="px-3.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 dark:hover:text-white border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 transition-colors flex items-center gap-1.5 shadow-sm"
                 >
                   <Volume2 className="w-4 h-4" />
                   <span>{isArabic ? 'دخول الحجرة' : 'Enter Pod'}</span>
@@ -322,17 +320,17 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 15 }}
                   onClick={(e) => e.stopPropagation()}
-                  className="w-full max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl space-y-4"
+                  className="w-full max-w-sm bg-white dark:bg-[#131b28] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xl space-y-4"
                 >
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2.5 rounded-2xl bg-purple-500/10 text-purple-600 dark:text-purple-400">
+                    <div className="p-2.5 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                       <Key className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-sm text-zinc-900 dark:text-white">
+                      <h3 className="font-bold text-sm text-slate-900 dark:text-white">
                         {isArabic ? 'الانضمام لحجرة خاصة بكود' : 'Join Private Pod with Code'}
                       </h3>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
                         {isArabic ? 'أدخل كود الدعوة المكون من 8 أحرف' : 'Enter the 8-character invite code'}
                       </p>
                     </div>
@@ -350,21 +348,21 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
                       placeholder="e.g. POD-ABCD or 8-digit code"
                       value={joinCodeInput}
                       onChange={(e) => setJoinCodeInput(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-center font-mono font-bold text-sm uppercase focus:outline-none focus:border-purple-500"
+                      className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700 rounded-xl text-center font-mono font-bold text-sm uppercase focus:outline-none focus:border-indigo-500"
                     />
 
                     <div className="flex items-center justify-end gap-2 pt-1">
                       <button
                         type="button"
                         onClick={() => setIsJoinCodeModalOpen(false)}
-                        className="px-3.5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-semibold"
+                        className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold"
                       >
                         {isArabic ? 'إلغاء' : 'Cancel'}
                       </button>
                       <button
                         type="submit"
                         disabled={isJoiningWithCode || !joinCodeInput.trim()}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold disabled:opacity-50 transition-all shadow-md active:scale-95"
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold disabled:opacity-50 transition-colors shadow-sm active:scale-95"
                       >
                         {isJoiningWithCode ? (isArabic ? 'جاري التحقق...' : 'Verifying...') : (isArabic ? 'دخول 🚀' : 'Join 🚀')}
                       </button>

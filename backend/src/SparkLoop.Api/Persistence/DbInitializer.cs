@@ -23,159 +23,58 @@ public static class DbInitializer
         {
             await dbContext.Database.EnsureCreatedAsync();
 
-            if (dbContext.Database.IsSqlite())
-            {
-                // Safe column check for existing SQLite databases without triggering EF Core failed command logs
-                try
-                {
-                var connection = dbContext.Database.GetDbConnection();
-                if (connection.State != System.Data.ConnectionState.Open)
-                {
-                    await connection.OpenAsync();
-                }
-
-                using var checkCmd = connection.CreateCommand();
-                checkCmd.CommandText = "PRAGMA table_info(users);";
-                using var reader = await checkCmd.ExecuteReaderAsync();
-                var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                while (await reader.ReadAsync())
-                {
-                    // column 'name' is at index 1 in PRAGMA table_info output
-                    columns.Add(reader.GetString(1));
-                }
-                await reader.CloseAsync();
-
-                if (!columns.Contains("PreferredTheme"))
-                {
-                    using var addCmd = connection.CreateCommand();
-                    addCmd.CommandText = "ALTER TABLE users ADD COLUMN PreferredTheme TEXT DEFAULT 'dark';";
-                    await addCmd.ExecuteNonQueryAsync();
-                }
-
-                if (!columns.Contains("PreferredLanguage"))
-                {
-                    using var addCmd = connection.CreateCommand();
-                    addCmd.CommandText = "ALTER TABLE users ADD COLUMN PreferredLanguage TEXT DEFAULT 'en';";
-                    await addCmd.ExecuteNonQueryAsync();
-                }
-
-                // Mood Pods new columns check
-                using var podCheckCmd = connection.CreateCommand();
-                podCheckCmd.CommandText = "PRAGMA table_info(mood_pods);";
-                using var podReader = await podCheckCmd.ExecuteReaderAsync();
-                var podColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                while (await podReader.ReadAsync())
-                {
-                    podColumns.Add(podReader.GetString(1));
-                }
-                await podReader.CloseAsync();
-
-                if (!podColumns.Contains("CustomBackgroundImageUrl"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN CustomBackgroundImageUrl TEXT NULL;";
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                if (!podColumns.Contains("IsPrivate"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN IsPrivate INTEGER DEFAULT 0;";
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                if (!podColumns.Contains("InviteCode"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN InviteCode TEXT DEFAULT '';";
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                if (!podColumns.Contains("AllowParticipantsChangeTheme"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN AllowParticipantsChangeTheme INTEGER DEFAULT 0;";
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                if (!podColumns.Contains("AllowParticipantsPlayBgMusic"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN AllowParticipantsPlayBgMusic INTEGER DEFAULT 1;";
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                if (!podColumns.Contains("AllowOpenMic"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN AllowOpenMic INTEGER DEFAULT 1;";
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                if (!podColumns.Contains("moderator_user_ids"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN moderator_user_ids TEXT DEFAULT '[]';";
-                    await cmd.ExecuteNonQueryAsync();
-                }
-                if (!podColumns.Contains("invited_user_ids"))
-                {
-                    using var cmd = connection.CreateCommand();
-                    cmd.CommandText = "ALTER TABLE mood_pods ADD COLUMN invited_user_ids TEXT DEFAULT '[]';";
-                    await cmd.ExecuteNonQueryAsync();
-                }
-
-                // User Follows table creation check
-                using var tableCheckCmd = connection.CreateCommand();
-                tableCheckCmd.CommandText = @"
-                    CREATE TABLE IF NOT EXISTS user_follows (
-                        Id TEXT PRIMARY KEY,
-                        FollowerId TEXT NOT NULL,
-                        FollowerUsername TEXT NOT NULL,
-                        FollowerDisplayName TEXT NOT NULL,
-                        FollowerAvatarUrl TEXT,
-                        FollowingId TEXT NOT NULL,
-                        FollowingUsername TEXT NOT NULL,
-                        FollowingDisplayName TEXT NOT NULL,
-                        FollowingAvatarUrl TEXT,
-                        Status INTEGER NOT NULL,
-                        CreatedAtUtc TEXT NOT NULL,
-                        RespondedAtUtc TEXT
-                    );
-                    CREATE UNIQUE INDEX IF NOT EXISTS IX_user_follows_FollowerId_FollowingId ON user_follows (FollowerId, FollowingId);
-                    CREATE INDEX IF NOT EXISTS IX_user_follows_FollowingId ON user_follows (FollowingId);
-                    CREATE INDEX IF NOT EXISTS IX_user_follows_FollowerId ON user_follows (FollowerId);
-                    CREATE INDEX IF NOT EXISTS IX_user_follows_Status ON user_follows (Status);
-                ";
-                await tableCheckCmd.ExecuteNonQueryAsync();
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, "Column check or migration skipped");
-            }
-            }
+            var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasherService>();
 
             if (await dbContext.Users.AnyAsync())
             {
+                var unconfirmedOrUnhashed = await dbContext.Users.ToListAsync();
+                bool changed = false;
+                foreach (var u in unconfirmedOrUnhashed)
+                {
+                    if (string.IsNullOrEmpty(u.PasswordHash))
+                    {
+                        u.SetPassword(passwordHasher.HashPassword(u, "SparkLoop2026!"));
+                        changed = true;
+                    }
+                    if (!u.IsEmailConfirmed)
+                    {
+                        u.MarkEmailAsConfirmed();
+                        changed = true;
+                    }
+                }
+                if (changed)
+                {
+                    await dbContext.SaveChangesAsync();
+                }
                 return; // Already seeded
             }
 
-            logger.LogInformation("Seeding initial demo data for SparkLoop...");
+            logger.LogInformation("Seeding initial demo data for SparkLoop in PostgreSQL...");
 
-            // 1. Seed Personas
+            // 1. Seed Initial Creators (with Email Confirmed)
             var aliceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
             var bobId = Guid.Parse("22222222-2222-2222-2222-222222222222");
             var noorId = Guid.Parse("33333333-3333-3333-3333-333333333333");
             var tariqId = Guid.Parse("44444444-4444-4444-4444-444444444444");
 
-            var alice = User.Create(aliceId, "alice", "alice@sparkloop.app", "Alice Wonder 🎨", "https://api.dicebear.com/7.x/bottts/svg?seed=alice", "Digital artist, meme crafter & storyteller");
+            var alice = User.Create(aliceId, "alice", "alice@sparkloop.app", "Alice Wonder 🎨", "https://api.dicebear.com/7.x/bottts/svg?seed=alice", null, "Digital artist, meme crafter & storyteller", null, "dark", "en", true);
+            alice.SetPassword(passwordHasher.HashPassword(alice, "SparkLoop2026!"));
             alice.AddReputation(240);
             alice.AwardBadge("Spark Champion", "Winner of the Daily Spark Challenge", "🏆");
             alice.AwardBadge("Top Contributor", "Authored over 20 story chain turns", "🌟");
 
-            var bob = User.Create(bobId, "bob", "bob@sparkloop.app", "Bob The Bard 🎸", "https://api.dicebear.com/7.x/bottts/svg?seed=bob", "Musician, audio note enthusiast, story chain wizard");
+            var bob = User.Create(bobId, "bob", "bob@sparkloop.app", "Bob The Bard 🎸", "https://api.dicebear.com/7.x/bottts/svg?seed=bob", null, "Musician, audio note enthusiast, story chain wizard", null, "dark", "en", true);
+            bob.SetPassword(passwordHasher.HashPassword(bob, "SparkLoop2026!"));
             bob.AddReputation(180);
             bob.AwardBadge("Chain Master", "Completed a 20-step story loop", "🔗");
 
-            var noor = User.Create(noorId, "noor", "noor@sparkloop.app", "نور العرّاف 🌟", "https://api.dicebear.com/7.x/bottts/svg?seed=noor", "راوية قصص تفاعلية ومصممة تجارب رقمية");
+            var noor = User.Create(noorId, "noor", "noor@sparkloop.app", "نور العرّاف 🌟", "https://api.dicebear.com/7.x/bottts/svg?seed=noor", null, "راوية قصص تفاعلية ومصممة تجارب رقمية", null, "dark", "ar", true);
+            noor.SetPassword(passwordHasher.HashPassword(noor, "SparkLoop2026!"));
             noor.AddReputation(310);
             noor.AwardBadge("حكواتي العصر", "مبدعة في سلاسل المايك التفاعلية", "📜");
 
-            var tariq = User.Create(tariqId, "tariq", "tariq@sparkloop.app", "طارق صانع الميمز ⚡", "https://api.dicebear.com/7.x/bottts/svg?seed=tariq", "ملك الميمز الخاطفة والتحديات اليومية");
+            var tariq = User.Create(tariqId, "tariq", "tariq@sparkloop.app", "طارق صانع الميمز ⚡", "https://api.dicebear.com/7.x/bottts/svg?seed=tariq", null, "ملك الميمز الخاطفة والتحديات اليومية", null, "dark", "ar", true);
+            tariq.SetPassword(passwordHasher.HashPassword(tariq, "SparkLoop2026!"));
             tariq.AddReputation(290);
             tariq.AwardBadge("Meme Maestro", "Crafted viral WebP canvas memes", "🔥");
 

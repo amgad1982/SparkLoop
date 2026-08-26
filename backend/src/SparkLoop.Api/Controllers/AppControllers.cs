@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Features.Auth;
@@ -24,6 +25,7 @@ public class AuthController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
     [HttpPost("register")]
     public async Task<ActionResult<AuthResultDto>> Register([FromBody] RegisterUserCommand command)
     {
@@ -31,6 +33,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResultDto>> Login([FromBody] LoginUserCommand command)
     {
@@ -38,19 +41,214 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("centrifugo-token")]
-    public async Task<ActionResult<CentrifugoTokenDto>> GetCentrifugoToken([FromQuery] string? userId, [FromQuery] string? username)
+    [AllowAnonymous]
+    [HttpPost("verify-email")]
+    public async Task<ActionResult<EmailVerificationResultDto>> VerifyEmail([FromBody] VerifyEmailCommand command)
     {
-        var result = await _mediator.Send(new GetCentrifugoTokenQuery(userId, username));
+        var result = await _mediator.Send(command);
         return Ok(result);
     }
 
-    [HttpGet("personas")]
-    public async Task<ActionResult<IReadOnlyList<UserDto>>> GetPersonas()
+    [AllowAnonymous]
+    [HttpPost("resend-verification-code")]
+    public async Task<ActionResult<EmailVerificationResultDto>> ResendVerificationCode([FromBody] ResendVerificationCodeCommand command)
     {
-        var result = await _mediator.Send(new GetPersonasQuery());
+        var result = await _mediator.Send(command);
         return Ok(result);
     }
+
+    [AllowAnonymous]
+    [HttpGet("oauth/{provider}/url")]
+    public async Task<ActionResult<OAuthAuthorizationUrlResult>> GetOAuthUrl(
+        string provider,
+        [FromQuery] string redirectUri,
+        [FromQuery] string action = "login")
+    {
+        var result = await _mediator.Send(new GetOAuthUrlQuery(provider, redirectUri, action));
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("oauth/{provider}/callback")]
+    public async Task<ActionResult<AuthResultDto>> ProcessOAuthCallback(
+        string provider,
+        [FromBody] OAuthCallbackRequest request)
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var command = new ProcessOAuthCallbackCommand(
+            provider,
+            request.Code,
+            request.State,
+            request.RedirectUri,
+            request.DeviceId,
+            request.DeviceName,
+            request.DeviceType,
+            ip,
+            userAgent,
+            request.IsTrusted
+        );
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("oauth/{provider}/link-callback")]
+    public async Task<ActionResult<LinkedSocialAccountDto>> LinkOAuthCallback(
+        string provider,
+        [FromBody] OAuthLinkCallbackRequest request)
+    {
+        var command = new LinkOAuthAccountCommand(
+            provider,
+            request.Code,
+            request.State,
+            request.RedirectUri
+        );
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("social-login")]
+    public async Task<ActionResult<AuthResultDto>> SocialLogin([FromBody] SocialLoginRequest request)
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var command = new SocialLoginCommand(
+            request.Provider,
+            request.ProviderUserId,
+            request.Email,
+            request.DisplayName,
+            request.AvatarUrl,
+            request.DeviceId,
+            request.DeviceName,
+            request.DeviceType,
+            ip,
+            userAgent,
+            request.IsTrusted
+        );
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("linked-accounts")]
+    public async Task<ActionResult<IReadOnlyList<LinkedSocialAccountDto>>> GetLinkedAccounts()
+    {
+        var result = await _mediator.Send(new GetLinkedAccountsQuery());
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("link-social")]
+    public async Task<ActionResult<LinkedSocialAccountDto>> LinkSocialAccount([FromBody] LinkSocialAccountCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpDelete("unlink-social/{provider}")]
+    public async Task<ActionResult<bool>> UnlinkSocialAccount(string provider)
+    {
+        var result = await _mediator.Send(new UnlinkSocialAccountCommand(provider));
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpPost("refresh-token")]
+    public async Task<ActionResult<AuthResultDto>> RefreshToken([FromBody] RefreshTokenRequest request)
+    {
+        var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var command = new RefreshTokenCommand(
+            request.RefreshToken,
+            request.DeviceId,
+            request.DeviceName,
+            request.DeviceType,
+            ip,
+            userAgent
+        );
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [HttpPost("revoke-token")]
+    public async Task<ActionResult<bool>> RevokeToken([FromBody] RevokeTokenRequest request)
+    {
+        var result = await _mediator.Send(new RevokeTokenCommand(request.RefreshToken, request.SessionId));
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("revoke-all-sessions")]
+    public async Task<ActionResult<bool>> RevokeAllSessions([FromBody] RevokeAllSessionsRequest request)
+    {
+        var result = await _mediator.Send(new RevokeAllSessionsCommand(request.KeepCurrentSession, request.CurrentRefreshToken));
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("sessions")]
+    public async Task<ActionResult<IReadOnlyList<DeviceSessionDto>>> GetActiveSessions()
+    {
+        var result = await _mediator.Send(new GetActiveSessionsQuery());
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("sessions/{sessionId:guid}/trust")]
+    public async Task<ActionResult<DeviceSessionDto>> TrustSession(Guid sessionId, [FromBody] TrustSessionRequest request)
+    {
+        var result = await _mediator.Send(new TrustDeviceSessionCommand(sessionId, request.IsTrusted));
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpDelete("sessions/{sessionId:guid}")]
+    public async Task<ActionResult<bool>> DeleteSession(Guid sessionId)
+    {
+        var result = await _mediator.Send(new RevokeTokenCommand(SessionId: sessionId));
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpGet("centrifugo-token")]
+    public async Task<ActionResult<CentrifugoTokenDto>> GetCentrifugoToken()
+    {
+        var result = await _mediator.Send(new GetCentrifugoTokenQuery());
+        return Ok(result);
+    }
+
+    public record OAuthCallbackRequest(
+        string Code,
+        string State,
+        string RedirectUri,
+        string? DeviceId = null,
+        string? DeviceName = null,
+        string? DeviceType = null,
+        bool IsTrusted = false
+    );
+    public record OAuthLinkCallbackRequest(
+        string Code,
+        string State,
+        string RedirectUri
+    );
+    public record SocialLoginRequest(
+        string Provider,
+        string ProviderUserId,
+        string Email,
+        string DisplayName,
+        string? AvatarUrl = null,
+        string? DeviceId = null,
+        string? DeviceName = null,
+        string? DeviceType = null,
+        bool IsTrusted = false
+    );
+    public record RefreshTokenRequest(string RefreshToken, string? DeviceId = null, string? DeviceName = null, string? DeviceType = null);
+    public record RevokeTokenRequest(string? RefreshToken = null, Guid? SessionId = null);
+    public record RevokeAllSessionsRequest(bool KeepCurrentSession = false, string? CurrentRefreshToken = null);
+    public record TrustSessionRequest(bool IsTrusted = true);
 }
 
 [ApiController]
@@ -64,6 +262,15 @@ public class UsersController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
+    [HttpGet("top-creators")]
+    public async Task<ActionResult<IReadOnlyList<UserDto>>> GetTopCreators()
+    {
+        var result = await _mediator.Send(new GetTopCreatorsQuery());
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
     [HttpGet("profile/{username}")]
     public async Task<ActionResult<UserProfileDto>> GetUserProfile(string username)
     {
@@ -71,13 +278,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
-    [HttpGet("me")]
-    public async Task<ActionResult<UserProfileDto>> GetCurrentUserProfile()
-    {
-        var result = await _mediator.Send(new GetUserProfileQuery());
-        return Ok(result);
-    }
-
+    [Authorize]
     [HttpPut("profile")]
     public async Task<ActionResult<UserDto>> UpdateProfile([FromBody] UpdateUserProfileCommand command)
     {
@@ -85,6 +286,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("change-password")]
     public async Task<ActionResult<bool>> ChangePassword([FromBody] ChangePasswordCommand command)
     {
@@ -92,6 +294,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{targetUserId:guid}/follow")]
     public async Task<ActionResult<UserFollowDto>> FollowUser(Guid targetUserId)
     {
@@ -99,6 +302,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("follow-requests/{requestId:guid}/accept")]
     public async Task<ActionResult<UserFollowDto>> AcceptFollowRequest(Guid requestId)
     {
@@ -106,6 +310,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("follow-requests/{requestId:guid}/decline")]
     public async Task<ActionResult<bool>> DeclineFollowRequest(Guid requestId)
     {
@@ -113,6 +318,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpDelete("{targetUserId:guid}/unfollow")]
     public async Task<ActionResult<bool>> UnfollowUser(Guid targetUserId)
     {
@@ -120,6 +326,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpGet("follow-requests/pending")]
     public async Task<ActionResult<IReadOnlyList<UserFollowDto>>> GetPendingFollowRequests()
     {
@@ -127,6 +334,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet("{username}/followers")]
     public async Task<ActionResult<IReadOnlyList<UserFollowDto>>> GetFollowers(string username)
     {
@@ -134,6 +342,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet("{username}/following")]
     public async Task<ActionResult<IReadOnlyList<UserFollowDto>>> GetFollowing(string username)
     {
@@ -141,6 +350,7 @@ public class UsersController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet("{username}/follow-status")]
     public async Task<ActionResult<FollowStatusDto>> GetFollowStatus(string username)
     {
@@ -160,6 +370,7 @@ public class SparksController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
     [HttpGet("active")]
     public async Task<ActionResult<SparkDto>> GetActiveSpark()
     {
@@ -167,6 +378,7 @@ public class SparksController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("submit")]
     public async Task<ActionResult<SparkSubmissionDto>> SubmitEntry([FromBody] SubmitSparkEntryCommand command)
     {
@@ -174,6 +386,7 @@ public class SparksController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{sparkId:guid}/submissions/{submissionId:guid}/vote")]
     public async Task<ActionResult<SparkSubmissionDto>> Vote(Guid sparkId, Guid submissionId)
     {
@@ -181,6 +394,7 @@ public class SparksController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{sparkId:guid}/resolve-winner")]
     public async Task<ActionResult<SparkDto>> ResolveWinner(Guid sparkId)
     {
@@ -188,6 +402,7 @@ public class SparksController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet("history")]
     public async Task<ActionResult<IReadOnlyList<SparkDto>>> GetHistory()
     {
@@ -207,6 +422,7 @@ public class ChainsController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<ChainDto>>> GetActiveChains()
     {
@@ -214,6 +430,7 @@ public class ChainsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<ChainDto>> CreateChain([FromBody] CreateChainCommand command)
     {
@@ -221,6 +438,7 @@ public class ChainsController : ControllerBase
         return CreatedAtAction(nameof(GetChainById), new { id = result.Id }, result);
     }
 
+    [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<ChainDto>> GetChainById(Guid id)
     {
@@ -228,6 +446,7 @@ public class ChainsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/step")]
     public async Task<ActionResult<ChainDto>> SubmitStep(Guid id, [FromBody] SubmitChainStepCommand command)
     {
@@ -240,6 +459,7 @@ public class ChainsController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet("completed")]
     public async Task<ActionResult<IReadOnlyList<ChainDto>>> GetCompletedChains()
     {
@@ -259,6 +479,7 @@ public class PostsController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<PostDto>>> GetFeed(
         [FromQuery] int page = 1,
@@ -270,6 +491,7 @@ public class PostsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<PostDto>> CreatePost([FromBody] CreatePostCommand command)
     {
@@ -277,6 +499,7 @@ public class PostsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/react")]
     public async Task<ActionResult<PostDto>> React(Guid id, [FromBody] ReactRequest request)
     {
@@ -308,6 +531,7 @@ public class HashtagsController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
     [HttpGet("trending")]
     public async Task<ActionResult<IReadOnlyList<HashtagDto>>> GetTrending([FromQuery] int limit = 10)
     {
@@ -315,6 +539,7 @@ public class HashtagsController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet("search")]
     public async Task<ActionResult<IReadOnlyList<HashtagDto>>> Search([FromQuery] string query, [FromQuery] int limit = 10)
     {
@@ -322,6 +547,7 @@ public class HashtagsController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<HashtagDto>>> GetHashtags([FromQuery] string? query = null, [FromQuery] int limit = 10)
     {
@@ -347,6 +573,7 @@ public class MoodPodsController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IReadOnlyList<MoodPodDto>>> GetActivePods()
     {
@@ -354,6 +581,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult<MoodPodDto>> CreatePod([FromBody] CreateMoodPodCommand command)
     {
@@ -361,6 +589,7 @@ public class MoodPodsController : ControllerBase
         return CreatedAtAction(nameof(GetPodById), new { id = result.Id }, result);
     }
 
+    [AllowAnonymous]
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<MoodPodDto>> GetPodById(Guid id, [FromQuery] string? inviteCode = null)
     {
@@ -368,18 +597,18 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpGet("{id:guid}/livekit-token")]
     public async Task<ActionResult<LiveKitTokenDto>> GetLiveKitToken(
         Guid id,
         [FromQuery] bool isOnStage = false,
-        [FromQuery] string? userId = null,
-        [FromQuery] string? username = null,
-        [FromQuery] string? displayName = null)
+        [FromQuery] string? inviteCode = null)
     {
-        var result = await _mediator.Send(new GetPodVoiceTokenQuery(id, isOnStage, userId, username, displayName));
+        var result = await _mediator.Send(new GetPodVoiceTokenQuery(id, isOnStage, inviteCode));
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("join-by-code")]
     public async Task<ActionResult<MoodPodDto>> JoinByCode([FromBody] JoinByCodeRequest request)
     {
@@ -387,6 +616,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPut("{id:guid}/settings")]
     public async Task<ActionResult<MoodPodDto>> UpdateSettings(Guid id, [FromBody] UpdatePodSettingsCommand command)
     {
@@ -399,6 +629,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/close")]
     [HttpDelete("{id:guid}")]
     public async Task<ActionResult<bool>> ClosePod(Guid id)
@@ -407,6 +638,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/moderate")]
     public async Task<ActionResult<bool>> Moderate(Guid id, [FromBody] ModerateRequest request)
     {
@@ -420,6 +652,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/invite")]
     public async Task<ActionResult<bool>> Invite(Guid id, [FromBody] InviteRequest request)
     {
@@ -427,6 +660,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/message")]
     public async Task<ActionResult<PodMessageDto>> SendMessage(Guid id, [FromBody] SendPodMessageCommand command)
     {
@@ -439,6 +673,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/react")]
     public async Task<ActionResult<bool>> React(Guid id, [FromBody] PodReactRequest request)
     {
@@ -446,6 +681,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/speaking")]
     public async Task<ActionResult<bool>> SetSpeakingStatus(Guid id, [FromBody] PodSpeakingRequest request)
     {
@@ -453,6 +689,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/signal")]
     public async Task<ActionResult<bool>> SendSignal(Guid id, [FromBody] PodSignalRequest request)
     {
@@ -460,6 +697,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/sound-effect")]
     public async Task<ActionResult<bool>> SendSoundEffect(Guid id, [FromBody] PodSoundEffectRequest request)
     {
@@ -467,6 +705,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/audio-chunk")]
     public async Task<ActionResult<bool>> SendAudioChunk(Guid id, [FromBody] PodAudioChunkRequest request)
     {
@@ -474,6 +713,7 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
     [HttpPost("{id:guid}/bg-music")]
     public async Task<ActionResult<bool>> SendBgMusic(Guid id, [FromBody] PodBgMusicRequest request)
     {
@@ -512,20 +752,45 @@ public class MediaController : ControllerBase
 {
     private readonly IBlobStorageService _storageService;
 
+    private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".png", ".jpg", ".jpeg", ".webp", ".gif", ".webm", ".mp3", ".wav", ".ogg", ".m4a"
+    };
+
+    private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "image/png", "image/jpeg", "image/webp", "image/gif",
+        "video/webm", "video/mp4",
+        "audio/webm", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/x-m4a"
+    };
+
     public MediaController(IBlobStorageService storageService)
     {
         _storageService = storageService;
     }
 
+    [Authorize]
     [HttpPost("upload")]
+    [RequestSizeLimit(15 * 1024 * 1024)] // 15 MB Max
     public async Task<ActionResult<UploadResponse>> UploadFile(IFormFile file)
     {
         if (file == null || file.Length == 0)
         {
-            return BadRequest(new { error = "No file uploaded." });
+            return BadRequest(new { error = "No file uploaded or file is empty." });
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        if (string.IsNullOrEmpty(extension) || !AllowedExtensions.Contains(extension))
+        {
+            return BadRequest(new { error = $"File type '{extension}' is not allowed. Allowed types: {string.Join(", ", AllowedExtensions)}" });
         }
 
         var contentType = file.ContentType;
+        if (!string.IsNullOrEmpty(contentType) && !AllowedContentTypes.Contains(contentType))
+        {
+            return BadRequest(new { error = $"Invalid content type '{contentType}'." });
+        }
+
         using var stream = file.OpenReadStream();
         var url = await _storageService.UploadFileAsync(stream, file.FileName, contentType);
 
@@ -546,6 +811,7 @@ public class SearchController : ControllerBase
         _mediator = mediator;
     }
 
+    [AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<GlobalSearchResultDto>> Search(
         [FromQuery] string query,

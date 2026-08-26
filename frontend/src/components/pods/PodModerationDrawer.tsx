@@ -263,10 +263,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('settings')}
-              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                 activeTab === 'settings'
-                  ? 'bg-white dark:bg-zinc-850 text-cyan-600 dark:text-cyan-400 shadow-sm border border-zinc-200 dark:border-zinc-700'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border-zinc-200 dark:border-zinc-700'
+                  : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
             >
               <Palette className="w-3.5 h-3.5" />
@@ -276,10 +276,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('participants')}
-              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                 activeTab === 'participants'
-                  ? 'bg-white dark:bg-zinc-850 text-cyan-600 dark:text-cyan-400 shadow-sm border border-zinc-200 dark:border-zinc-700'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border-zinc-200 dark:border-zinc-700'
+                  : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
             >
               <Shield className="w-3.5 h-3.5" />
@@ -289,10 +289,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('invites')}
-              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                 activeTab === 'invites'
-                  ? 'bg-white dark:bg-zinc-850 text-cyan-600 dark:text-cyan-400 shadow-sm border border-zinc-200 dark:border-zinc-700'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+                  ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border-zinc-200 dark:border-zinc-700'
+                  : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
               }`}
             >
               <UserPlus className="w-3.5 h-3.5" />
@@ -531,7 +531,7 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                 <button
                   type="submit"
                   disabled={isSavingSettings}
-                  className="w-full py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 cursor-pointer"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
                 >
                   {isSavingSettings ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -600,7 +600,7 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                   return (
                     <div
                       key={sp.userId}
-                      className="p-3 rounded-2xl bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 shadow-sm"
+                      className="p-3 rounded-2xl bg-zinc-50 dark:bg-slate-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2 shadow-sm"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <img
@@ -714,7 +714,7 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                     {listeners.map((ls) => (
                       <div
                         key={ls.userId}
-                        className="p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2"
+                        className="p-2.5 rounded-xl bg-zinc-50 dark:bg-slate-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-2"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <img

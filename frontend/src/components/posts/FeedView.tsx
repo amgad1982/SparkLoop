@@ -12,7 +12,6 @@ import {
   Palette,
   Hash,
   X,
-  Search,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -39,7 +38,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
   selectedHashtag,
   onSelectHashtag,
   onClearHashtag,
-  onOpenSearch,
 }) => {
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
@@ -61,7 +59,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
         return [newPost, ...prev];
       });
     } else if (data.type === 'POST_REACTED') {
-      const { postId, userId, username, reactionType, reactionCount, reactions } = data as unknown as {
+      const { postId, userId, reactionType, reactionCount, reactions } = data as unknown as {
         postId: string;
         userId: string;
         username?: string;
@@ -74,7 +72,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
         prev.map((p) => {
           if (p.id !== postId) return p;
 
-          // If backend provided authoritative reactions array, use it
           if (reactions && Array.isArray(reactions)) {
             return {
               ...p,
@@ -83,7 +80,6 @@ export const FeedView: React.FC<FeedViewProps> = ({
             };
           }
 
-          // Fallback optimistic delta calculation
           const existing = (p.reactions || []).find((r) => r.userId === userId);
           let newReactions: ReactionDto[];
 
@@ -99,9 +95,9 @@ export const FeedView: React.FC<FeedViewProps> = ({
             newReactions = [
               ...(p.reactions || []),
               {
-                id: `rt-${Date.now()}`,
+                id: Math.random().toString(),
                 userId,
-                username: username || '',
+                username: 'User',
                 type: reactionType,
                 createdAtUtc: new Date().toISOString(),
               },
@@ -110,7 +106,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
           return {
             ...p,
-            reactionCount: reactionCount ?? newReactions.length,
+            reactionCount: newReactions.length,
             reactions: newReactions,
           };
         })
@@ -119,30 +115,28 @@ export const FeedView: React.FC<FeedViewProps> = ({
   });
 
   const handleReact = async (postId: string, reactionType: string) => {
-    // 1. Optimistic UI update
+    if (currentPersona.username === 'guest') {
+      return;
+    }
+
+    // Optimistic UI Update
     setPosts((prev) =>
       prev.map((p) => {
         if (p.id !== postId) return p;
-        const currentReactions = p.reactions || [];
-        const existing = currentReactions.find((r) => r.userId === currentPersona.id);
-        let updatedReactions: ReactionDto[];
 
-        if (existing) {
-          if (existing.type.toLowerCase() === reactionType.toLowerCase()) {
-            // Toggle off
-            updatedReactions = currentReactions.filter((r) => r.userId !== currentPersona.id);
-          } else {
-            // Switch reaction type
-            updatedReactions = currentReactions.map((r) =>
-              r.userId === currentPersona.id ? { ...r, type: reactionType } : r
-            );
-          }
+        const currentReactions = p.reactions || [];
+        const existingIdx = currentReactions.findIndex(
+          (r) => r.userId === currentPersona.id && r.type.toLowerCase() === reactionType.toLowerCase()
+        );
+
+        let updatedReactions: ReactionDto[];
+        if (existingIdx > -1) {
+          updatedReactions = currentReactions.filter((_, idx) => idx !== existingIdx);
         } else {
-          // Add new reaction
           updatedReactions = [
-            ...currentReactions,
+            ...currentReactions.filter((r) => r.userId !== currentPersona.id),
             {
-              id: `temp-${Date.now()}`,
+              id: `opt-${Date.now()}`,
               userId: currentPersona.id,
               username: currentPersona.username,
               type: reactionType,
@@ -159,7 +153,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
       })
     );
 
-    // 2. Network call to backend
+    // Network call to backend
     try {
       await api.reactToPost(postId, reactionType);
     } catch (err) {
@@ -181,7 +175,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 onSelectHashtag(cleanTag);
               }
             }}
-            className="font-semibold text-zinc-900 dark:text-white cursor-pointer hover:opacity-75 active:scale-95 transition-all inline-block hover:underline"
+            className="font-semibold text-indigo-600 dark:text-indigo-400 cursor-pointer hover:opacity-75 active:scale-95 transition-all inline-block hover:underline"
           >
             {part}
           </span>
@@ -196,25 +190,25 @@ export const FeedView: React.FC<FeedViewProps> = ({
     : posts;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden text-zinc-900 dark:text-white transition-colors duration-200">
+    <div className="h-full flex flex-col overflow-hidden text-slate-900 dark:text-slate-100 transition-colors duration-200">
       {/* 1. Isolated Fixed Creator Bar & Active Filter Bar */}
       <div className="shrink-0 pb-3 z-10 space-y-2">
-        <div className="glass-panel bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl rounded-2xl p-2.5 sm:p-3 border border-zinc-200 dark:border-zinc-800/90 flex items-center justify-between gap-2.5 shadow-md">
+        <div className="glass-panel bg-white/95 dark:bg-[#131b28]/95 backdrop-blur-xl rounded-2xl p-2.5 sm:p-3 border border-slate-200 dark:border-slate-800/90 flex items-center justify-between gap-2.5 shadow-sm">
           <img
             src={currentPersona.avatarUrl}
             alt={currentPersona.username}
-            className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover flex-shrink-0"
+            className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-600 object-cover flex-shrink-0"
           />
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex-1 px-3.5 py-2 bg-zinc-100 dark:bg-zinc-950/80 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800/80 rounded-xl text-left rtl:text-right text-xs text-zinc-500 dark:text-zinc-400 font-medium transition-colors truncate"
+            className="flex-1 px-3.5 py-2 bg-slate-100 dark:bg-[#0b0f17]/90 hover:bg-slate-200 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-xl text-left rtl:text-right text-xs text-slate-500 dark:text-slate-400 font-medium transition-colors truncate"
           >
             {isArabic ? 'ماذا في بالك؟ اكتب تدوينة <= 280 حرف...' : 'Share a thought or story beat (<= 280 chars)...'}
           </button>
           <Tooltip content={isArabic ? 'فتح استوديو تصميم الميمز' : 'Open Meme Studio Canvas'} position="bottom">
             <button
               onClick={onOpenCanvas}
-              className="p-2 bg-fuchsia-500/10 dark:bg-fuchsia-600/20 hover:bg-fuchsia-500/20 dark:hover:bg-fuchsia-600/30 text-fuchsia-600 dark:text-fuchsia-300 border border-fuchsia-500/30 rounded-xl flex-shrink-0 transition-colors shadow-sm"
+              className="p-2 bg-indigo-500/10 dark:bg-indigo-600/20 hover:bg-indigo-500/20 dark:hover:bg-indigo-600/30 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30 rounded-xl flex-shrink-0 transition-colors shadow-sm"
             >
               <Palette className="w-4 h-4" />
             </button>
@@ -223,19 +217,19 @@ export const FeedView: React.FC<FeedViewProps> = ({
 
         {/* Active Hashtag Filter Banner */}
         {selectedHashtag && (
-          <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-gradient-to-r from-fuchsia-500/10 to-purple-500/10 border border-fuchsia-500/30 text-xs text-zinc-900 dark:text-white animate-in fade-in slide-in-from-top duration-200">
+          <div className="flex items-center justify-between px-3.5 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-xs text-slate-900 dark:text-white animate-in fade-in slide-in-from-top duration-200">
             <div className="flex items-center gap-2">
-              <span className="font-bold flex items-center gap-1 text-fuchsia-600 dark:text-fuchsia-400">
+              <span className="font-bold flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
                 <Hash className="w-3.5 h-3.5" />
                 {selectedHashtag}
               </span>
-              <span className="text-zinc-500 text-[11px]">
+              <span className="text-slate-500 text-[11px]">
                 ({displayedPosts.length} {isArabic ? 'منشور' : 'posts'})
               </span>
             </div>
             <button
               onClick={onClearHashtag}
-              className="px-2.5 py-1 rounded-lg bg-zinc-200/80 dark:bg-zinc-800 hover:bg-rose-500 hover:text-white text-zinc-700 dark:text-zinc-300 text-[10px] font-bold transition-colors flex items-center gap-1 active:scale-95"
+              className="px-2.5 py-1 rounded-lg bg-slate-200/80 dark:bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-700 dark:text-slate-300 text-[10px] font-bold transition-colors flex items-center gap-1 active:scale-95"
             >
               <X className="w-3 h-3" />
               <span>{isArabic ? 'إلغاء التصفية' : 'Clear filter'}</span>
@@ -247,14 +241,14 @@ export const FeedView: React.FC<FeedViewProps> = ({
       {/* 2. Isolated Scrollable Posts Stream */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden space-y-3 pr-0.5 pb-24 md:pb-8">
         {displayedPosts.length === 0 && selectedHashtag && (
-          <div className="glass-panel p-8 rounded-2xl border border-zinc-200 dark:border-zinc-800 text-center space-y-3 my-6">
-            <Hash className="w-8 h-8 text-fuchsia-500 mx-auto opacity-60" />
-            <h4 className="font-bold text-sm text-zinc-900 dark:text-white">
+          <div className="glass-panel p-8 rounded-2xl border border-slate-200 dark:border-slate-800 text-center space-y-3 my-6">
+            <Hash className="w-8 h-8 text-indigo-500 mx-auto opacity-60" />
+            <h4 className="font-bold text-sm text-slate-900 dark:text-white">
               {isArabic ? `لا توجد منشورات تحمل الوسم #${selectedHashtag}` : `No posts found with #${selectedHashtag}`}
             </h4>
             <button
               onClick={onClearHashtag}
-              className="px-3.5 py-1.5 rounded-xl bg-fuchsia-600 text-white text-xs font-bold hover:bg-fuchsia-500 transition-colors"
+              className="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-500 transition-colors"
             >
               {isArabic ? 'عرض كل المنشورات' : 'Show all posts'}
             </button>
@@ -266,7 +260,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             key={post.id}
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass-card rounded-2xl p-3.5 sm:p-4 space-y-2.5 border border-zinc-200/80 dark:border-zinc-800/70 hover:border-zinc-300 dark:hover:border-zinc-700/80 transition-all shadow-sm"
+            className="glass-card rounded-2xl p-3.5 sm:p-4 space-y-2.5 border border-slate-200/80 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-700/80 transition-all shadow-sm"
           >
             {/* Author Header */}
             <div className="flex items-center justify-between gap-2">
@@ -274,16 +268,16 @@ export const FeedView: React.FC<FeedViewProps> = ({
                 <img
                   src={post.authorAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${post.authorUsername}`}
                   alt={post.authorUsername}
-                  className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover shrink-0"
+                  className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-600 object-cover shrink-0"
                 />
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 truncate">
-                    <span className="font-bold text-xs text-zinc-900 dark:text-zinc-100 truncate">
+                    <span className="font-bold text-xs text-slate-900 dark:text-slate-100 truncate">
                       {post.authorDisplayName || post.authorUsername}
                     </span>
-                    <span className="text-[10px] text-zinc-500 truncate">@{post.authorUsername}</span>
+                    <span className="text-[10px] text-slate-500 truncate">@{post.authorUsername}</span>
                   </div>
-                  <span className="text-[9px] text-zinc-500 block">
+                  <span className="text-[9px] text-slate-500 block">
                     {new Date(post.createdAtUtc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -300,13 +294,13 @@ export const FeedView: React.FC<FeedViewProps> = ({
             </div>
 
             {/* Post Content with styled hashtags */}
-            <p className="text-xs sm:text-[13px] text-zinc-800 dark:text-zinc-100 leading-snug font-normal whitespace-pre-wrap px-0.5">
+            <p className="text-xs sm:text-[13px] text-slate-800 dark:text-slate-200 leading-snug font-normal whitespace-pre-wrap px-0.5">
               {renderFormattedContent(post.content)}
             </p>
 
             {/* Media Attachment (WebP meme or image) */}
             {post.media?.url && (
-              <div className="rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800/70 bg-zinc-100 dark:bg-zinc-950/80 flex items-center justify-center p-1.5">
+              <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800/80 bg-slate-100 dark:bg-[#0b0f17]/90 flex items-center justify-center p-1.5">
                 <img
                   src={getMediaUrl(post.media.url)}
                   alt="Post media"
@@ -317,7 +311,7 @@ export const FeedView: React.FC<FeedViewProps> = ({
             )}
 
             {/* Quick Reactions Bar */}
-            <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800/60 flex items-center justify-between text-xs">
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800/60 flex items-center justify-between text-xs">
               <div className="flex items-center gap-1 flex-wrap">
                 {REACTION_TYPES.map((r) => {
                   const reactions = post.reactions || [];
@@ -338,8 +332,8 @@ export const FeedView: React.FC<FeedViewProps> = ({
                         onClick={() => handleReact(post.id, r.type)}
                         className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold border transition-all ${
                           hasReacted
-                            ? 'bg-fuchsia-500/20 border-fuchsia-500/50 text-fuchsia-600 dark:text-fuchsia-300 scale-105 shadow-sm'
-                            : 'bg-zinc-100 dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800/80 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-800'
+                            ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-700 dark:text-indigo-300 scale-105 shadow-sm'
+                            : 'bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700'
                         }`}
                       >
                         <span>{r.icon}</span>
@@ -351,10 +345,10 @@ export const FeedView: React.FC<FeedViewProps> = ({
               </div>
 
               <Tooltip content={isArabic ? 'إجمالي التفاعلات' : 'Total Reactions'} position="top">
-                <div className="flex items-center gap-1.5 text-zinc-500 text-xs">
+                <div className="flex items-center gap-1.5 text-slate-500 text-xs">
                   <span className="flex items-center gap-1">
                     <Flame className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400" />
-                    <span className="font-bold text-zinc-700 dark:text-zinc-300 text-xs">{post.reactionCount}</span>
+                    <span className="font-bold text-slate-700 dark:text-slate-300 text-xs">{post.reactionCount}</span>
                   </span>
                 </div>
               </Tooltip>

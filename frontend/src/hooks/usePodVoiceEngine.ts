@@ -214,7 +214,7 @@ export function usePodVoiceEngine({
 
       // 2. Remote LiveKit Participants
       if (room) {
-        room.remoteParticipants.forEach((p) => {
+        room.remoteParticipants.forEach((p: RemoteParticipant) => {
           let meta: { username?: string; displayName?: string; isOnStage?: boolean } = {};
           try {
             if (p.metadata) meta = JSON.parse(p.metadata);
@@ -350,7 +350,7 @@ export function usePodVoiceEngine({
         roomRef.current = roomInstance;
 
         // Remote Track Subscribed
-        roomInstance.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication, participant: RemoteParticipant) => {
+        roomInstance.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication: any, participant: RemoteParticipant) => {
           if (track.kind === Track.Kind.Audio) {
             const isDjMusic =
               publication.source === Track.Source.ScreenShareAudio ||
@@ -374,7 +374,7 @@ export function usePodVoiceEngine({
             el.style.opacity = '0';
             el.style.pointerEvents = 'none';
             document.body.appendChild(el);
-            el.play().catch((err) => {
+            el.play().catch((err: unknown) => {
               console.warn('Remote track audio play blocked:', err);
             });
             attachedAudioElementsRef.current.set(`${participant.identity}-${publication.trackSid}`, {
@@ -387,7 +387,7 @@ export function usePodVoiceEngine({
         });
 
         // Remote Track Unsubscribed
-        roomInstance.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication, participant: RemoteParticipant) => {
+        roomInstance.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication: any, participant: RemoteParticipant) => {
           track.detach();
           const key = `${participant.identity}-${publication.trackSid}`;
           const entry = attachedAudioElementsRef.current.get(key);
@@ -399,7 +399,7 @@ export function usePodVoiceEngine({
         });
 
         // Local Track Published
-        roomInstance.on(RoomEvent.LocalTrackPublished, (publication) => {
+        roomInstance.on(RoomEvent.LocalTrackPublished, (publication: any) => {
           if (publication.track?.mediaStreamTrack && publication.source === Track.Source.Microphone) {
             attachVisualizerToStream(publication.track.mediaStreamTrack);
           }
@@ -425,7 +425,7 @@ export function usePodVoiceEngine({
 
         // Participants Connected / Disconnected
         roomInstance.on(RoomEvent.ParticipantConnected, () => syncSpeakerList(roomInstance));
-        roomInstance.on(RoomEvent.ParticipantDisconnected, (p) => {
+        roomInstance.on(RoomEvent.ParticipantDisconnected, (p: RemoteParticipant) => {
           stagePresenceMapRef.current.delete(p.identity);
           syncSpeakerList(roomInstance);
         });

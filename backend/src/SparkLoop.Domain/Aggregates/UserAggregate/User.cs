@@ -23,14 +23,51 @@ public class Badge : Entity<Guid>
     }
 }
 
+public class UserSocialAccount : Entity<Guid>
+{
+    public Guid UserId { get; private set; }
+    public string Provider { get; private set; } = string.Empty; // google, facebook, twitter, custom
+    public string ProviderUserId { get; private set; } = string.Empty;
+    public string? ProviderEmail { get; private set; }
+    public string? DisplayName { get; private set; }
+    public string? AvatarUrl { get; private set; }
+    public DateTime LinkedAtUtc { get; private set; }
+
+    private UserSocialAccount() : base() { }
+
+    public UserSocialAccount(
+        Guid id,
+        Guid userId,
+        string provider,
+        string providerUserId,
+        string? providerEmail,
+        string? displayName,
+        string? avatarUrl,
+        DateTime linkedAtUtc) : base(id)
+    {
+        UserId = userId;
+        Provider = provider.Trim().ToLowerInvariant();
+        ProviderUserId = providerUserId.Trim();
+        ProviderEmail = providerEmail?.Trim().ToLowerInvariant();
+        DisplayName = displayName;
+        AvatarUrl = avatarUrl;
+        LinkedAtUtc = linkedAtUtc;
+    }
+}
+
 public class User : AggregateRoot<Guid>
 {
     private readonly List<Badge> _badges = [];
+    private readonly List<UserSocialAccount> _socialAccounts = [];
 
     public Username Username { get; private set; } = null!;
     public string Email { get; private set; } = string.Empty;
+    public bool IsEmailConfirmed { get; private set; } = false;
+    public string? EmailConfirmationCode { get; private set; }
+    public DateTime? EmailConfirmationCodeExpiresAtUtc { get; private set; }
     public string DisplayName { get; private set; } = string.Empty;
     public string? AvatarUrl { get; private set; }
+    public string? BannerUrl { get; private set; }
     public string? Bio { get; private set; }
     public string? PasswordHash { get; private set; }
     public string PreferredTheme { get; private set; } = "dark";
@@ -38,6 +75,7 @@ public class User : AggregateRoot<Guid>
     public RepScore RepScore { get; private set; } = RepScore.Zero;
     public DateTime CreatedAtUtc { get; private set; }
     public IReadOnlyCollection<Badge> Badges => _badges.AsReadOnly();
+    public IReadOnlyCollection<UserSocialAccount> SocialAccounts => _socialAccounts.AsReadOnly();
 
     private User() : base() { }
 
@@ -47,18 +85,22 @@ public class User : AggregateRoot<Guid>
         string email,
         string displayName,
         string? avatarUrl = null,
+        string? bannerUrl = null,
         string? bio = null,
         string? passwordHash = null,
         string preferredTheme = "dark",
-        string preferredLanguage = "en")
+        string preferredLanguage = "en",
+        bool isEmailConfirmed = false)
     {
         var user = new User
         {
             Id = id,
             Username = Username.Create(username),
             Email = email.Trim().ToLowerInvariant(),
+            IsEmailConfirmed = isEmailConfirmed,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? username : displayName.Trim(),
             AvatarUrl = avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={username}",
+            BannerUrl = bannerUrl,
             Bio = bio,
             PasswordHash = passwordHash,
             PreferredTheme = string.IsNullOrWhiteSpace(preferredTheme) ? "dark" : preferredTheme.Trim().ToLowerInvariant(),
@@ -70,6 +112,78 @@ public class User : AggregateRoot<Guid>
         return user;
     }
 
+    public void SetEmailConfirmationCode(string code, DateTime expiresAtUtc)
+    {
+        EmailConfirmationCode = code.Trim();
+        EmailConfirmationCodeExpiresAtUtc = expiresAtUtc;
+    }
+
+    public bool ConfirmEmail(string code)
+    {
+        if (string.IsNullOrWhiteSpace(EmailConfirmationCode) ||
+            !EmailConfirmationCode.Equals(code.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (EmailConfirmationCodeExpiresAtUtc.HasValue && EmailConfirmationCodeExpiresAtUtc.Value < DateTime.UtcNow)
+        {
+            return false;
+        }
+
+        IsEmailConfirmed = true;
+        EmailConfirmationCode = null;
+        EmailConfirmationCodeExpiresAtUtc = null;
+        return true;
+    }
+
+    public void MarkEmailAsConfirmed()
+    {
+        IsEmailConfirmed = true;
+        EmailConfirmationCode = null;
+        EmailConfirmationCodeExpiresAtUtc = null;
+    }
+
+    public UserSocialAccount LinkSocialAccount(
+        string provider,
+        string providerUserId,
+        string? providerEmail = null,
+        string? displayName = null,
+        string? avatarUrl = null)
+    {
+        var normalizedProvider = provider.Trim().ToLowerInvariant();
+        var existing = _socialAccounts.FirstOrDefault(s => s.Provider.Equals(normalizedProvider, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            _socialAccounts.Remove(existing);
+        }
+
+        var social = new UserSocialAccount(
+            Guid.NewGuid(),
+            Id,
+            normalizedProvider,
+            providerUserId,
+            providerEmail,
+            displayName,
+            avatarUrl,
+            DateTime.UtcNow);
+
+        _socialAccounts.Add(social);
+        return social;
+    }
+
+    public bool UnlinkSocialAccount(string provider)
+    {
+        var normalizedProvider = provider.Trim().ToLowerInvariant();
+        var existing = _socialAccounts.FirstOrDefault(s => s.Provider.Equals(normalizedProvider, StringComparison.OrdinalIgnoreCase));
+        if (existing != null)
+        {
+            _socialAccounts.Remove(existing);
+            return true;
+        }
+        return false;
+    }
+
     public void SetPassword(string passwordHash)
     {
         PasswordHash = passwordHash;
@@ -79,6 +193,7 @@ public class User : AggregateRoot<Guid>
         string displayName,
         string? bio,
         string? avatarUrl,
+        string? bannerUrl = null,
         string? email = null,
         string? preferredTheme = null,
         string? preferredLanguage = null)
@@ -90,13 +205,23 @@ public class User : AggregateRoot<Guid>
 
         if (!string.IsNullOrWhiteSpace(email))
         {
-            Email = email.Trim().ToLowerInvariant();
+            var cleanEmail = email.Trim().ToLowerInvariant();
+            if (!cleanEmail.Equals(Email, StringComparison.OrdinalIgnoreCase))
+            {
+                Email = cleanEmail;
+                IsEmailConfirmed = false; // Reset verification if email changes
+            }
         }
 
         Bio = bio;
         if (!string.IsNullOrWhiteSpace(avatarUrl))
         {
             AvatarUrl = avatarUrl;
+        }
+
+        if (bannerUrl != null)
+        {
+            BannerUrl = string.IsNullOrWhiteSpace(bannerUrl) ? null : bannerUrl.Trim();
         }
 
         if (!string.IsNullOrWhiteSpace(preferredTheme))

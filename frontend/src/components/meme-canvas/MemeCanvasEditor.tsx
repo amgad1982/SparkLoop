@@ -186,8 +186,26 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
   >([]);
   const isDrawing = useRef(false);
 
-  const isDragging = useRef<string | null>(null);
-  const dragStart = useRef<{ mouseX: number; mouseY: number; startX: number; startY: number } | null>(null);
+  const [cursorStyle, setCursorStyle] = useState<string>('default');
+
+  const isDragging = useRef<{
+    type: 'text' | 'sticker';
+    id: string;
+    mouseX: number;
+    mouseY: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
+
+  const resizingTarget = useRef<{
+    type: 'text' | 'sticker';
+    id: string;
+    handle: 'tl' | 'tr' | 'bl' | 'br';
+    initialSize: number;
+    initialDist: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
 
   const [caption, setCaption] = useState('');
   const [isUploading, setIsUploading] = useState(false);
@@ -203,6 +221,102 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         y: idx === 0 ? 50 : ratio.height - 50,
       }))
     );
+  };
+
+  interface Bounds {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    centerX: number;
+    centerY: number;
+  }
+
+  const getTextLayerBounds = (
+    layer: TextLayer,
+    canvasWidth: number,
+    ctx?: CanvasRenderingContext2D | null
+  ): Bounds => {
+    const fontObj = FONTS.find((f) => f.id === layer.fontFamily) || FONTS[0];
+    const displayText = layer.isUppercase ? layer.text.toUpperCase() : layer.text;
+    const lines = displayText.split('\n');
+    const lineHeight = layer.fontSize * 1.25;
+    const totalHeight = lines.length * lineHeight;
+    const maxDrawWidth = Math.max(120, canvasWidth - 32);
+
+    let maxLineWidth = 0;
+    if (ctx) {
+      ctx.save();
+      ctx.font = `900 ${layer.fontSize}px ${fontObj.css}`;
+      lines.forEach((line) => {
+        const m = ctx.measureText(line).width;
+        if (m > maxLineWidth) maxLineWidth = m;
+      });
+      ctx.restore();
+    } else {
+      maxLineWidth = Math.max(...lines.map((l) => l.length * layer.fontSize * 0.65), 60);
+    }
+    const actualWidth = Math.min(maxLineWidth, maxDrawWidth);
+    const padX = 12;
+    const padY = 8;
+
+    return {
+      x: layer.x - actualWidth / 2 - padX,
+      y: layer.y - totalHeight / 2 - padY,
+      width: actualWidth + padX * 2,
+      height: totalHeight + padY * 2,
+      centerX: layer.x,
+      centerY: layer.y,
+    };
+  };
+
+  const getStickerBounds = (s: StickerLayer): Bounds => {
+    const pad = 8;
+    const half = s.size / 2;
+    return {
+      x: s.x - half - pad,
+      y: s.y - half - pad,
+      width: s.size + pad * 2,
+      height: s.size + pad * 2,
+      centerX: s.x,
+      centerY: s.y,
+    };
+  };
+
+  const getHandles = (bounds: Bounds) => [
+    { id: 'tl' as const, x: bounds.x, y: bounds.y, cursor: 'nwse-resize' },
+    { id: 'tr' as const, x: bounds.x + bounds.width, y: bounds.y, cursor: 'nesw-resize' },
+    { id: 'bl' as const, x: bounds.x, y: bounds.y + bounds.height, cursor: 'nesw-resize' },
+    { id: 'br' as const, x: bounds.x + bounds.width, y: bounds.y + bounds.height, cursor: 'nwse-resize' },
+  ];
+
+  const drawSelectionBoxWithHandles = (
+    ctx: CanvasRenderingContext2D,
+    bounds: Bounds,
+    color: string
+  ) => {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+    ctx.setLineDash([]);
+
+    const handles = getHandles(bounds);
+    handles.forEach((h) => {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.arc(h.x, h.y, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = color;
+      ctx.stroke();
+    });
+    ctx.restore();
   };
 
   const drawMemeContent = (
@@ -255,10 +369,9 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(s.emoji, s.x, s.y);
-      if (s.id === selectedStickerId && !isExport) {
-        ctx.strokeStyle = '#38BDF8';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(s.x - s.size / 2 - 4, s.y - s.size / 2 - 4, s.size + 8, s.size + 8);
+      if (s.id === selectedStickerId && !isExport && !isBrushMode && activeStudioTab === 'stickers') {
+        const bounds = getStickerBounds(s);
+        drawSelectionBoxWithHandles(ctx, bounds, '#38BDF8');
       }
     });
 
@@ -275,16 +388,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       // Split lines by explicit \n
       const lines = displayText.split('\n');
       const lineHeight = layer.fontSize * 1.25;
-      const totalHeight = lines.length * lineHeight;
       const startY = layer.y - ((lines.length - 1) * lineHeight) / 2;
       const maxDrawWidth = Math.max(120, width - 32);
-
-      let maxLineWidth = 0;
-      lines.forEach((line) => {
-        const m = ctx.measureText(line).width;
-        if (m > maxLineWidth) maxLineWidth = m;
-      });
-      maxLineWidth = Math.min(maxLineWidth, maxDrawWidth);
 
       lines.forEach((line, idx) => {
         const lineY = startY + idx * lineHeight;
@@ -325,16 +430,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       });
 
       if (layer.id === selectedTextId && !isExport && !isBrushMode && activeStudioTab === 'text') {
-        ctx.strokeStyle = '#D946EF';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([5, 5]);
-        ctx.strokeRect(
-          layer.x - maxLineWidth / 2 - 8,
-          layer.y - totalHeight / 2 - 6,
-          maxLineWidth + 16,
-          totalHeight + 12
-        );
-        ctx.setLineDash([]);
+        const bounds = getTextLayerBounds(layer, width, ctx);
+        drawSelectionBoxWithHandles(ctx, bounds, '#6366F1');
       }
     });
   };
@@ -379,10 +476,80 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
     };
   };
 
+  const updateCursor = useCallback((x: number, y: number) => {
+    if (isBrushMode || activeStudioTab === 'draw') {
+      setCursorStyle(brushType === 'eraser' ? 'cell' : 'crosshair');
+      return;
+    }
+
+    const ctx = canvasRef.current?.getContext('2d');
+
+    // 1. Check if hovering over selected text resize handles
+    if (selectedTextId && activeStudioTab === 'text') {
+      const selectedText = textLayers.find((t) => t.id === selectedTextId);
+      if (selectedText) {
+        const bounds = getTextLayerBounds(selectedText, aspectRatio.width, ctx);
+        const handles = getHandles(bounds);
+        const handle = handles.find((h) => Math.hypot(h.x - x, h.y - y) <= 12);
+        if (handle) {
+          setCursorStyle(handle.cursor);
+          return;
+        }
+      }
+    }
+
+    // 2. Check if hovering over selected sticker resize handles
+    if (selectedStickerId && activeStudioTab === 'stickers') {
+      const selectedSticker = stickers.find((s) => s.id === selectedStickerId);
+      if (selectedSticker) {
+        const bounds = getStickerBounds(selectedSticker);
+        const handles = getHandles(bounds);
+        const handle = handles.find((h) => Math.hypot(h.x - x, h.y - y) <= 12);
+        if (handle) {
+          setCursorStyle(handle.cursor);
+          return;
+        }
+      }
+    }
+
+    // 3. Check if hovering over any sticker
+    for (let i = stickers.length - 1; i >= 0; i--) {
+      const s = stickers[i];
+      if (Math.hypot(s.x - x, s.y - y) <= s.size / 2 + 8) {
+        setCursorStyle('grab');
+        return;
+      }
+    }
+
+    // 4. Check if hovering over any text layer
+    for (let i = textLayers.length - 1; i >= 0; i--) {
+      const t = textLayers[i];
+      const bounds = getTextLayerBounds(t, aspectRatio.width, ctx);
+      if (x >= bounds.x && x <= bounds.x + bounds.width && y >= bounds.y && y <= bounds.y + bounds.height) {
+        setCursorStyle('grab');
+        return;
+      }
+    }
+
+    // 5. Default tab cursor
+    setCursorStyle('default');
+  }, [isBrushMode, activeStudioTab, brushType, selectedTextId, selectedStickerId, textLayers, stickers, aspectRatio.width]);
+
+  useEffect(() => {
+    if (isBrushMode || activeStudioTab === 'draw') {
+      setCursorStyle(brushType === 'eraser' ? 'cell' : 'crosshair');
+    } else {
+      setCursorStyle('default');
+    }
+  }, [isBrushMode, activeStudioTab, brushType]);
+
   const handlePointerDown = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoords(e);
-    if (isBrushMode) {
+    const ctx = canvasRef.current?.getContext('2d');
+
+    if (isBrushMode || activeStudioTab === 'draw') {
       isDrawing.current = true;
+      setCursorStyle(brushType === 'eraser' ? 'cell' : 'crosshair');
       const actualColor = brushType === 'eraser' ? '#09090b' : brushColor;
       setBrushStrokes((prev) => [
         ...prev,
@@ -390,25 +557,78 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       ]);
       return;
     }
+
+    // 1. Check if clicked a resize handle on the active text layer
+    if (selectedTextId && activeStudioTab === 'text') {
+      const selectedText = textLayers.find((t) => t.id === selectedTextId);
+      if (selectedText) {
+        const bounds = getTextLayerBounds(selectedText, aspectRatio.width, ctx);
+        const handles = getHandles(bounds);
+        const hitHandle = handles.find((h) => Math.hypot(h.x - x, h.y - y) <= 14);
+        if (hitHandle) {
+          const initialDist = Math.hypot(x - bounds.centerX, y - bounds.centerY);
+          resizingTarget.current = {
+            type: 'text',
+            id: selectedText.id,
+            handle: hitHandle.id,
+            initialSize: selectedText.fontSize,
+            initialDist: Math.max(20, initialDist),
+            startX: x,
+            startY: y,
+          };
+          setCursorStyle(hitHandle.cursor);
+          return;
+        }
+      }
+    }
+
+    // 2. Check if clicked a resize handle on the active sticker
+    if (selectedStickerId && activeStudioTab === 'stickers') {
+      const selectedSticker = stickers.find((s) => s.id === selectedStickerId);
+      if (selectedSticker) {
+        const bounds = getStickerBounds(selectedSticker);
+        const handles = getHandles(bounds);
+        const hitHandle = handles.find((h) => Math.hypot(h.x - x, h.y - y) <= 14);
+        if (hitHandle) {
+          const initialDist = Math.hypot(x - bounds.centerX, y - bounds.centerY);
+          resizingTarget.current = {
+            type: 'sticker',
+            id: selectedSticker.id,
+            handle: hitHandle.id,
+            initialSize: selectedSticker.size,
+            initialDist: Math.max(20, initialDist),
+            startX: x,
+            startY: y,
+          };
+          setCursorStyle(hitHandle.cursor);
+          return;
+        }
+      }
+    }
+
+    // 3. Check if clicked on a sticker (Topmost first)
     for (let i = stickers.length - 1; i >= 0; i--) {
       const s = stickers[i];
-      if (Math.hypot(s.x - x, s.y - y) <= s.size) {
+      if (Math.hypot(s.x - x, s.y - y) <= s.size / 2 + 10) {
         setSelectedStickerId(s.id);
         setSelectedTextId('');
         setActiveStudioTab('stickers');
-        isDragging.current = `sticker:${s.id}`;
-        dragStart.current = { mouseX: x, mouseY: y, startX: s.x, startY: s.y };
+        isDragging.current = { type: 'sticker', id: s.id, mouseX: x, mouseY: y, startX: s.x, startY: s.y };
+        setCursorStyle('grabbing');
         return;
       }
     }
+
+    // 4. Check if clicked on a text layer (Topmost first)
     for (let i = textLayers.length - 1; i >= 0; i--) {
       const t = textLayers[i];
-      if (Math.abs(t.y - y) <= t.fontSize + 12 && Math.abs(t.x - x) <= aspectRatio.width / 2) {
+      const bounds = getTextLayerBounds(t, aspectRatio.width, ctx);
+      if (x >= bounds.x && x <= bounds.x + bounds.width && y >= bounds.y && y <= bounds.y + bounds.height) {
         setSelectedTextId(t.id);
         setSelectedStickerId(null);
         setActiveStudioTab('text');
-        isDragging.current = `text:${t.id}`;
-        dragStart.current = { mouseX: x, mouseY: y, startX: t.x, startY: t.y };
+        isDragging.current = { type: 'text', id: t.id, mouseX: x, mouseY: y, startX: t.x, startY: t.y };
+        setCursorStyle('grabbing');
         return;
       }
     }
@@ -416,7 +636,9 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
 
   const handlePointerMove = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const { x, y } = getCanvasCoords(e);
-    if (isBrushMode && isDrawing.current) {
+
+    // Active brush drawing
+    if ((isBrushMode || activeStudioTab === 'draw') && isDrawing.current) {
       setBrushStrokes((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
@@ -425,43 +647,113 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       });
       return;
     }
-    if (isDragging.current && dragStart.current) {
-      const dx = x - dragStart.current.mouseX;
-      const dy = y - dragStart.current.mouseY;
-      if (isDragging.current.startsWith('text:')) {
-        const layerId = isDragging.current.replace('text:', '');
+
+    // Active mouse resizing
+    if (resizingTarget.current) {
+      const target = resizingTarget.current;
+      if (target.type === 'text') {
+        const currentLayer = textLayers.find((l) => l.id === target.id);
+        if (currentLayer) {
+          const currentDist = Math.hypot(x - currentLayer.x, y - currentLayer.y);
+          const scaleRatio = currentDist / target.initialDist;
+          const newFontSize = Math.max(12, Math.min(96, Math.round(target.initialSize * scaleRatio)));
+          setTextLayers((prev) =>
+            prev.map((l) => (l.id === target.id ? { ...l, fontSize: newFontSize } : l))
+          );
+        }
+      } else if (target.type === 'sticker') {
+        const currentSticker = stickers.find((s) => s.id === target.id);
+        if (currentSticker) {
+          const currentDist = Math.hypot(x - currentSticker.x, y - currentSticker.y);
+          const scaleRatio = currentDist / target.initialDist;
+          const newSize = Math.max(18, Math.min(180, Math.round(target.initialSize * scaleRatio)));
+          setStickers((prev) =>
+            prev.map((s) => (s.id === target.id ? { ...s, size: newSize } : s))
+          );
+        }
+      }
+      return;
+    }
+
+    // Active mouse dragging
+    if (isDragging.current) {
+      const drag = isDragging.current;
+      const dx = x - drag.mouseX;
+      const dy = y - drag.mouseY;
+      if (drag.type === 'text') {
         setTextLayers((prev) =>
           prev.map((l) =>
-            l.id === layerId
+            l.id === drag.id
               ? {
                   ...l,
-                  x: Math.max(20, Math.min(aspectRatio.width - 20, dragStart.current!.startX + dx)),
-                  y: Math.max(20, Math.min(aspectRatio.height - 20, dragStart.current!.startY + dy)),
+                  x: Math.max(20, Math.min(aspectRatio.width - 20, drag.startX + dx)),
+                  y: Math.max(20, Math.min(aspectRatio.height - 20, drag.startY + dy)),
                 }
               : l
           )
         );
-      } else if (isDragging.current.startsWith('sticker:')) {
-        const stickerId = isDragging.current.replace('sticker:', '');
+      } else if (drag.type === 'sticker') {
         setStickers((prev) =>
           prev.map((s) =>
-            s.id === stickerId
+            s.id === drag.id
               ? {
                   ...s,
-                  x: Math.max(10, Math.min(aspectRatio.width - 10, dragStart.current!.startX + dx)),
-                  y: Math.max(10, Math.min(aspectRatio.height - 10, dragStart.current!.startY + dy)),
+                  x: Math.max(10, Math.min(aspectRatio.width - 10, drag.startX + dx)),
+                  y: Math.max(10, Math.min(aspectRatio.height - 10, drag.startY + dy)),
                 }
               : s
           )
         );
       }
+      return;
     }
+
+    // Update hover cursor
+    updateCursor(x, y);
   };
 
   const handlePointerUp = () => {
     isDrawing.current = false;
     isDragging.current = null;
-    dragStart.current = null;
+    resizingTarget.current = null;
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    const { x, y } = getCanvasCoords(e);
+    const ctx = canvasRef.current?.getContext('2d');
+    const delta = e.deltaY < 0 ? 2 : -2;
+
+    if (selectedTextId && activeStudioTab === 'text') {
+      const target = textLayers.find((t) => t.id === selectedTextId);
+      if (target) {
+        const bounds = getTextLayerBounds(target, aspectRatio.width, ctx);
+        if (x >= bounds.x && x <= bounds.x + bounds.width && y >= bounds.y && y <= bounds.y + bounds.height) {
+          e.preventDefault();
+          setTextLayers((prev) =>
+            prev.map((t) =>
+              t.id === selectedTextId
+                ? { ...t, fontSize: Math.max(12, Math.min(96, t.fontSize + delta)) }
+                : t
+            )
+          );
+          return;
+        }
+      }
+    }
+
+    if (selectedStickerId && activeStudioTab === 'stickers') {
+      const target = stickers.find((s) => s.id === selectedStickerId);
+      if (target && Math.hypot(target.x - x, target.y - y) <= target.size) {
+        e.preventDefault();
+        setStickers((prev) =>
+          prev.map((s) =>
+            s.id === selectedStickerId
+              ? { ...s, size: Math.max(18, Math.min(180, s.size + delta * 2)) }
+              : s
+          )
+        );
+      }
+    }
   };
 
   const handleAddTextLayer = () => {
@@ -666,18 +958,16 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
   return (
     <div className="space-y-6 text-white max-w-2xl mx-auto">
       {/* 1. Header & Quick Controls */}
-      <div className="glass-card p-5 sm:p-6 rounded-3xl border border-zinc-800/80 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+      <div className="glass-card p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800/80 flex flex-wrap items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-cyan-500 p-0.5 shadow-lg shadow-fuchsia-600/20 flex items-center justify-center shrink-0">
-            <div className="w-full h-full bg-zinc-950 rounded-[14px] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-fuchsia-400" />
-            </div>
+          <div className="w-11 h-11 rounded-2xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-sm">
+            <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h2 className="font-black text-base tracking-tight text-white">
+            <h2 className="font-black text-base tracking-tight text-slate-900 dark:text-white">
               {isArabic ? 'استوديو الميمز وصناع المحتوى' : 'Interactive Meme Studio'}
             </h2>
-            <p className="text-[11px] text-zinc-400">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               {isArabic ? 'صمم وشارك أفكارك وتحدياتك في ثوانٍ' : 'Design & publish viral memes in seconds'}
             </p>
           </div>
@@ -685,15 +975,15 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
 
         {/* Aspect Ratio & Top Actions */}
         <div className="flex items-center gap-1.5 flex-wrap">
-          <div className="flex bg-zinc-900 border border-zinc-800 p-1 rounded-xl gap-1">
+          <div className="flex bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-1 rounded-xl gap-1">
             {ASPECT_RATIOS.map((r) => (
               <Tooltip key={r.id} content={`${isArabic ? 'أبعاد الكانفاس' : 'Canvas Ratio'}: ${r.name}`} position="bottom">
                 <button
                   onClick={() => handleSelectAspectRatio(r)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-colors ${
                     aspectRatio.id === r.id
-                      ? 'bg-fuchsia-600 text-white shadow-md'
-                      : 'text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                   }`}
                 >
                   {r.name}
@@ -705,7 +995,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
           <Tooltip content={isArabic ? 'تراجع عن آخر خطوة رسم أو إضافة' : 'Undo last brush stroke or action'} position="bottom">
             <button
               onClick={handleUndo}
-              className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
+              className="p-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               <Undo2 className="w-4 h-4" />
             </button>
@@ -714,7 +1004,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
           <Tooltip content={isArabic ? 'إعادة ضبط الكانفاس وتنظيف الطبقات' : 'Reset canvas and clear layers'} position="bottom">
             <button
               onClick={handleResetCanvas}
-              className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-zinc-400 hover:text-white transition-colors"
+              className="p-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
               <RefreshCw className="w-4 h-4" />
             </button>
@@ -723,7 +1013,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
           <Tooltip content={isArabic ? 'تنزيل الميم كصورة WebP عالية الدقة' : 'Download meme as high-res WebP image'} position="bottom">
             <button
               onClick={handleDownload}
-              className="px-3 py-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-colors"
+              className="px-3 py-2 bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 flex items-center gap-1.5 transition-colors shadow-sm"
             >
               <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{isArabic ? 'تصدير' : 'Export'}</span>
@@ -734,14 +1024,14 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
 
       {/* Active Spark Challenge Context Pill */}
       {activeSpark && (
-        <div className="p-3 bg-gradient-to-r from-amber-500/15 via-fuchsia-500/15 to-purple-500/15 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2">
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 overflow-hidden">
-            <Flame className="w-4 h-4 text-amber-400 shrink-0 animate-pulse" />
+            <Flame className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
             <div className="truncate">
-              <span className="text-[10px] font-black text-amber-300 uppercase block">
+              <span className="text-[10px] font-black text-amber-600 dark:text-amber-300 uppercase block">
                 {isArabic ? 'تحدي السبارك الحالي:' : 'Daily Spark Challenge:'}
               </span>
-              <span className="text-xs font-bold text-white truncate block">
+              <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
                 {activeSpark.title}
               </span>
             </div>
@@ -757,7 +1047,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                 ...prev.slice(1),
               ]);
             }}
-            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-extrabold text-[11px] rounded-xl shrink-0 transition-colors shadow-sm"
+            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] rounded-xl shrink-0 transition-colors shadow-sm"
           >
             {isArabic ? 'استخدم نص التحدي' : 'Use Challenge Prompt'}
           </button>
@@ -765,14 +1055,15 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       )}
 
       {/* 2. Interactive Canvas Stage */}
-      <div className="glass-card p-5 sm:p-6 rounded-3xl border border-zinc-800/80 space-y-5 shadow-xl">
+      <div className="glass-card p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800/80 space-y-5 shadow-sm">
         <div
           ref={containerRef}
-          className="relative w-full max-w-[480px] mx-auto bg-zinc-950 rounded-2xl overflow-hidden border-2 border-zinc-800 shadow-2xl flex items-center justify-center select-none p-1"
+          className="relative w-full max-w-[480px] mx-auto bg-slate-100 dark:bg-slate-950 rounded-2xl overflow-hidden border border-slate-300 dark:border-slate-800 shadow-inner flex items-center justify-center select-none p-1"
         >
           <canvas
             ref={canvasRef}
-            className="w-full h-auto object-contain block cursor-crosshair touch-none"
+            style={{ cursor: cursorStyle }}
+            className="w-full h-auto object-contain block touch-none select-none"
             onMouseDown={handlePointerDown}
             onMouseMove={handlePointerMove}
             onMouseUp={handlePointerUp}
@@ -780,11 +1071,12 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
             onTouchStart={handlePointerDown}
             onTouchMove={handlePointerMove}
             onTouchEnd={handlePointerUp}
+            onWheel={handleWheel}
           />
         </div>
 
         {/* Studio Tool Navigation Dock */}
-        <div className="flex items-center justify-center gap-1.5 p-1.5 bg-zinc-950/80 border border-zinc-800/80 rounded-2xl overflow-x-auto no-scrollbar">
+        <div className="flex items-center justify-center gap-1.5 p-1.5 bg-slate-100 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800/80 rounded-2xl overflow-x-auto no-scrollbar">
           {[
             { id: 'text' as StudioTab, label: isArabic ? 'النصوص' : 'Text', icon: Type, tip: isArabic ? 'إضافة وتنسيق النصوص' : 'Add & style text layers' },
             { id: 'templates' as StudioTab, label: isArabic ? 'القوالب' : 'Templates', icon: ImageIcon, tip: isArabic ? 'اختيار صور وقوالب ميمز جاهزة' : 'Select meme templates' },
@@ -801,10 +1093,10 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                     setActiveStudioTab(tab.id);
                     setIsBrushMode(tab.id === 'draw');
                   }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ${
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors shrink-0 ${
                     isActive
-                      ? 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-600/30'
-                      : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-900'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -817,15 +1109,15 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       </div>
 
       {/* 3. Studio Customization Panel */}
-      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-zinc-800/80 shadow-xl">
+      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-slate-200 dark:border-slate-800/80 shadow-sm space-y-4">
         {/* TAB 1: TEXT STUDIO */}
         {activeStudioTab === 'text' && (
           <div className="space-y-4">
             {/* Layers Selector & Add */}
-            <div className="flex items-center justify-between pb-3 border-b border-zinc-800/80">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                <span className="text-xs font-bold text-zinc-400 flex items-center gap-1 shrink-0">
-                  <Layers className="w-3.5 h-3.5 text-fuchsia-400" />
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1 shrink-0">
+                  <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   {isArabic ? 'الطبقات:' : 'Layers:'}
                 </span>
                 {textLayers.map((layer, idx) => (
@@ -834,8 +1126,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                     onClick={() => setSelectedTextId(layer.id)}
                     className={`px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 ${
                       selectedTextId === layer.id
-                        ? 'bg-fuchsia-500 text-white shadow-md'
-                        : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
                     }`}
                   >
                     #{idx + 1} {layer.text ? layer.text.slice(0, 10) + '...' : 'Text'}
@@ -846,7 +1138,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
               <div className="flex items-center gap-1.5 shrink-0">
                 <button
                   onClick={handleAddTextLayer}
-                  className="px-3 py-1 bg-fuchsia-950/60 hover:bg-fuchsia-900/80 border border-fuchsia-500/40 text-fuchsia-300 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors"
+                  className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 border border-indigo-200 dark:border-indigo-500/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>{isArabic ? 'نص جديد' : 'Add Text'}</span>
@@ -854,7 +1146,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                 {textLayers.length > 1 && (
                   <button
                     onClick={handleDeleteSelectedText}
-                    className="p-1.5 bg-zinc-900 hover:bg-rose-950 border border-zinc-800 hover:border-rose-800 text-zinc-400 hover:text-rose-300 rounded-xl transition-colors"
+                    className="p-1.5 bg-slate-100 dark:bg-slate-900 hover:bg-rose-50 dark:hover:bg-rose-950/60 border border-slate-200 dark:border-slate-800 hover:border-rose-300 dark:hover:border-rose-800 text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-300 rounded-xl transition-colors"
                     title={isArabic ? 'حذف النص المحدد' : 'Delete Layer'}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -867,7 +1159,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
             {selectedTextLayer && (
               <div className="space-y-3.5">
                 <div>
-                  <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                     {isArabic ? 'محتوى النص' : 'Text Content'}
                   </label>
                   <input
@@ -879,14 +1171,14 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                       )
                     }
                     placeholder={isArabic ? 'اكتب النص هنا...' : 'Type text here...'}
-                    className="w-full px-3.5 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-fuchsia-500"
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 transition-colors"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {/* Font Family */}
                   <div>
-                    <label className="block text-[11px] font-bold text-zinc-400 mb-1">
+                    <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                       {isArabic ? 'الخط' : 'Font Family'}
                     </label>
                     <select
@@ -898,7 +1190,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                           )
                         )
                       }
-                      className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-xs text-white focus:outline-none focus:border-fuchsia-500"
+                      className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500 transition-colors"
                     >
                       {FONTS.map((f) => (
                         <option key={f.id} value={f.id}>
@@ -910,9 +1202,9 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
 
                   {/* Font Size Slider */}
                   <div>
-                    <div className="flex justify-between text-[11px] font-bold text-zinc-400 mb-1">
+                    <div className="flex justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                       <span>{isArabic ? 'حجم الخط' : 'Font Size'}</span>
-                      <span className="text-fuchsia-400 font-mono">{selectedTextLayer.fontSize}px</span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-mono">{selectedTextLayer.fontSize}px</span>
                     </div>
                     <input
                       type="range"
@@ -926,7 +1218,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                           )
                         )
                       }
-                      className="w-full accent-fuchsia-500 bg-zinc-950 rounded-lg cursor-pointer h-2"
+                      className="w-full accent-indigo-600 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer h-2"
                     />
                   </div>
                 </div>
@@ -934,7 +1226,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                 {/* Color Swatches & Styles */}
                 <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-bold text-zinc-400">{isArabic ? 'اللون:' : 'Color:'}</span>
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{isArabic ? 'اللون:' : 'Color:'}</span>
                     {COLOR_SWATCHES.map((col) => (
                       <button
                         key={col}
@@ -945,8 +1237,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                         }
                         className={`w-6 h-6 rounded-full border transition-transform ${
                           selectedTextLayer.color === col
-                            ? 'scale-125 border-white ring-2 ring-fuchsia-500'
-                            : 'border-zinc-700 hover:scale-110'
+                            ? 'scale-125 border-slate-900 dark:border-white ring-2 ring-indigo-500'
+                            : 'border-slate-300 dark:border-slate-700 hover:scale-110'
                         }`}
                         style={{ backgroundColor: col }}
                       />
@@ -966,8 +1258,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                       }
                       className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-colors ${
                         selectedTextLayer.isUppercase
-                          ? 'bg-fuchsia-500/20 border-fuchsia-500 text-fuchsia-300'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                          ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500'
+                          : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                       }`}
                     >
                       AA
@@ -984,8 +1276,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                       }
                       className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-colors ${
                         selectedTextLayer.bgHighlight
-                          ? 'bg-fuchsia-500/20 border-fuchsia-500 text-fuchsia-300'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                          ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500'
+                          : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                       }`}
                     >
                       {isArabic ? 'شريط خلفي' : 'Box Bar'}
@@ -1002,8 +1294,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                       }
                       className={`px-2.5 py-1 rounded-xl text-xs font-bold border transition-colors ${
                         selectedTextLayer.hasShadow
-                          ? 'bg-fuchsia-500/20 border-fuchsia-500 text-fuchsia-300'
-                          : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+                          ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 ring-1 ring-indigo-500'
+                          : 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800'
                       }`}
                     >
                       {isArabic ? 'ظل' : 'Shadow'}
@@ -1018,7 +1310,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         {/* TAB 2: TEMPLATES & BACKGROUND */}
         {activeStudioTab === 'templates' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
               <div className="flex gap-2">
                 {TEMPLATE_CATEGORIES.map((cat) => (
                   <button
@@ -1026,8 +1318,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                     onClick={() => setTemplateCategory(cat.id)}
                     className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
                       templateCategory === cat.id
-                        ? 'bg-fuchsia-600 text-white'
-                        : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
                     }`}
                   >
                     {isArabic ? cat.nameAr : cat.name}
@@ -1045,7 +1337,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                 />
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-3 py-1 bg-cyan-950/60 hover:bg-cyan-900/80 border border-cyan-500/40 text-cyan-300 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
+                  className="px-3 py-1 bg-sky-50 dark:bg-sky-950/60 hover:bg-sky-100 dark:hover:bg-sky-900/80 border border-sky-200 dark:border-sky-500/40 text-sky-700 dark:text-sky-300 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
                 >
                   <Upload className="w-3.5 h-3.5" />
                   <span>{isArabic ? 'رفع صورة من جهازك' : 'Upload Image'}</span>
@@ -1060,16 +1352,16 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                   onClick={() => setBgImage(tpl.url)}
                   className={`group relative rounded-2xl overflow-hidden border-2 aspect-video transition-all ${
                     bgImage === tpl.url
-                      ? 'border-fuchsia-500 ring-2 ring-fuchsia-500/50 scale-102'
-                      : 'border-zinc-800 hover:border-zinc-600'
+                      ? 'border-indigo-500 ring-2 ring-indigo-500/50 scale-102'
+                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-600'
                   }`}
                 >
                   <img src={tpl.url} alt={tpl.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                   <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-1.5 text-center">
-                    <span className="text-[10px] font-bold text-zinc-200 truncate">{tpl.name}</span>
+                    <span className="text-[10px] font-bold text-white truncate">{tpl.name}</span>
                   </div>
                   {bgImage === tpl.url && (
-                    <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-fuchsia-500 flex items-center justify-center shadow">
+                    <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-indigo-600 flex items-center justify-center shadow">
                       <Check className="w-3 h-3 text-white" />
                     </div>
                   )}
@@ -1082,7 +1374,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         {/* TAB 3: STICKERS & EMOJIS */}
         {activeStudioTab === 'stickers' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
               <div className="flex gap-2">
                 {STICKER_PACKS.map((pack) => (
                   <button
@@ -1090,8 +1382,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                     onClick={() => setActiveStickerPack(pack.id)}
                     className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
                       activeStickerPack === pack.id
-                        ? 'bg-fuchsia-600 text-white'
-                        : 'bg-zinc-900 text-zinc-400 hover:text-white border border-zinc-800'
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800'
                     }`}
                   >
                     {pack.label}
@@ -1102,7 +1394,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
               {selectedSticker && (
                 <button
                   onClick={handleDeleteSelectedSticker}
-                  className="px-2.5 py-1 bg-rose-950/60 border border-rose-800 text-rose-300 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors"
+                  className="px-2.5 py-1 bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold rounded-xl flex items-center gap-1 transition-colors"
                 >
                   <Trash2 className="w-3 h-3" />
                   <span>{isArabic ? 'حذف الملصق' : 'Delete Sticker'}</span>
@@ -1115,7 +1407,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                 <button
                   key={idx}
                   onClick={() => handleAddSticker(emoji)}
-                  className="aspect-square bg-zinc-950 hover:bg-zinc-850 border border-zinc-800 hover:border-fuchsia-500/50 rounded-2xl flex items-center justify-center text-2xl hover:scale-115 active:scale-95 transition-all shadow-sm"
+                  className="aspect-square bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 rounded-2xl flex items-center justify-center text-2xl hover:scale-115 active:scale-95 transition-all shadow-sm"
                 >
                   {emoji}
                 </button>
@@ -1127,7 +1419,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
         {/* TAB 4: BRUSH & DRAWING STUDIO */}
         {activeStudioTab === 'draw' && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-zinc-800">
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">
               {/* Brush Type */}
               <div className="flex gap-2">
                 {[
@@ -1142,8 +1434,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                       onClick={() => setBrushType(type.id)}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
                         brushType === type.id
-                          ? 'bg-fuchsia-600 text-white shadow-md'
-                          : 'bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white'
+                          ? 'bg-indigo-600 text-white shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
@@ -1156,7 +1448,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
               {brushStrokes.length > 0 && (
                 <button
                   onClick={() => setBrushStrokes([])}
-                  className="px-2.5 py-1 text-xs font-bold text-rose-400 hover:bg-rose-950/40 rounded-xl transition-colors"
+                  className="px-2.5 py-1 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors"
                 >
                   {isArabic ? 'مسح كل الرسومات' : 'Clear Drawings'}
                 </button>
@@ -1166,15 +1458,15 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
               {/* Color Swatches */}
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-zinc-400">{isArabic ? 'لون الرسم:' : 'Brush Color:'}</span>
+                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{isArabic ? 'لون الرسم:' : 'Brush Color:'}</span>
                 {COLOR_SWATCHES.map((col) => (
                   <button
                     key={col}
                     onClick={() => setBrushColor(col)}
                     className={`w-6 h-6 rounded-full border transition-transform ${
                       brushColor === col
-                        ? 'scale-125 border-white ring-2 ring-fuchsia-500'
-                        : 'border-zinc-700 hover:scale-110'
+                        ? 'scale-125 border-slate-900 dark:border-white ring-2 ring-indigo-500'
+                        : 'border-slate-300 dark:border-slate-700 hover:scale-110'
                     }`}
                     style={{ backgroundColor: col }}
                   />
@@ -1183,9 +1475,9 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
 
               {/* Brush Size Slider */}
               <div>
-                <div className="flex justify-between text-[11px] font-bold text-zinc-400 mb-1">
+                <div className="flex justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
                   <span>{isArabic ? 'سُمك القلم' : 'Brush Size'}</span>
-                  <span className="text-fuchsia-400 font-mono">{brushSize}px</span>
+                  <span className="text-indigo-600 dark:text-indigo-400 font-mono">{brushSize}px</span>
                 </div>
                 <input
                   type="range"
@@ -1193,7 +1485,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                   max={24}
                   value={brushSize}
                   onChange={(e) => setBrushSize(Number(e.target.value))}
-                  className="w-full accent-fuchsia-500 bg-zinc-950 rounded-lg cursor-pointer h-2"
+                  className="w-full accent-indigo-600 bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer h-2"
                 />
               </div>
             </div>
@@ -1210,11 +1502,11 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                   onClick={() => setActiveFilter(f)}
                   className={`p-3 rounded-2xl border text-center transition-all ${
                     activeFilter.id === f.id
-                      ? 'bg-fuchsia-950/50 border-fuchsia-500 text-white shadow-lg'
-                      : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-zinc-200'
+                      ? 'bg-indigo-50 dark:bg-indigo-950/60 border-indigo-500 text-indigo-700 dark:text-indigo-300 shadow-sm ring-1 ring-indigo-500'
+                      : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
                 >
-                  <Palette className={`w-5 h-5 mx-auto mb-1.5 ${activeFilter.id === f.id ? 'text-fuchsia-400' : 'text-zinc-500'}`} />
+                  <Palette className={`w-5 h-5 mx-auto mb-1.5 ${activeFilter.id === f.id ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400'}`} />
                   <div className="font-bold text-xs">{isArabic ? f.nameAr : f.name}</div>
                 </button>
               ))}
@@ -1224,10 +1516,10 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
       </div>
 
       {/* 4. Publishing & Sharing Deck */}
-      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-zinc-800/80 space-y-5 shadow-xl">
+      <div className="glass-card p-6 sm:p-7 rounded-3xl border border-slate-200 dark:border-slate-800/80 space-y-5 shadow-sm">
         <div>
           <div className="flex justify-between items-center mb-1.5">
-            <label className="text-xs font-bold text-zinc-300">
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
               {isArabic ? 'وصف الميم / التعليق' : 'Meme Caption & Tags'}
             </label>
             <div className="flex gap-1.5">
@@ -1236,7 +1528,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => setCaption((prev) => (prev ? `${prev} ${tag}` : tag))}
-                    className="text-[10px] font-bold px-2 py-0.5 rounded bg-zinc-900 hover:bg-zinc-850 text-fuchsia-400 border border-zinc-800 transition-colors"
+                    className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-900 hover:bg-slate-200 dark:hover:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-800 transition-colors"
                   >
                     {tag}
                   </button>
@@ -1253,7 +1545,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
                 ? 'أضف تعليقاً مضحكاً لمشاركته مع المجتمع...'
                 : 'Write a witty caption or tags before publishing...'
             }
-            className="w-full p-3 bg-zinc-950 border border-zinc-800 rounded-2xl text-xs text-white resize-none focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500"
+            className="w-full p-3 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700 rounded-2xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 resize-none focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
           />
         </div>
 
@@ -1261,8 +1553,8 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
           <div
             className={`p-3 rounded-2xl text-xs font-bold flex items-center gap-2 ${
               statusMessage.isError
-                ? 'bg-rose-950/60 border border-rose-800 text-rose-300'
-                : 'bg-emerald-950/60 border border-emerald-800 text-emerald-300'
+                ? 'bg-rose-50 dark:bg-rose-950/60 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                : 'bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
             }`}
           >
             <span>{statusMessage.text}</span>
@@ -1275,9 +1567,9 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
               type="button"
               onClick={() => handlePublish('feed')}
               disabled={isUploading}
-              className="w-full py-3.5 px-4 bg-zinc-900 hover:bg-zinc-850 border border-zinc-700 hover:border-zinc-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-md"
+              className="w-full py-3 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 disabled:opacity-50 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
             >
-              {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-cyan-400" />}
+              {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4 text-sky-500" />}
               <span>{isArabic ? 'نشر في الموجز العام 📱' : 'Post to Feed 📱'}</span>
             </button>
           </Tooltip>
@@ -1287,7 +1579,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
               type="button"
               onClick={() => handlePublish('spark')}
               disabled={isUploading}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-fuchsia-600 via-purple-600 to-cyan-600 hover:from-fuchsia-500 hover:to-cyan-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-fuchsia-600/30"
+              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
             >
               {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Flame className="w-4 h-4 text-amber-300 fill-amber-300" />}
               <span>{isArabic ? 'مشاركة في تحدي اليوم 🏆' : 'Submit to Daily Spark 🏆'}</span>

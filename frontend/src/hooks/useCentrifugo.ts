@@ -71,7 +71,7 @@ async function getOrCreateCentrifuge(
       }
 
       currentClientUserId = userId;
-      const tokenRes = await api.getCentrifugoToken(userId, username);
+      const tokenRes = await api.getCentrifugoToken();
 
       const client = new Centrifuge('ws://localhost:8000/connection/websocket', {
         token: tokenRes.token,

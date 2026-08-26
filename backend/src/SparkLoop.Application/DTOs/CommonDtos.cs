@@ -11,7 +11,26 @@ public record UserDto(
     IReadOnlyList<BadgeDto> Badges,
     DateTime CreatedAtUtc,
     string PreferredTheme = "dark",
-    string PreferredLanguage = "en"
+    string PreferredLanguage = "en",
+    string? BannerUrl = null,
+    bool IsEmailConfirmed = false
+);
+
+public record LinkedSocialAccountDto(
+    Guid Id,
+    string Provider,
+    string ProviderUserId,
+    string? ProviderEmail,
+    string? DisplayName,
+    string? AvatarUrl,
+    DateTime LinkedAtUtc
+);
+
+public record EmailVerificationResultDto(
+    bool Success,
+    string Message,
+    UserDto? User = null,
+    string? Code = null
 );
 
 public record BadgeDto(
@@ -156,10 +175,27 @@ public record MoodPodDto(
     IReadOnlyList<Guid>? ModeratorUserIds = null
 );
 
+public record DeviceSessionDto(
+    Guid Id,
+    string DeviceId,
+    string DeviceName,
+    string DeviceType,
+    string? IpAddress,
+    string? UserAgent,
+    bool IsTrusted,
+    DateTime CreatedAtUtc,
+    DateTime LastActiveAtUtc,
+    DateTime ExpiresAtUtc,
+    bool IsActive
+);
+
 public record AuthResultDto(
     string Token,
+    string RefreshToken,
+    DateTime RefreshTokenExpiresAtUtc,
     string CentrifugoToken,
-    UserDto User
+    UserDto User,
+    DeviceSessionDto? Session = null
 );
 
 public record CentrifugoTokenDto(
@@ -188,7 +224,9 @@ public record UserProfileDto(
     string PreferredLanguage = "en",
     int FollowersCount = 0,
     int FollowingCount = 0,
-    string FollowStatus = "none"
+    string FollowStatus = "none",
+    string? BannerUrl = null,
+    bool IsEmailConfirmed = false
 );
 
 public record HashtagDto(

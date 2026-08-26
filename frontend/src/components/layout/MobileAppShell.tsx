@@ -32,14 +32,14 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
   const [topCreators, setTopCreators] = useState<UserDto[]>([]);
 
   useEffect(() => {
-    api.getPersonas()
+    api.getTopCreators()
       .then(setTopCreators)
-      .catch((err) => console.error('Failed to load personas for leaderboard:', err));
+      .catch((err: unknown) => console.error('Failed to load creators for leaderboard:', err));
   }, []);
 
   return (
     <RTLProvider>
-      <div className="h-screen w-full bg-[#f8fafc] dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex justify-center overflow-hidden selection:bg-fuchsia-500 selection:text-white transition-colors duration-200">
+      <div className="h-screen w-full bg-[#f8fafc] dark:bg-[#0b0f17] text-slate-900 dark:text-slate-100 flex justify-center overflow-hidden selection:bg-indigo-500 selection:text-white transition-colors duration-200">
         <div className="w-full max-w-7xl h-full flex justify-between relative overflow-hidden">
           {/* 1. Left Sticky Navigation Sidebar (Tablet & Desktop) */}
           <DesktopSidebar
@@ -49,7 +49,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
           />
 
           {/* 2. Center Content Column (Responsive: max-w-md on mobile, flex-1 on desktop) */}
-          <div className="w-full md:max-w-2xl lg:max-w-2xl xl:max-w-3xl h-full flex flex-col bg-white/70 dark:bg-zinc-950 border-x border-zinc-200/80 dark:border-zinc-800/40 relative shadow-2xl overflow-hidden flex-1 transition-colors duration-200">
+          <div className="w-full md:max-w-2xl lg:max-w-2xl xl:max-w-3xl h-full flex flex-col bg-white dark:bg-[#0e1520] border-x border-slate-200 dark:border-slate-800/80 relative shadow-xl overflow-hidden flex-1 transition-colors duration-200">
             {/* Mobile Header (Visible on < md) */}
             <TopHeader
               isConnected={isConnected}
@@ -87,4 +87,3 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
     </RTLProvider>
   );
 };
-

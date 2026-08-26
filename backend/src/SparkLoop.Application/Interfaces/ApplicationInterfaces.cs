@@ -21,6 +21,8 @@ public interface IAppDbContext
     DbSet<MoodPod> MoodPods { get; }
     DbSet<PodMessage> PodMessages { get; }
     DbSet<UserFollow> UserFollows { get; }
+    DbSet<UserDeviceSession> UserDeviceSessions { get; }
+    DbSet<UserSocialAccount> UserSocialAccounts { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -54,6 +56,25 @@ public interface ICacheService
     Task SetAsync<T>(string key, T value, TimeSpan? expiry = null, CancellationToken cancellationToken = default);
     Task RemoveAsync(string key, CancellationToken cancellationToken = default);
     Task<long> IncrementAsync(string key, TimeSpan? expiry = null, CancellationToken cancellationToken = default);
+}
+
+public record OAuthUserProfile(
+    string Provider,
+    string ProviderUserId,
+    string? Email,
+    string? DisplayName,
+    string? AvatarUrl
+);
+
+public record OAuthAuthorizationUrlResult(
+    string Url,
+    string State
+);
+
+public interface IOAuthService
+{
+    Task<OAuthAuthorizationUrlResult> GenerateAuthorizationUrlAsync(string provider, string redirectUri, string action, Guid? currentUserId, CancellationToken cancellationToken = default);
+    Task<OAuthUserProfile> ExchangeCodeAndGetProfileAsync(string provider, string code, string state, string redirectUri, CancellationToken cancellationToken = default);
 }
 
 public interface ILiveKitService

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { api } from '../../services/apiClient';
-import { GlobalSearchResultDto, PostDto, UserDto, MoodPodDto, ChainDto, SparkDto, HashtagDto } from '../../types/api';
+import { GlobalSearchResultDto, HashtagDto } from '../../types/api';
 import { FollowButton } from '../ui/FollowButton';
-import { Tooltip } from '../ui/Tooltip';
 import { TabType } from '../layout/BottomNavBar';
 import {
   Search,
@@ -16,13 +15,9 @@ import {
   GitBranch,
   Flame,
   Hash,
-  ArrowRight,
-  ArrowUpRight,
-  Sparkles,
   Loader2,
-  Filter,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -182,17 +177,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-start justify-center p-4 sm:p-6 md:p-12 overflow-y-auto bg-black/60 backdrop-blur-md transition-all">
+    <div className="fixed inset-0 z-[99999] flex items-start justify-center p-4 sm:p-6 md:p-12 overflow-y-auto bg-black/60 backdrop-blur-sm transition-all">
       {/* Modal Container */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: -20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: -20 }}
-        className="w-full max-w-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800/90 rounded-3xl shadow-2xl overflow-hidden flex flex-col my-auto transition-colors"
+        className="w-full max-w-2xl bg-white dark:bg-[#131b28] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-xl overflow-hidden flex flex-col my-auto transition-colors"
       >
         {/* Search Header Bar */}
-        <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-fuchsia-500/10 text-fuchsia-500 shrink-0">
+        <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 shrink-0">
             <Search className="w-5 h-5" />
           </div>
 
@@ -207,12 +202,12 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                   ? 'ابحث عن منشورات، مبدعين، غرف صوتية، وسوم #...'
                   : 'Search posts, creators, voice pods, chains, #tags...'
               }
-              className="w-full bg-transparent text-sm sm:text-base font-medium text-zinc-900 dark:text-white placeholder-zinc-400 dark:placeholder-zinc-500 outline-none border-none pr-8"
+              className="w-full bg-transparent text-sm sm:text-base font-medium text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 outline-none border-none pr-8"
             />
             {query && (
               <button
                 onClick={() => setQuery('')}
-                className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                className="absolute right-0 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -220,11 +215,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
           </div>
 
           {isLoading ? (
-            <Loader2 className="w-5 h-5 text-fuchsia-500 animate-spin shrink-0" />
+            <Loader2 className="w-5 h-5 text-indigo-500 animate-spin shrink-0" />
           ) : (
             <button
               onClick={onClose}
-              className="p-2 rounded-xl text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors shrink-0"
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors shrink-0"
             >
               <X className="w-5 h-5" />
             </button>
@@ -232,7 +227,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         </div>
 
         {/* Category Tabs */}
-        <div className="flex items-center gap-1.5 px-4 py-2.5 overflow-x-auto border-b border-zinc-200 dark:border-zinc-800/60 no-scrollbar bg-zinc-50/50 dark:bg-zinc-950/40">
+        <div className="flex items-center gap-1.5 px-4 py-2.5 overflow-x-auto border-b border-slate-200 dark:border-slate-800/60 no-scrollbar bg-slate-50/50 dark:bg-[#0b0f17]/40">
           {categories.map((cat) => {
             const Icon = cat.icon;
             const isActive = activeCategory === cat.id;
@@ -240,10 +235,10 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors ${
                   isActive
-                    ? 'bg-gradient-to-r from-fuchsia-600 to-purple-600 text-white shadow-md shadow-fuchsia-600/20'
-                    : 'bg-zinc-200/60 dark:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-white'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -251,7 +246,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 {cat.count !== undefined && cat.count > 0 && (
                   <span
                     className={`px-1.5 py-0.2 text-[10px] rounded-full ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-zinc-300 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
+                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
                     }`}
                   >
                     {cat.count}
@@ -270,8 +265,8 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               {/* Trending Hashtags */}
               {trendingTags.length > 0 && (
                 <div className="space-y-2.5">
-                  <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                    <TrendingUp className="w-3.5 h-3.5 text-fuchsia-500" />
+                  <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    <TrendingUp className="w-3.5 h-3.5 text-indigo-500" />
                     <span>{isArabic ? 'الوسوم الأكثر رواجاً اليوم' : 'Trending Hashtags'}</span>
                   </div>
                   <div className="flex flex-wrap gap-2">
@@ -279,11 +274,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       <button
                         key={t.tag}
                         onClick={() => handleHashtagClick(t.tag)}
-                        className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 hover:bg-fuchsia-500/10 hover:border-fuchsia-500/40 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 transition-all group"
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/10 hover:border-indigo-500/40 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-colors group"
                       >
-                        <Hash className="w-3.5 h-3.5 text-fuchsia-500" />
+                        <Hash className="w-3.5 h-3.5 text-indigo-500" />
                         <span>{t.tag}</span>
-                        <span className="text-[10px] text-zinc-400 dark:text-zinc-500">({t.count})</span>
+                        <span className="text-[10px] text-slate-400">({t.count})</span>
                       </button>
                     ))}
                   </div>
@@ -294,13 +289,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               {recentSearches.length > 0 && (
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider">
-                      <Clock className="w-3.5 h-3.5 text-purple-500" />
+                    <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                      <Clock className="w-3.5 h-3.5 text-indigo-500" />
                       <span>{isArabic ? 'عمليات البحث الأخيرة' : 'Recent Searches'}</span>
                     </div>
                     <button
                       onClick={handleClearRecent}
-                      className="text-[11px] font-semibold text-zinc-400 hover:text-rose-500 transition-colors"
+                      className="text-[11px] font-semibold text-slate-400 hover:text-rose-500 transition-colors"
                     >
                       {isArabic ? 'مسح الكل' : 'Clear all'}
                     </button>
@@ -310,17 +305,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     {recentSearches.map((s) => (
                       <div
                         key={s}
-                        className="px-3 py-1 rounded-xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/80 text-xs font-medium text-zinc-700 dark:text-zinc-300 flex items-center gap-2 group"
+                        className="px-3 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2"
                       >
                         <button
                           onClick={() => setQuery(s)}
-                          className="hover:text-fuchsia-500 transition-colors"
+                          className="hover:text-indigo-500 transition-colors"
                         >
                           {s}
                         </button>
                         <button
                           onClick={() => handleRemoveRecentItem(s)}
-                          className="text-zinc-400 hover:text-rose-500 opacity-60 hover:opacity-100"
+                          className="text-slate-400 hover:text-rose-500 opacity-60 hover:opacity-100"
                         >
                           <X className="w-3 h-3" />
                         </button>
@@ -337,13 +332,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             <div className="space-y-6">
               {results.totalCount === 0 && !isLoading && (
                 <div className="text-center py-10 space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto text-zinc-400">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-400">
                     <Search className="w-6 h-6" />
                   </div>
-                  <h4 className="font-bold text-sm text-zinc-900 dark:text-white">
+                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">
                     {isArabic ? `لا توجد نتائج لـ "${query}"` : `No results found for "${query}"`}
                   </h4>
-                  <p className="text-xs text-zinc-500 max-w-xs mx-auto">
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
                     {isArabic
                       ? 'جرب البحث بكلمات مختلفة أو تصفح الوسوم الشائعة'
                       : 'Try searching with different keywords or exploring popular tags'}
@@ -355,18 +350,18 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               {results.users.length > 0 && (activeCategory === 'all' || activeCategory === 'users') && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5 text-emerald-500" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Users className="w-3.5 h-3.5 text-indigo-500" />
                       <span>{isArabic ? 'المبدعين' : 'Creators & Users'}</span>
                     </h4>
-                    <span className="text-[11px] font-bold text-zinc-400">{results.users.length}</span>
+                    <span className="text-[11px] font-bold text-slate-400">{results.users.length}</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {results.users.map((user) => (
                       <div
                         key={user.id}
-                        className="glass-panel p-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex items-center justify-between gap-3 hover:border-fuchsia-500/40 transition-all group"
+                        className="glass-panel p-3 rounded-2xl border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 hover:border-indigo-500/40 transition-colors group"
                       >
                         <div
                           onClick={() => {
@@ -378,13 +373,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           <img
                             src={user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
                             alt={user.username}
-                            className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 object-cover shrink-0"
+                            className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 object-cover shrink-0"
                           />
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-zinc-900 dark:text-white truncate group-hover:text-fuchsia-400 transition-colors">
+                            <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-400 transition-colors">
                               {user.displayName || user.username}
                             </div>
-                            <div className="text-[11px] text-zinc-400 truncate">@{user.username}</div>
+                            <div className="text-[11px] text-slate-400 truncate">@{user.username}</div>
                           </div>
                         </div>
 
@@ -403,11 +398,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               {results.posts.length > 0 && (activeCategory === 'all' || activeCategory === 'posts') && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
-                      <MessageSquare className="w-3.5 h-3.5 text-fuchsia-500" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <MessageSquare className="w-3.5 h-3.5 text-indigo-500" />
                       <span>{isArabic ? 'المشاركات والميمز' : 'Posts & Memes'}</span>
                     </h4>
-                    <span className="text-[11px] font-bold text-zinc-400">{results.posts.length}</span>
+                    <span className="text-[11px] font-bold text-slate-400">{results.posts.length}</span>
                   </div>
 
                   <div className="space-y-2.5">
@@ -418,7 +413,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           onNavigateTab('feed');
                           onClose();
                         }}
-                        className="glass-panel p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 hover:border-fuchsia-500/40 cursor-pointer transition-all space-y-2"
+                        className="glass-panel p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500/40 cursor-pointer transition-colors space-y-2"
                       >
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
@@ -427,20 +422,20 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                               alt={post.authorUsername}
                               className="w-6 h-6 rounded-lg object-cover"
                             />
-                            <span className="font-bold text-zinc-900 dark:text-white">{post.authorDisplayName}</span>
-                            <span className="text-zinc-400">@{post.authorUsername}</span>
+                            <span className="font-bold text-slate-900 dark:text-white">{post.authorDisplayName}</span>
+                            <span className="text-slate-400">@{post.authorUsername}</span>
                           </div>
-                          <span className="text-[10px] text-zinc-400">
+                          <span className="text-[10px] text-slate-400">
                             {new Date(post.createdAtUtc).toLocaleDateString()}
                           </span>
                         </div>
 
-                        <p className="text-xs sm:text-sm text-zinc-800 dark:text-zinc-200 line-clamp-2 leading-relaxed">
+                        <p className="text-xs sm:text-sm text-slate-800 dark:text-slate-200 line-clamp-2 leading-relaxed">
                           {post.content}
                         </p>
 
                         {post.media && (
-                          <div className="w-full max-h-32 rounded-xl overflow-hidden bg-black/20 border border-zinc-200 dark:border-zinc-800/80">
+                          <div className="w-full max-h-32 rounded-xl overflow-hidden bg-black/20 border border-slate-200 dark:border-slate-800">
                             <img
                               src={api.getMediaUrl(post.media.url)}
                               alt="media preview"
@@ -449,7 +444,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           </div>
                         )}
 
-                        <div className="flex items-center gap-3 pt-1 text-[11px] text-zinc-400">
+                        <div className="flex items-center gap-3 pt-1 text-[11px] text-slate-400">
                           <span className="flex items-center gap-1 font-semibold text-amber-500">
                             <Flame className="w-3.5 h-3.5" />
                             {post.reactionCount}
@@ -465,11 +460,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               {results.moodPods.length > 0 && (activeCategory === 'all' || activeCategory === 'pods') && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
-                      <Radio className="w-3.5 h-3.5 text-cyan-500" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Radio className="w-3.5 h-3.5 text-sky-500" />
                       <span>{isArabic ? 'غرف المزاج الصوتية' : 'Mood Pods'}</span>
                     </h4>
-                    <span className="text-[11px] font-bold text-zinc-400">{results.moodPods.length}</span>
+                    <span className="text-[11px] font-bold text-slate-400">{results.moodPods.length}</span>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -477,21 +472,21 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       <div
                         key={pod.id}
                         onClick={() => handlePodClick(pod.id)}
-                        className="glass-panel p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 hover:border-cyan-500/40 cursor-pointer transition-all flex items-center justify-between gap-3 group"
+                        className="glass-panel p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500/40 cursor-pointer transition-colors flex items-center justify-between gap-3 group"
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <span className="text-2xl shrink-0 p-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800">{pod.moodEmoji}</span>
+                          <span className="text-2xl shrink-0 p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800">{pod.moodEmoji}</span>
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-zinc-900 dark:text-white truncate group-hover:text-cyan-400 transition-colors">
+                            <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-400 transition-colors">
                               {pod.title}
                             </div>
-                            <div className="text-[11px] text-zinc-400 truncate">
+                            <div className="text-[11px] text-slate-400 truncate">
                               {isArabic ? 'المضيف:' : 'Host:'} {pod.hostDisplayName}
                             </div>
                           </div>
                         </div>
 
-                        <div className="px-2.5 py-1 rounded-xl bg-cyan-500/10 text-cyan-500 text-[10px] font-bold shrink-0">
+                        <div className="px-2.5 py-1 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold shrink-0">
                           {isArabic ? 'انضمام' : 'Join'}
                         </div>
                       </div>
@@ -504,11 +499,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               {results.chains.length > 0 && (activeCategory === 'all' || activeCategory === 'chains') && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
-                      <GitBranch className="w-3.5 h-3.5 text-purple-500" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <GitBranch className="w-3.5 h-3.5 text-indigo-500" />
                       <span>{isArabic ? 'سلاسل المايك التفاعلية' : 'Pass-the-Mic Chains'}</span>
                     </h4>
-                    <span className="text-[11px] font-bold text-zinc-400">{results.chains.length}</span>
+                    <span className="text-[11px] font-bold text-slate-400">{results.chains.length}</span>
                   </div>
 
                   <div className="space-y-2.5">
@@ -519,20 +514,20 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           onNavigateTab('chains');
                           onClose();
                         }}
-                        className="glass-panel p-3.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 hover:border-purple-500/40 cursor-pointer transition-all flex items-center justify-between gap-3"
+                        className="glass-panel p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 hover:border-indigo-500/40 cursor-pointer transition-colors flex items-center justify-between gap-3"
                       >
                         <div className="min-w-0">
-                          <div className="text-xs font-bold text-zinc-900 dark:text-white truncate">
+                          <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
                             {chain.title}
                           </div>
-                          <div className="text-[11px] text-zinc-400">
+                          <div className="text-[11px] text-slate-400">
                             {isArabic
                               ? `${chain.currentStepCount} من ${chain.maxSteps} أدوار مكتملة`
                               : `${chain.currentStepCount} of ${chain.maxSteps} turns completed`}
                           </div>
                         </div>
 
-                        <span className="px-2.5 py-1 rounded-xl bg-purple-500/10 text-purple-400 text-[10px] font-bold shrink-0">
+                        <span className="px-2.5 py-1 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold shrink-0">
                           {chain.theme}
                         </span>
                       </div>
@@ -545,11 +540,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               {results.hashtags.length > 0 && (activeCategory === 'all' || activeCategory === 'hashtags') && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500 flex items-center gap-1.5">
-                      <Hash className="w-3.5 h-3.5 text-fuchsia-500" />
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Hash className="w-3.5 h-3.5 text-indigo-500" />
                       <span>{isArabic ? 'الوسوم المطابقة' : 'Hashtags'}</span>
                     </h4>
-                    <span className="text-[11px] font-bold text-zinc-400">{results.hashtags.length}</span>
+                    <span className="text-[11px] font-bold text-slate-400">{results.hashtags.length}</span>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -557,11 +552,11 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       <button
                         key={h.tag}
                         onClick={() => handleHashtagClick(h.tag)}
-                        className="px-3 py-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-fuchsia-500/10 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5 transition-all"
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-indigo-500/10 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5 transition-colors"
                       >
-                        <Hash className="w-3.5 h-3.5 text-fuchsia-500" />
+                        <Hash className="w-3.5 h-3.5 text-indigo-500" />
                         <span>{h.tag}</span>
-                        <span className="text-[10px] text-zinc-400">({h.count})</span>
+                        <span className="text-[10px] text-slate-400">({h.count})</span>
                       </button>
                     ))}
                   </div>
@@ -572,14 +567,14 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
         </div>
 
         {/* Footer Hint */}
-        <div className="px-5 py-3 border-t border-zinc-200 dark:border-zinc-800/80 bg-zinc-50 dark:bg-zinc-950/60 flex items-center justify-between text-[11px] text-zinc-400">
+        <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800/80 bg-slate-50 dark:bg-[#0b0f17]/60 flex items-center justify-between text-[11px] text-slate-400">
           <span>{isArabic ? 'اضغط ESC للإغلاق' : 'Press ESC to close'}</span>
           <span className="flex items-center gap-1 font-mono">
-            <kbd className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300">
               Ctrl
             </kbd>
             +
-            <kbd className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300">
+            <kbd className="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300">
               K
             </kbd>
           </span>
@@ -588,4 +583,3 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     </div>
   );
 };
-

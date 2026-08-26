@@ -200,23 +200,23 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4 text-white shadow-2xl"
+            className="w-full max-w-md bg-white dark:bg-[#131b28] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-4 text-slate-900 dark:text-white shadow-xl"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <GitBranch className="w-5 h-5 text-fuchsia-400" />
+                <GitBranch className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
                 <h3 className="font-bold text-lg">
                   {isArabic ? 'بدء سلسلة قصة جديدة' : 'Start a New Story Chain'}
                 </h3>
               </div>
               <button
                 onClick={onClose}
-                className="p-1.5 text-zinc-400 hover:text-white rounded-full bg-zinc-800"
+                className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-full bg-slate-100 dark:bg-slate-800"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -224,7 +224,7 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
 
             <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
               <div>
-                <label className="block text-zinc-400 font-semibold mb-1">
+                <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
                   {isArabic ? 'عنوان السلسلة' : 'Story Title'}
                 </label>
                 <input
@@ -234,19 +234,19 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder={isArabic ? 'مثال: لغز المختبر المفقود' : 'e.g. The Midnight Glitch'}
-                  className="w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-fuchsia-500"
+                  className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-zinc-400 font-semibold mb-1">
+                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
                     {isArabic ? 'الثيم / النوع' : 'Theme'}
                   </label>
                   <select
                     value={theme}
                     onChange={(e) => setTheme(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-white focus:outline-none focus:border-fuchsia-500"
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
                   >
                     <option value="Cyberpunk">Cyberpunk / خيال علمي</option>
                     <option value="Comedy">Comedy Improv / كوميديا</option>
@@ -256,7 +256,7 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-zinc-400 font-semibold mb-1">
+                  <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
                     {isArabic ? 'عدد الأدوار' : 'Max Steps Limit'}
                   </label>
                   <div className="flex gap-2">
@@ -267,8 +267,8 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                         onClick={() => setMaxSteps(steps)}
                         className={`flex-1 py-2 rounded-xl font-bold border transition-colors ${
                           maxSteps === steps
-                            ? 'bg-fuchsia-500 text-white border-fuchsia-400'
-                            : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-slate-50 dark:bg-[#0b0f17] border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                         }`}
                       >
                         {steps}
@@ -279,7 +279,7 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-zinc-400 font-semibold mb-1">
+                <label className="block text-slate-600 dark:text-slate-400 font-semibold mb-1">
                   {isArabic ? 'الجملة الافتتاحية (الدور 1)' : 'Opening Sentence (Turn #1)'}
                 </label>
                 <textarea
@@ -292,20 +292,20 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                       ? 'اكتب الجملة الأولى لتشعل القصة (أقل من 100 حرف)...'
                       : 'Write the opening beat (max 100 chars)...'
                   }
-                  className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-xl text-white resize-none focus:outline-none focus:border-fuchsia-500"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white resize-none focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               {/* Audio Note Studio */}
-              <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl space-y-2">
+              <div className="p-3 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700/80 rounded-2xl space-y-2">
                 {isRecording ? (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
-                      <span className="text-xs font-bold text-rose-400">
+                      <span className="text-xs font-bold text-rose-500">
                         {isArabic ? 'جاري التسجيل...' : 'Recording...'}
                       </span>
-                      <span className="text-xs font-mono font-bold text-zinc-300">
+                      <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-300">
                         {recordingSeconds}s / {maxAudioSeconds}s
                       </span>
                     </div>
@@ -313,7 +313,7 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                     <button
                       type="button"
                       onClick={stopRecording}
-                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-lg shadow-rose-600/30 active:scale-95"
+                      className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm active:scale-95"
                     >
                       <Square className="w-3.5 h-3.5 fill-white" />
                       <span>{isArabic ? 'إيقاف' : 'Stop'}</span>
@@ -325,26 +325,26 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                       <button
                         type="button"
                         onClick={togglePlayPreview}
-                        className="w-8 h-8 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black flex items-center justify-center transition-transform active:scale-95 shrink-0"
+                        className="w-8 h-8 rounded-xl bg-sky-500 hover:bg-sky-400 text-slate-950 flex items-center justify-center transition-transform active:scale-95 shrink-0 shadow-sm"
                         title={isPlayingPreview ? 'Pause' : 'Play'}
                       >
                         {isPlayingPreview ? (
-                          <Pause className="w-4 h-4 fill-black" />
+                          <Pause className="w-4 h-4 fill-slate-950" />
                         ) : (
-                          <Play className="w-4 h-4 fill-black ml-0.5" />
+                          <Play className="w-4 h-4 fill-slate-950 ml-0.5" />
                         )}
                       </button>
 
                       <div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-bold text-cyan-300">
+                          <span className="text-xs font-bold text-sky-600 dark:text-sky-300">
                             {isArabic ? 'ملاحظة صوتية جاهزة' : 'Audio Note Ready'}
                           </span>
-                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 bg-cyan-950 text-cyan-400 rounded border border-cyan-800">
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded border border-sky-500/30">
                             {recordingSeconds}s
                           </span>
                         </div>
-                        <p className="text-[10px] text-zinc-400">
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400">
                           {isArabic ? 'انقر للاستماع قبل الإطلاق' : 'Click play to review recording'}
                         </p>
                       </div>
@@ -353,7 +353,7 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                     <button
                       type="button"
                       onClick={discardAudio}
-                      className="p-2 hover:bg-zinc-850 rounded-xl text-zinc-500 hover:text-rose-400 transition-colors"
+                      className="p-2 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-xl text-slate-500 hover:text-rose-500 transition-colors"
                       title={isArabic ? 'حذف وإعادة التسجيل' : 'Discard & Re-record'}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -362,8 +362,8 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                 ) : (
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-xs">
-                      <Mic className="w-4 h-4 text-cyan-400" />
-                      <span className="text-zinc-300">
+                      <Mic className="w-4 h-4 text-sky-500 dark:text-sky-400" />
+                      <span className="text-slate-600 dark:text-slate-300">
                         {isArabic ? 'إرفاق صوت للدور الأول (اختياري)' : 'Attach 15s Voice Note (Optional)'}
                       </span>
                     </div>
@@ -371,7 +371,7 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
                     <button
                       type="button"
                       onClick={startRecording}
-                      className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-zinc-850 hover:bg-zinc-800 border border-zinc-700 hover:border-cyan-500/50 text-cyan-400 hover:text-cyan-300 flex items-center gap-1.5 transition-all active:scale-95"
+                      className="px-3.5 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-sky-600 dark:text-sky-300 flex items-center gap-1.5 transition-colors shadow-sm active:scale-95"
                     >
                       <Mic className="w-3.5 h-3.5" />
                       <span>{isArabic ? 'تسجيل' : 'Record'}</span>
@@ -381,7 +381,7 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
               </div>
 
               {error && (
-                <div className="p-2.5 bg-rose-950/40 border border-rose-800 rounded-xl text-rose-300">
+                <div className="p-2.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-600 dark:text-rose-300">
                   {error}
                 </div>
               )}
@@ -389,7 +389,7 @@ export const CreateChainModal: React.FC<CreateChainModalProps> = ({
               <button
                 type="submit"
                 disabled={isSubmitting || !title.trim() || (!initialContent.trim() && !audioBlob)}
-                className="w-full py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 disabled:opacity-50 text-white font-bold rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg"
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-semibold rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
               >
                 {isSubmitting ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />

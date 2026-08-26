@@ -49,7 +49,7 @@ public class LiveKitService : ILiveKitService
             {
                 { "room", roomName },
                 { "roomJoin", true },
-                { "canPublish", true },
+                { "canPublish", isOnStage },
                 { "canSubscribe", true },
                 { "canPublishData", true }
             };

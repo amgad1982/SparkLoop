@@ -5,7 +5,7 @@ import { api } from '../../services/apiClient';
 import { PostDto } from '../../types/api';
 import { HashtagAutocomplete } from '../common/HashtagAutocomplete';
 import { Tooltip } from '../ui/Tooltip';
-import { Image, Palette, Send, Sparkles, X } from 'lucide-react';
+import { Palette, Send, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CreatePostDrawerProps {
@@ -74,24 +74,24 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
-            className="w-full max-w-md bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800 rounded-t-3xl p-5 space-y-4 text-zinc-900 dark:text-white shadow-2xl transition-colors duration-200"
+            className="w-full max-w-md bg-white dark:bg-[#131b28] border-t border-slate-200 dark:border-slate-800 rounded-t-3xl p-5 space-y-4 text-slate-900 dark:text-white shadow-xl transition-colors duration-200"
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <img
                   src={currentPersona.avatarUrl}
                   alt={currentPersona.username}
-                  className="w-8 h-8 rounded-full border border-zinc-300 dark:border-zinc-700 object-cover"
+                  className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-700 object-cover"
                 />
                 <div>
-                  <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100">{currentPersona.displayName}</h3>
-                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400">@{currentPersona.username}</span>
+                  <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">{currentPersona.displayName}</h3>
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400">@{currentPersona.username}</span>
                 </div>
               </div>
               <Tooltip content={isArabic ? 'إغلاق' : 'Close'} position="bottom">
                 <button
                   onClick={onClose}
-                  className="p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full bg-zinc-100 dark:bg-zinc-800 transition-colors"
+                  className="p-1.5 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white rounded-full bg-slate-100 dark:bg-slate-800 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -116,7 +116,7 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
                       ? 'ماذا يدور في ذهنك؟ اكتب # لاختيار أو كتابة وسم (<= 280 حرف)...'
                       : "What's happening? Type # to add hashtags (<= 280 chars)..."
                   }
-                  className="w-full p-3 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs text-zinc-900 dark:text-white resize-none focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 shadow-sm"
+                  className="w-full p-3 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700/80 rounded-2xl text-xs text-slate-900 dark:text-white resize-none focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 shadow-sm"
                 />
 
                 {/* Hashtag Autocomplete Popup */}
@@ -129,7 +129,7 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
 
                 <span
                   className={`absolute bottom-2.5 right-3 rtl:right-auto rtl:left-3 text-[11px] font-bold ${
-                    charsRemaining < 20 ? 'text-amber-500' : 'text-zinc-400'
+                    charsRemaining < 20 ? 'text-amber-500' : 'text-slate-400'
                   }`}
                 >
                   {charsRemaining}
@@ -144,13 +144,13 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
                     onClose();
                     onOpenCanvas();
                   }}
-                  className="w-full p-2.5 bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 hover:border-fuchsia-500/50 rounded-2xl flex items-center justify-between text-xs text-zinc-700 dark:text-zinc-300 transition-colors shadow-sm"
+                  className="w-full p-2.5 bg-slate-50 dark:bg-[#0b0f17] border border-slate-200 dark:border-slate-700/80 hover:border-indigo-500/50 rounded-2xl flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 transition-colors shadow-sm"
                 >
                   <span className="flex items-center gap-2">
-                    <Palette className="w-4 h-4 text-fuchsia-500 dark:text-fuchsia-400" />
+                    <Palette className="w-4 h-4 text-indigo-500 dark:text-indigo-400" />
                     <span>{isArabic ? 'فتح صانع الميم التفاعلي' : 'Draw Meme in Canvas Lab'}</span>
                   </span>
-                  <span className="text-[10px] px-2 py-0.5 rounded bg-fuchsia-500/10 dark:bg-fuchsia-500/20 text-fuchsia-600 dark:text-fuchsia-300 font-bold border border-fuchsia-500/30">
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 dark:bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 font-bold border border-indigo-500/30">
                     {isArabic ? 'استوديو التصميم' : 'Meme Studio'}
                   </span>
                 </button>
@@ -166,7 +166,7 @@ export const CreatePostDrawer: React.FC<CreatePostDrawerProps> = ({
                 <button
                   type="submit"
                   disabled={isSubmitting || !content.trim()}
-                  className="w-full py-3 bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 disabled:opacity-50 text-white font-bold text-xs rounded-2xl flex items-center justify-center gap-2 active:scale-95 transition-all shadow-lg spark-glow"
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
                 >
                   <Send className="w-4 h-4" />
                   <span>{isSubmitting ? (isArabic ? 'جاري النشر...' : 'Publishing...') : (isArabic ? 'نشر التدوينة ✨' : 'Publish Post ✨')}</span>

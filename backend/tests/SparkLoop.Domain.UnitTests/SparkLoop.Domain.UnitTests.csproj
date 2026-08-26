@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SparkLoop.Domain\SparkLoop.Domain.csproj" />
     <ProjectReference Include="..\..\src\SparkLoop.Application\SparkLoop.Application.csproj" />
+    <ProjectReference Include="..\..\src\SparkLoop.Infrastructure\SparkLoop.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

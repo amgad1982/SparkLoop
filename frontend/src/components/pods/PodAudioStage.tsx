@@ -343,7 +343,7 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
                   <button
                     type="button"
                     onClick={onJoinStage}
-                    className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-600/25 transition-all active:scale-95 shrink-0 cursor-pointer"
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-colors active:scale-95 shrink-0 cursor-pointer"
                   >
                     <Mic className="w-3.5 h-3.5" />
                     <span>{isArabic ? 'فتح المايك 🎙️' : 'Open Mic 🎙️'}</span>

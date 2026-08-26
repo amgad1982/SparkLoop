@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { UserDto } from '../types/api';
+import { UserDto, AuthResultDto } from '../types/api';
 
 export interface Persona {
   id: string;
@@ -11,38 +11,7 @@ export interface Persona {
   isCustom?: boolean;
 }
 
-export const PRESET_PERSONAS: Persona[] = [
-  {
-    id: '11111111-1111-1111-1111-111111111111',
-    username: 'alice',
-    displayName: 'Alice Wonder 🎨',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=alice',
-    role: 'Digital Artist & Storyteller',
-  },
-  {
-    id: '22222222-2222-2222-2222-222222222222',
-    username: 'bob',
-    displayName: 'Bob The Bard 🎸',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=bob',
-    role: 'Musician & Audio Chain Wizard',
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    username: 'noor',
-    displayName: 'نور العرّاف 🌟',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=noor',
-    role: 'راوية قصص تفاعلية',
-  },
-  {
-    id: '44444444-4444-4444-4444-444444444444',
-    username: 'tariq',
-    displayName: 'طارق صانع الميمز ⚡',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=tariq',
-    role: 'صانع ميمز وتحديات',
-  },
-];
-
-export const GUEST_PERSONA: Persona = {
+export const GUEST_USER: Persona = {
   id: '00000000-0000-0000-0000-000000000000',
   username: 'guest',
   displayName: 'Guest Explorer 👤',
@@ -52,67 +21,114 @@ export const GUEST_PERSONA: Persona = {
 };
 
 interface AuthState {
-  currentPersona: Persona;
-  customPersonas: Persona[];
   currentUser: UserDto | null;
+  currentPersona: Persona;
+  accessToken: string | null;
+  refreshToken: string | null;
+  refreshTokenExpiresAtUtc: string | null;
   centrifugoToken: string | null;
-  setPersona: (persona: Persona) => void;
-  addCustomPersona: (persona: Persona) => void;
+  isAuthModalOpen: boolean;
+  authModalTab: 'login' | 'register' | 'verify';
+  authVerificationEmail: string | null;
+  openAuthModal: (tab?: 'login' | 'register' | 'verify', email?: string) => void;
+  closeAuthModal: () => void;
   setUser: (user: UserDto | null) => void;
+  setAuthResult: (result: AuthResultDto) => void;
+  setTokens: (
+    accessToken: string | null,
+    refreshToken: string | null,
+    centrifugoToken: string | null,
+    refreshTokenExpiresAtUtc?: string | null
+  ) => void;
   setCentrifugoToken: (token: string | null) => void;
   logout: () => void;
+}
+
+function userToPersona(user: UserDto | null): Persona {
+  if (!user) return GUEST_USER;
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName || user.username,
+    avatarUrl: user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`,
+    role: user.bio || 'SparkLoop Creator',
+    isCustom: true,
+  };
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      currentPersona: PRESET_PERSONAS[0],
-      customPersonas: [],
       currentUser: null,
+      currentPersona: GUEST_USER,
+      accessToken: null,
+      refreshToken: null,
+      refreshTokenExpiresAtUtc: null,
       centrifugoToken: null,
-      setPersona: (persona) => {
-        set({ currentPersona: persona });
-        if (persona.username !== 'guest') {
-          import('../services/apiClient').then(({ api }) => {
-            api.getUserProfile(persona.username).then((profile) => {
-              if (profile) {
-                import('./useThemeStore').then(({ useThemeStore }) => {
-                  useThemeStore.getState().syncFromUser(profile.preferredTheme, profile.preferredLanguage);
-                });
-              }
-            }).catch(() => {});
-          });
-        }
-      },
-      addCustomPersona: (persona) =>
-        set((state) => ({
-          customPersonas: [
-            persona,
-            ...state.customPersonas.filter((p) => p.id !== persona.id && p.username !== persona.username),
-          ],
-          currentPersona: persona,
-        })),
+      isAuthModalOpen: false,
+      authModalTab: 'login',
+      authVerificationEmail: null,
+      openAuthModal: (tab = 'login', email) =>
+        set({ isAuthModalOpen: true, authModalTab: tab, authVerificationEmail: email || null }),
+      closeAuthModal: () => set({ isAuthModalOpen: false }),
       setUser: (user) => {
-        set({ currentUser: user });
+        set({ currentUser: user, currentPersona: userToPersona(user) });
         if (user) {
           import('./useThemeStore').then(({ useThemeStore }) => {
             useThemeStore.getState().syncFromUser(user.preferredTheme, user.preferredLanguage);
           });
         }
       },
-      setCentrifugoToken: (token) => set({ centrifugoToken: token }),
-      logout: () =>
+      setAuthResult: (result) => {
         set({
-          currentPersona: GUEST_PERSONA,
-          currentUser: null,
-          centrifugoToken: null,
+          currentUser: result.user,
+          currentPersona: userToPersona(result.user),
+          accessToken: result.token,
+          refreshToken: result.refreshToken,
+          refreshTokenExpiresAtUtc: result.refreshTokenExpiresAtUtc,
+          centrifugoToken: result.centrifugoToken,
+          isAuthModalOpen: false,
+        });
+        if (result.user) {
+          import('./useThemeStore').then(({ useThemeStore }) => {
+            useThemeStore.getState().syncFromUser(result.user.preferredTheme, result.user.preferredLanguage);
+          });
+        }
+      },
+      setTokens: (accessToken, refreshToken, centrifugoToken, refreshTokenExpiresAtUtc) =>
+        set({
+          accessToken,
+          refreshToken,
+          centrifugoToken,
+          refreshTokenExpiresAtUtc: refreshTokenExpiresAtUtc ?? null,
         }),
+      setCentrifugoToken: (token) => set({ centrifugoToken: token }),
+      logout: () => {
+        const token = useAuthStore.getState().refreshToken;
+        if (token) {
+          import('../services/apiClient').then(({ api }) => {
+            api.revokeToken(token).catch(() => {});
+          });
+        }
+        set({
+          currentUser: null,
+          currentPersona: GUEST_USER,
+          accessToken: null,
+          refreshToken: null,
+          refreshTokenExpiresAtUtc: null,
+          centrifugoToken: null,
+        });
+      },
     }),
     {
       name: 'sparkloop-auth-storage',
       partialize: (state) => ({
+        currentUser: state.currentUser,
         currentPersona: state.currentPersona,
-        customPersonas: state.customPersonas,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        refreshTokenExpiresAtUtc: state.refreshTokenExpiresAtUtc,
+        centrifugoToken: state.centrifugoToken,
       }),
     }
   )
