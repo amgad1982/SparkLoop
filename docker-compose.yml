@@ -66,6 +66,23 @@ services:
       timeout: 5s
       retries: 5
 
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: sparkloop-livekit
+    restart: unless-stopped
+    command: --dev --bind 0.0.0.0 --port 7880
+    ports:
+      - "7880:7880"
+      - "7881:7881/tcp"
+      - "50000-50050:50000-50050/udp"
+    environment:
+      LIVEKIT_KEYS: "sparkloop_livekit_key: sparkloop_livekit_secret_2026_super_secure_32chars"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7880/"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
 volumes:
   pgdata:
   redisdata:

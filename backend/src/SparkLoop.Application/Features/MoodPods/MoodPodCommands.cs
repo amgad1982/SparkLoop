@@ -17,7 +17,8 @@ public record CreateMoodPodCommand(
     string? CustomBackgroundImageUrl = null,
     bool AllowParticipantsChangeTheme = false,
     bool AllowParticipantsPlayBgMusic = true,
-    bool AllowOpenMic = true
+    bool AllowOpenMic = true,
+    int? DurationHours = 24
 ) : IRequest<MoodPodDto>;
 
 public class CreateMoodPodCommandValidator : AbstractValidator<CreateMoodPodCommand>
@@ -47,6 +48,13 @@ public class CreateMoodPodCommandHandler : IRequestHandler<CreateMoodPodCommand,
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
+        TimeSpan? customTtl = request.DurationHours switch
+        {
+            -1 or 0 => TimeSpan.FromDays(36500), // Permanent / Never closes
+            > 0 => TimeSpan.FromHours(request.DurationHours.Value),
+            _ => null
+        };
+
         var pod = MoodPod.Create(
             Guid.NewGuid(),
             request.Title,
@@ -61,7 +69,8 @@ public class CreateMoodPodCommandHandler : IRequestHandler<CreateMoodPodCommand,
             customBackgroundImageUrl: request.CustomBackgroundImageUrl,
             allowParticipantsChangeTheme: request.AllowParticipantsChangeTheme,
             allowParticipantsPlayBgMusic: request.AllowParticipantsPlayBgMusic,
-            allowOpenMic: request.AllowOpenMic);
+            allowOpenMic: request.AllowOpenMic,
+            customTtl: customTtl);
 
         _dbContext.MoodPods.Add(pod);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -386,7 +395,8 @@ public record UpdatePodSettingsCommand(
     bool? AllowParticipantsChangeTheme = null,
     bool? AllowParticipantsPlayBgMusic = null,
     bool? AllowOpenMic = null,
-    bool? IsPrivate = null
+    bool? IsPrivate = null,
+    int? DurationHours = null
 ) : IRequest<MoodPodDto>;
 
 public class UpdatePodSettingsCommandHandler : IRequestHandler<UpdatePodSettingsCommand, MoodPodDto>
@@ -422,6 +432,7 @@ public class UpdatePodSettingsCommandHandler : IRequestHandler<UpdatePodSettings
                                      request.AllowParticipantsPlayBgMusic == null &&
                                      request.AllowOpenMic == null &&
                                      request.IsPrivate == null &&
+                                     request.DurationHours == null &&
                                      request.Title == null;
 
             if (!pod.AllowParticipantsChangeTheme || !isOnlyVisualUpdate)
@@ -429,6 +440,13 @@ public class UpdatePodSettingsCommandHandler : IRequestHandler<UpdatePodSettings
                 throw new DomainRuleException("Only the host or moderators can update room settings.", "NOT_AUTHORIZED");
             }
         }
+
+        TimeSpan? newTtl = request.DurationHours switch
+        {
+            -1 or 0 => TimeSpan.FromDays(36500), // Permanent / Never closes
+            > 0 => TimeSpan.FromHours(request.DurationHours.Value),
+            _ => null
+        };
 
         pod.UpdateSettings(
             request.Title,
@@ -438,7 +456,8 @@ public class UpdatePodSettingsCommandHandler : IRequestHandler<UpdatePodSettings
             request.AllowParticipantsChangeTheme,
             request.AllowParticipantsPlayBgMusic,
             request.AllowOpenMic,
-            request.IsPrivate
+            request.IsPrivate,
+            newTtl
         );
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -458,6 +477,7 @@ public class UpdatePodSettingsCommandHandler : IRequestHandler<UpdatePodSettings
             allowParticipantsChangeTheme = pod.AllowParticipantsChangeTheme,
             allowParticipantsPlayBgMusic = pod.AllowParticipantsPlayBgMusic,
             allowOpenMic = pod.AllowOpenMic,
+            expiresAtUtc = pod.ExpiresAtUtc,
             moderatorUserIds = pod.ModeratorUserIds.ToList(),
             updatedByUserId = currentUserId,
             timestamp = DateTime.UtcNow
@@ -575,6 +595,54 @@ public class InviteUserToPodCommandHandler : IRequestHandler<InviteUserToPodComm
             timestamp = DateTime.UtcNow
         };
         await _centrifugoService.PublishAsync($"user:{request.TargetUserId}", inviteEvent, cancellationToken);
+
+        return true;
+    }
+}
+
+public record CloseMoodPodCommand(Guid PodId) : IRequest<bool>;
+
+public class CloseMoodPodCommandHandler : IRequestHandler<CloseMoodPodCommand, bool>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICentrifugoService _centrifugoService;
+
+    public CloseMoodPodCommandHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICentrifugoService centrifugoService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _centrifugoService = centrifugoService;
+    }
+
+    public async Task<bool> Handle(CloseMoodPodCommand request, CancellationToken cancellationToken)
+    {
+        var pod = await _dbContext.MoodPods
+            .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
+            ?? throw new NotFoundException("MoodPod", request.PodId);
+
+        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        if (!pod.IsModerator(currentUserId))
+        {
+            throw new DomainRuleException("Only the host or moderators can close this room.", "NOT_AUTHORIZED");
+        }
+
+        pod.ClosePod();
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Real-time broadcast POD_CLOSED to all participants
+        var channel = $"pod:{pod.Id}";
+        var closeEvent = new
+        {
+            type = "POD_CLOSED",
+            podId = pod.Id,
+            closedByUserId = currentUserId,
+            timestamp = DateTime.UtcNow
+        };
+        await _centrifugoService.PublishAsync(channel, closeEvent, cancellationToken);
 
         return true;
     }

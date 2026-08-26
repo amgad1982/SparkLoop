@@ -152,7 +152,8 @@ public class MoodPod : AggregateRoot<Guid>
         bool? allowParticipantsChangeTheme,
         bool? allowParticipantsPlayBgMusic,
         bool? allowOpenMic,
-        bool? isPrivate)
+        bool? isPrivate,
+        TimeSpan? newTtl = null)
     {
         CheckActive();
 
@@ -164,6 +165,7 @@ public class MoodPod : AggregateRoot<Guid>
         if (allowParticipantsPlayBgMusic.HasValue) AllowParticipantsPlayBgMusic = allowParticipantsPlayBgMusic.Value;
         if (allowOpenMic.HasValue) AllowOpenMic = allowOpenMic.Value;
         if (isPrivate.HasValue) IsPrivate = isPrivate.Value;
+        if (newTtl.HasValue) ExpiresAtUtc = DateTime.UtcNow.Add(newTtl.Value);
 
         AddDomainEvent(new MoodPodSettingsUpdatedEvent(
             Id,
@@ -338,6 +340,13 @@ public class MoodPod : AggregateRoot<Guid>
             username,
             emoji,
             intensity));
+    }
+
+    public void ClosePod()
+    {
+        IsActive = false;
+        ExpiresAtUtc = DateTime.UtcNow;
+        AddDomainEvent(new MoodPodExpiredEvent(Id, ExpiresAtUtc));
     }
 
     public void DeactivateIfExpired()

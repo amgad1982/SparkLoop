@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { api } from '../../services/apiClient';
 import { MoodPodDto } from '../../types/api';
-import { Clock, Globe, Lock, Mic, Music, Palette, Radio, Shield, Sparkles, X } from 'lucide-react';
+import { Clock, Globe, Lock, Mic, Music, Palette, Radio, Shield, Sparkles, X, Infinity as InfinityIcon } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CreateMoodPodModalProps {
@@ -57,6 +57,16 @@ const THEMES = [
   },
 ];
 
+const DURATION_OPTIONS = [
+  { value: 1, labelEn: '1 Hour', labelAr: 'ساعة واحدة' },
+  { value: 6, labelEn: '6 Hours', labelAr: '6 ساعات' },
+  { value: 12, labelEn: '12 Hours', labelAr: '12 ساعة' },
+  { value: 24, labelEn: '24 Hours (1 Day)', labelAr: '24 ساعة (يوم)' },
+  { value: 72, labelEn: '3 Days', labelAr: '3 أيام' },
+  { value: 168, labelEn: '7 Days', labelAr: '7 أيام' },
+  { value: -1, labelEn: 'Permanent (Never) ♾️', labelAr: 'دائمة بلا إغلاق ♾️' },
+];
+
 export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
   isOpen,
   onClose,
@@ -72,6 +82,7 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
   const [allowParticipantsChangeTheme, setAllowParticipantsChangeTheme] = useState(false);
   const [allowParticipantsPlayBgMusic, setAllowParticipantsPlayBgMusic] = useState(true);
   const [allowOpenMic, setAllowOpenMic] = useState(true);
+  const [durationHours, setDurationHours] = useState<number>(24);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,6 +105,7 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
         allowParticipantsChangeTheme,
         allowParticipantsPlayBgMusic,
         allowOpenMic,
+        durationHours,
       });
       onPodCreated(newPod);
       setTitle('');
@@ -111,7 +123,7 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
         <AnimatePresence>
           {isOpen && (
             <div
-              className="fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/60 dark:bg-black/80 backdrop-blur-md"
+              className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-4 bg-black/65 dark:bg-black/80 backdrop-blur-md overflow-hidden"
               onClick={onClose}
             >
               <motion.div
@@ -119,22 +131,22 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 15 }}
                 onClick={(e) => e.stopPropagation()}
-                className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-6 shadow-2xl text-zinc-900 dark:text-white space-y-4 relative z-10 transition-colors"
+                className="w-full max-w-lg max-h-[90vh] sm:max-h-[86vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl text-zinc-900 dark:text-white relative z-10 transition-colors overflow-hidden"
               >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 flex items-center justify-center">
+                {/* 1. Modal Header (Fixed at top) */}
+                <div className="p-4 sm:p-5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between shrink-0 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-0.5 flex items-center justify-center shrink-0 shadow-md shadow-cyan-500/20">
                       <div className="w-full h-full bg-white dark:bg-zinc-950 rounded-[14px] flex items-center justify-center">
                         <Radio className="w-4 h-4 text-cyan-500 dark:text-cyan-400 animate-pulse" />
                       </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-base text-zinc-900 dark:text-white">
-                        {isArabic ? 'إنشاء حجرة مزاج مؤقتة (24 ساعة)' : 'Create Ephemeral Mood Pod'}
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-sm sm:text-base text-zinc-900 dark:text-white truncate">
+                        {isArabic ? 'إطلاق حجرة مزاج صوتية' : 'Launch Live Mood Pod'}
                       </h3>
-                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                        {isArabic ? 'غرفة صوت ودردشة تفاعلية تنتهي تلقائياً بعد 24 ساعة' : '24h real-time room with ambient sound & live reactions'}
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
+                        {isArabic ? 'حجرة تفاعلية بصوت لايف وموسيقى ومؤثرات' : 'Real-time voice stage with ambient synth & DJ soundboard'}
                       </p>
                     </div>
                   </div>
@@ -142,22 +154,23 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full bg-zinc-100 dark:bg-zinc-800 transition-colors"
+                    className="p-2 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-full bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors shrink-0 cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                {error && (
-                  <div className="p-3 rounded-2xl bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300">
-                    {error}
-                  </div>
-                )}
+                {/* 2. Scrollable Form Content (Flex-1) */}
+                <form id="create-pod-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 no-scrollbar">
+                  {error && (
+                    <div className="p-3 rounded-2xl bg-rose-100 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-800 text-xs text-rose-700 dark:text-rose-300">
+                      {error}
+                    </div>
+                  )}
 
-                <form onSubmit={handleSubmit} className="space-y-4">
                   {/* Room Title */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
                       {isArabic ? 'عنوان الحجرة / موضوع النقاش' : 'Room Title & Topic'} <span className="text-fuchsia-500">*</span>
                     </label>
                     <input
@@ -172,7 +185,7 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
 
                   {/* Mood Emoji Picker */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
                       {isArabic ? 'أيقونة المزاج' : 'Mood Emoji'}
                     </label>
                     <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
@@ -181,7 +194,7 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
                           key={emoji}
                           type="button"
                           onClick={() => setSelectedEmoji(emoji)}
-                          className={`text-xl p-2.5 rounded-2xl border transition-all shrink-0 ${
+                          className={`text-xl p-2.5 rounded-2xl border transition-all shrink-0 cursor-pointer ${
                             selectedEmoji === emoji
                               ? 'bg-cyan-500/20 border-cyan-500 scale-110 shadow-md shadow-cyan-500/20'
                               : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
@@ -195,47 +208,100 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
 
                   {/* Theme Picker */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
                       {isArabic ? 'السمة البصرية والصوتية' : 'Ambient Visual & Sound Theme'}
                     </label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {THEMES.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => setSelectedTheme(t.id)}
-                          className={`p-3 rounded-2xl border text-left rtl:text-right bg-gradient-to-r ${t.gradient} transition-all flex items-center justify-between ${
-                            selectedTheme === t.id
-                              ? 'ring-2 ring-cyan-500 border-cyan-500 shadow-md'
-                              : 'opacity-85 hover:opacity-100'
-                          }`}
-                        >
-                          <div>
-                            <div className={`text-xs font-bold ${t.textColor}`}>
-                              {isArabic ? t.nameAr : t.name}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {THEMES.map((theme) => {
+                        const isSelected = selectedTheme === theme.id;
+                        return (
+                          <button
+                            key={theme.id}
+                            type="button"
+                            onClick={() => setSelectedTheme(theme.id)}
+                            className={`p-2.5 rounded-2xl border text-left rtl:text-right transition-all flex flex-col justify-between h-20 relative overflow-hidden cursor-pointer ${
+                              isSelected
+                                ? 'border-cyan-500 ring-2 ring-cyan-500/40 shadow-md'
+                                : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700'
+                            }`}
+                          >
+                            <div className={`absolute inset-0 bg-gradient-to-br ${theme.gradient} opacity-90`} />
+                            <div className="relative z-10 flex items-center justify-between w-full">
+                              <span className={`text-[11px] font-extrabold ${theme.textColor}`}>
+                                {isArabic ? theme.nameAr : theme.name}
+                              </span>
+                              {isSelected && (
+                                <Sparkles className="w-3.5 h-3.5 text-cyan-500 shrink-0" />
+                              )}
                             </div>
-                            <div className="text-[10px] text-zinc-600 dark:text-zinc-400">
-                              {isArabic ? 'خلفية ومؤثر صوتي مدمج' : 'Background & soundscape'}
+                            <div className="relative z-10 flex items-center gap-1 text-[9px] text-zinc-600 dark:text-zinc-400">
+                              <Palette className="w-3 h-3" />
+                              <span>{isArabic ? 'موسيقى تفاعلية' : 'Synth ambient'}</span>
                             </div>
-                          </div>
-                          {selectedTheme === t.id && (
-                            <Sparkles className={`w-4 h-4 ${t.accent}`} />
-                          )}
-                        </button>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  {/* Privacy Selector */}
+                  {/* Room Duration / Lifetime Selector */}
+                  <div className="p-3.5 bg-zinc-50 dark:bg-zinc-950/80 rounded-2xl border border-zinc-200 dark:border-zinc-800 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-bold text-zinc-900 dark:text-white">
+                        <Clock className="w-3.5 h-3.5 text-amber-500" />
+                        <span>{isArabic ? 'مدة بقاء الحجرة (Room Lifetime)' : 'Room Lifetime & Duration'}</span>
+                      </div>
+                      <span className="text-[10.5px] font-mono text-amber-600 dark:text-amber-400 font-bold">
+                        {DURATION_OPTIONS.find((d) => d.value === durationHours)?.[isArabic ? 'labelAr' : 'labelEn']}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-1.5">
+                      {DURATION_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setDurationHours(opt.value)}
+                          className={`py-2 px-1.5 rounded-xl text-[10.5px] font-bold border transition-all text-center cursor-pointer ${
+                            durationHours === opt.value
+                              ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500 shadow-sm'
+                              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'
+                          }`}
+                        >
+                          {isArabic ? opt.labelAr : opt.labelEn}
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5 pt-0.5">
+                      {durationHours === -1 ? (
+                        <>
+                          <InfinityIcon className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span>{isArabic ? 'ستظل هذه الحجرة نشطة ومفتوحة دائماً دون إغلاق تلقائي.' : 'This room will remain open permanently with no auto-expiration.'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          <span>
+                            {isArabic
+                              ? `ستُغلق الحجرة وتختفي تلقائياً بعد مرور ${DURATION_OPTIONS.find((d) => d.value === durationHours)?.labelAr}.`
+                              : `This room will automatically close after ${DURATION_OPTIONS.find((d) => d.value === durationHours)?.labelEn}.`}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Privacy Selection */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                    <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
                       {isArabic ? 'خصوصية الحجرة' : 'Room Privacy'}
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setIsPrivate(false)}
-                        className={`p-3 rounded-2xl border text-left rtl:text-right transition-all flex items-center gap-2.5 ${
+                        className={`p-3 rounded-2xl border text-left rtl:text-right transition-all flex items-center gap-2.5 cursor-pointer ${
                           !isPrivate
                             ? 'bg-emerald-500/10 border-emerald-500 text-emerald-700 dark:text-emerald-300 ring-2 ring-emerald-500/40 shadow-sm'
                             : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700'
@@ -244,14 +310,14 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
                         <Globe className="w-4 h-4 shrink-0 text-emerald-500" />
                         <div>
                           <div className="text-xs font-bold">{isArabic ? 'عامة 🌐' : 'Public 🌐'}</div>
-                          <div className="text-[10px] opacity-80">{isArabic ? 'مفتوحة للجميع في المستكشف' : 'Open to everyone'}</div>
+                          <div className="text-[10px] opacity-80">{isArabic ? 'متاحة للجميع بالخلاصة' : 'Visible on feed'}</div>
                         </div>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setIsPrivate(true)}
-                        className={`p-3 rounded-2xl border text-left rtl:text-right transition-all flex items-center gap-2.5 ${
+                        className={`p-3 rounded-2xl border text-left rtl:text-right transition-all flex items-center gap-2.5 cursor-pointer ${
                           isPrivate
                             ? 'bg-purple-500/10 border-purple-500 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500/40 shadow-sm'
                             : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-700'
@@ -260,7 +326,7 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
                         <Lock className="w-4 h-4 shrink-0 text-purple-500" />
                         <div>
                           <div className="text-xs font-bold">{isArabic ? 'خاصة 🔒' : 'Private 🔒'}</div>
-                          <div className="text-[10px] opacity-80">{isArabic ? 'بالدعوات وكود الدخول فقط' : 'Invites & code only'}</div>
+                          <div className="text-[10px] opacity-80">{isArabic ? 'بالدعوات وكود الدخول' : 'Invite code only'}</div>
                         </div>
                       </button>
                     </div>
@@ -314,36 +380,27 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
                       </label>
                     </div>
                   </div>
-
-                  {/* Expiration Banner */}
-                  <div className="p-3 bg-zinc-100 dark:bg-zinc-950/80 rounded-2xl border border-zinc-200 dark:border-zinc-800 flex items-center gap-2.5 text-xs text-zinc-600 dark:text-zinc-400">
-                    <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-                    <span>
-                      {isArabic
-                        ? 'ستظل الحجرة نشطة لمدة 24 ساعة، ثم تُغلق وتُحذف تلقائياً.'
-                        : 'This room will remain active for 24 hours and will be closed automatically.'}
-                    </span>
-                  </div>
-
-                  {/* Submit Buttons */}
-                  <div className="flex items-center justify-end gap-2 pt-2">
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="px-4 py-2.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 transition-colors"
-                    >
-                      {isArabic ? 'إلغاء' : 'Cancel'}
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-cyan-600/30"
-                    >
-                      <Radio className="w-4 h-4" />
-                      <span>{isSubmitting ? (isArabic ? 'جاري الإنشاء...' : 'Creating...') : (isArabic ? 'إطلاق الحجرة الآن' : 'Launch Mood Pod')}</span>
-                    </button>
-                  </div>
                 </form>
+
+                {/* 3. Sticky Footer Action Buttons (Always visible at bottom) */}
+                <div className="p-3.5 sm:p-4 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/95 dark:bg-zinc-950/95 backdrop-blur-md flex items-center justify-end gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="px-4 py-2.5 bg-zinc-200/80 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 transition-colors cursor-pointer"
+                  >
+                    {isArabic ? 'إلغاء' : 'Cancel'}
+                  </button>
+                  <button
+                    type="submit"
+                    form="create-pod-form"
+                    disabled={isSubmitting}
+                    className="px-5 py-2.5 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-cyan-600/30 cursor-pointer"
+                  >
+                    <Radio className="w-4 h-4" />
+                    <span>{isSubmitting ? (isArabic ? 'جاري الإنشاء...' : 'Creating...') : (isArabic ? 'إطلاق الحجرة الآن 🚀' : 'Launch Mood Pod 🚀')}</span>
+                  </button>
+                </div>
               </motion.div>
             </div>
           )}

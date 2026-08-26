@@ -368,6 +368,18 @@ public class MoodPodsController : ControllerBase
         return Ok(result);
     }
 
+    [HttpGet("{id:guid}/livekit-token")]
+    public async Task<ActionResult<LiveKitTokenDto>> GetLiveKitToken(
+        Guid id,
+        [FromQuery] bool isOnStage = false,
+        [FromQuery] string? userId = null,
+        [FromQuery] string? username = null,
+        [FromQuery] string? displayName = null)
+    {
+        var result = await _mediator.Send(new GetPodVoiceTokenQuery(id, isOnStage, userId, username, displayName));
+        return Ok(result);
+    }
+
     [HttpPost("join-by-code")]
     public async Task<ActionResult<MoodPodDto>> JoinByCode([FromBody] JoinByCodeRequest request)
     {
@@ -384,6 +396,14 @@ public class MoodPodsController : ControllerBase
         }
 
         var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [HttpPost("{id:guid}/close")]
+    [HttpDelete("{id:guid}")]
+    public async Task<ActionResult<bool>> ClosePod(Guid id)
+    {
+        var result = await _mediator.Send(new CloseMoodPodCommand(id));
         return Ok(result);
     }
 

@@ -29,9 +29,10 @@ public static class MoodPodQueries
                 m.CreatedAtUtc
             )).ToList();
 
-        var timeRemaining = pod.ExpiresAtUtc > DateTime.UtcNow
-            ? pod.ExpiresAtUtc - DateTime.UtcNow
-            : TimeSpan.Zero;
+        var isPermanent = pod.ExpiresAtUtc >= DateTime.UtcNow.AddYears(10);
+        var timeRemaining = isPermanent
+            ? TimeSpan.FromDays(36500)
+            : (pod.ExpiresAtUtc > DateTime.UtcNow ? pod.ExpiresAtUtc - DateTime.UtcNow : TimeSpan.Zero);
 
         return new MoodPodDto(
             pod.Id,
@@ -45,7 +46,7 @@ public static class MoodPodQueries
             pod.CreatedAtUtc,
             pod.ExpiresAtUtc,
             timeRemaining,
-            pod.IsActive && timeRemaining > TimeSpan.Zero,
+            pod.IsActive && (isPermanent || timeRemaining > TimeSpan.Zero),
             pod.ActiveParticipantCount,
             messages,
             pod.CustomBackgroundImageUrl,
@@ -146,6 +147,72 @@ public class JoinPodByCodeCommandHandler : IRequestHandler<JoinPodByCodeCommand,
         }
 
         return MoodPodQueries.MapToDto(pod);
+    }
+}
+
+public record GetPodVoiceTokenQuery(
+    Guid PodId,
+    bool IsOnStage = false,
+    string? UserId = null,
+    string? Username = null,
+    string? DisplayName = null
+) : IRequest<LiveKitTokenDto>;
+
+public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuery, LiveKitTokenDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ILiveKitService _liveKitService;
+    private readonly ICurrentUserService _currentUserService;
+
+    public GetPodVoiceTokenQueryHandler(
+        IAppDbContext dbContext,
+        ILiveKitService liveKitService,
+        ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _liveKitService = liveKitService;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<LiveKitTokenDto> Handle(GetPodVoiceTokenQuery request, CancellationToken cancellationToken)
+    {
+        var pod = await _dbContext.MoodPods
+            .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
+            ?? throw new NotFoundException("MoodPod", request.PodId);
+
+        var uid = request.UserId
+            ?? _currentUserService.UserId?.ToString()
+            ?? Guid.NewGuid().ToString();
+
+        var uname = request.Username
+            ?? _currentUserService.Username
+            ?? "sparkguest";
+
+        var dname = request.DisplayName
+            ?? _currentUserService.DisplayName
+            ?? uname;
+
+        var isHost = pod.HostUserId.ToString() == uid || pod.HostUsername.Equals(uname, StringComparison.OrdinalIgnoreCase);
+        var isOnStage = request.IsOnStage || isHost || pod.AllowOpenMic;
+
+        var token = _liveKitService.GenerateVoiceToken(
+            podId: pod.Id.ToString(),
+            userId: uid,
+            username: uname,
+            displayName: dname,
+            isOnStage: isOnStage
+        );
+
+        var roomName = $"pod-{pod.Id}";
+        var serverUrl = _liveKitService.GetServerUrl();
+
+        return new LiveKitTokenDto(
+            Token: token,
+            ServerUrl: serverUrl,
+            RoomName: roomName,
+            Identity: uid,
+            IsOnStage: isOnStage
+        );
     }
 }
 

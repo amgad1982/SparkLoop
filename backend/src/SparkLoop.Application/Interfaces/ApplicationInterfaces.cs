@@ -55,3 +55,9 @@ public interface ICacheService
     Task RemoveAsync(string key, CancellationToken cancellationToken = default);
     Task<long> IncrementAsync(string key, TimeSpan? expiry = null, CancellationToken cancellationToken = default);
 }
+
+public interface ILiveKitService
+{
+    string GenerateVoiceToken(string podId, string userId, string username, string displayName, bool isOnStage, TimeSpan? ttl = null);
+    string GetServerUrl();
+}

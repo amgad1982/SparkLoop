@@ -8,7 +8,7 @@ import { usePodVoiceEngine } from '../../hooks/usePodVoiceEngine';
 import { FloatingReactions } from './FloatingReactions';
 import { PodAudioPlayer } from './PodAudioPlayer';
 import { PodAudioStage } from './PodAudioStage';
-import { PodBgMusicPlayer } from './PodBgMusicPlayer';
+import { PodBgMusicPlayer, PodBgMusicActiveBar } from './PodBgMusicPlayer';
 import { PodModerationDrawer } from './PodModerationDrawer';
 import { Tooltip } from '../ui/Tooltip';
 import { api, getMediaUrl } from '../../services/apiClient';
@@ -103,6 +103,50 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
     },
   });
 
+  // Live ticking countdown timer for pod expiration
+  const [formattedTimeLeft, setFormattedTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      if (!pod.expiresAtUtc) {
+        setFormattedTimeLeft(isArabic ? 'دائمة ♾️' : 'Permanent ♾️');
+        return;
+      }
+      const now = new Date().getTime();
+      const expires = new Date(pod.expiresAtUtc).getTime();
+      const diffMs = expires - now;
+
+      // Over 1 year or invalid means permanent
+      if (diffMs > 365 * 24 * 3600 * 1000 || isNaN(diffMs)) {
+        setFormattedTimeLeft(isArabic ? 'دائمة ♾️' : 'Permanent ♾️');
+        return;
+      }
+
+      if (diffMs <= 0) {
+        setFormattedTimeLeft(isArabic ? 'منتهية' : 'Expired');
+        return;
+      }
+
+      const totalSeconds = Math.floor(diffMs / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+
+      const pad = (n: number) => String(n).padStart(2, '0');
+      if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        const remHours = hours % 24;
+        setFormattedTimeLeft(`${days}d ${pad(remHours)}h ${pad(minutes)}m`);
+      } else {
+        setFormattedTimeLeft(`${pad(hours)}:${pad(minutes)}:${pad(seconds)}`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [pod.expiresAtUtc, pod.timeRemaining, isArabic]);
+
   // Real-Time Centrifugo Subscription for `pod:{podId}`
   useCentrifugo(`pod:${pod.id}`, (data) => {
     if (data.type === 'POD_MESSAGE' && data.message) {
@@ -121,19 +165,21 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
         }
         return [...prev, newMsg];
       });
-    } else if (data.type === 'POD_SETTINGS_UPDATED') {
-      const updatedPod = data.pod as MoodPodDto;
-      if (updatedPod) {
+    } else if (data.type === 'POD_SETTINGS_UPDATED' || data.type === 'POD_UPDATED') {
+      const p = (data.pod || data.payload || data) as any;
+      if (p) {
         setPod((prev) => ({
           ...prev,
-          title: updatedPod.title || prev.title,
-          moodEmoji: updatedPod.moodEmoji || prev.moodEmoji,
-          backgroundTheme: updatedPod.backgroundTheme || prev.backgroundTheme,
-          customBackgroundImageUrl: updatedPod.customBackgroundImageUrl !== undefined ? updatedPod.customBackgroundImageUrl : prev.customBackgroundImageUrl,
-          isPrivate: updatedPod.isPrivate !== undefined ? updatedPod.isPrivate : prev.isPrivate,
-          allowParticipantsChangeTheme: updatedPod.allowParticipantsChangeTheme !== undefined ? updatedPod.allowParticipantsChangeTheme : prev.allowParticipantsChangeTheme,
-          allowParticipantsPlayBgMusic: updatedPod.allowParticipantsPlayBgMusic !== undefined ? updatedPod.allowParticipantsPlayBgMusic : prev.allowParticipantsPlayBgMusic,
-          allowOpenMic: updatedPod.allowOpenMic !== undefined ? updatedPod.allowOpenMic : prev.allowOpenMic,
+          title: p.title !== undefined && p.title !== null ? p.title : prev.title,
+          moodEmoji: p.moodEmoji !== undefined && p.moodEmoji !== null ? p.moodEmoji : prev.moodEmoji,
+          backgroundTheme: p.backgroundTheme !== undefined && p.backgroundTheme !== null ? p.backgroundTheme : prev.backgroundTheme,
+          customBackgroundImageUrl: p.customBackgroundImageUrl !== undefined ? p.customBackgroundImageUrl : prev.customBackgroundImageUrl,
+          isPrivate: p.isPrivate !== undefined ? p.isPrivate : prev.isPrivate,
+          inviteCode: p.inviteCode !== undefined ? p.inviteCode : prev.inviteCode,
+          allowParticipantsChangeTheme: p.allowParticipantsChangeTheme !== undefined ? p.allowParticipantsChangeTheme : prev.allowParticipantsChangeTheme,
+          allowParticipantsPlayBgMusic: p.allowParticipantsPlayBgMusic !== undefined ? p.allowParticipantsPlayBgMusic : prev.allowParticipantsPlayBgMusic,
+          allowOpenMic: p.allowOpenMic !== undefined ? p.allowOpenMic : prev.allowOpenMic,
+          moderatorUserIds: p.moderatorUserIds !== undefined ? p.moderatorUserIds : prev.moderatorUserIds,
         }));
       }
     } else if (data.type === 'MODERATION_ACTION') {
@@ -146,6 +192,10 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
         } else if (action === 'remote_mute') {
           if (!voiceEngine.isMuted) {
             voiceEngine.toggleMute();
+          }
+        } else if (action === 'kick_stage') {
+          if (voiceEngine.isOnStage) {
+            voiceEngine.handleLeaveStage();
           }
         }
       }
@@ -365,6 +415,23 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
         )}
       </AnimatePresence>
 
+      {/* Autoplay Audio Unlock Banner (If browser blocks audio autoplay) */}
+      {!voiceEngine.canPlaybackAudio && (
+        <div className="bg-amber-500/20 border-b border-amber-500/30 px-3.5 py-2 flex items-center justify-between text-xs text-amber-800 dark:text-amber-200 font-bold z-30">
+          <div className="flex items-center gap-2">
+            <Radio className="w-4 h-4 text-amber-500 animate-pulse" />
+            <span>{isArabic ? 'المتصفح حجب تشغيل الصوت تلقائياً. اضغط لتفعيل الصوت المباشر' : 'Audio autoplay blocked by browser. Click to enable sound.'}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => voiceEngine.unlockAudioPlayback()}
+            className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+          >
+            {isArabic ? 'تفعيل الصوت 🔊' : 'Enable Audio 🔊'}
+          </button>
+        </div>
+      )}
+
       {/* Pod Room Header */}
       <div className="p-3.5 border-b border-zinc-200 dark:border-zinc-800/80 bg-white/85 dark:bg-zinc-950/75 backdrop-blur-xl flex items-center justify-between z-10 gap-3 transition-colors">
         <div className="flex items-center gap-3 min-w-0">
@@ -386,34 +453,70 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
           </div>
 
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate">{pod.title}</h3>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-bold text-sm text-zinc-900 dark:text-zinc-100 truncate max-w-[140px] sm:max-w-[200px]">
+                {pod.title}
+              </h3>
               {pod.isPrivate && (
                 <span className="px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/30 text-purple-600 dark:text-purple-300 text-[10px] font-black flex items-center gap-1 shrink-0">
                   <Lock className="w-3 h-3" />
                   <span>{isArabic ? 'خاصة' : 'Private'}</span>
                 </span>
               )}
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              {/* Dedicated Live Countdown Timer Badge */}
+              <Tooltip content={isArabic ? 'الوقت المتبقي قبل انتهاء الحجرة' : 'Time remaining before pod closes'} position="bottom">
+                <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 dark:bg-amber-500/20 border border-amber-500/40 text-amber-700 dark:text-amber-300 font-mono text-[10px] font-extrabold shrink-0 shadow-sm">
+                  <Clock className="w-3 h-3 text-amber-500 shrink-0 animate-pulse" />
+                  <span>{formattedTimeLeft}</span>
+                </div>
+              </Tooltip>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 hidden xs:inline-block" />
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-              <span className="flex items-center gap-1">
+            <div className="flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span className="flex items-center gap-1 shrink-0">
                 <Users className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
                 <span>{pod.activeParticipantCount} {isArabic ? 'متواجدين' : 'online'}</span>
               </span>
               <span>•</span>
-              <span className="text-zinc-600 dark:text-zinc-400 font-medium">@{pod.hostUsername}</span>
-              <span>•</span>
-              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-mono">
-                <Clock className="w-3 h-3" />
-                <span>{pod.timeRemaining ? `${String(pod.timeRemaining).split('.')[0]}` : '24h'}</span>
-              </span>
+              <span className="text-zinc-600 dark:text-zinc-400 font-medium truncate">@{pod.hostUsername}</span>
             </div>
           </div>
         </div>
 
-        {/* Live DJ Background Audio Sharing, Soundboard & Moderation */}
-        <div className="flex items-center gap-2 shrink-0">
+        {/* Header Right Actions: DJ Trigger, Soundboard & Settings */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Live Background Audio Trigger */}
+          <PodBgMusicPlayer
+            bgMusic={voiceEngine.bgMusic}
+            bgMusicVolume={voiceEngine.bgMusicVolume}
+            isBgMusicMuted={voiceEngine.isBgMusicMuted}
+            onVolumeChange={voiceEngine.setBgMusicVolume}
+            onToggleMute={voiceEngine.toggleBgMusicMute}
+            onStartSharingPreset={voiceEngine.startSharingPresetAmbient}
+            onStartSharingFile={voiceEngine.startSharingLocalFile}
+            onStartSharingSystem={voiceEngine.startSharingSystemAudio}
+            onPause={voiceEngine.pauseBgMusic}
+            onResume={voiceEngine.resumeBgMusic}
+            onStopSharing={voiceEngine.stopSharingBgMusic}
+          />
+
+          {/* Soundboard Trigger Button */}
+          <Tooltip content={isArabic ? 'لوحة المؤثرات الصوتية التفاعلية المباشرة' : 'Live Interactive DJ Soundboard'} position="bottom">
+            <button
+              onClick={() => setShowSoundboard(!showSoundboard)}
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
+                showSoundboard
+                  ? 'bg-fuchsia-600/20 text-fuchsia-600 dark:text-fuchsia-300 border-fuchsia-500/50 shadow-md'
+                  : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <Music className="w-3.5 h-3.5 text-fuchsia-500 dark:text-fuchsia-400" />
+              <span className="hidden md:inline">
+                {isArabic ? 'المؤثرات 🎵' : 'Soundboard 🎵'}
+              </span>
+            </button>
+          </Tooltip>
+
           {/* Moderation / Room Settings Button */}
           {(isHost || isModerator || pod.allowParticipantsChangeTheme) && (
             <Tooltip
@@ -431,52 +534,48 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
               <button
                 type="button"
                 onClick={() => setIsModerationDrawerOpen(true)}
-                className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-cyan-600 dark:text-cyan-400 transition-colors shadow-sm"
+                className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 text-cyan-600 dark:text-cyan-400 transition-colors shadow-sm cursor-pointer"
               >
                 {isHost || isModerator ? <Shield className="w-4 h-4" /> : <Settings className="w-4 h-4" />}
               </button>
             </Tooltip>
           )}
-
-          <Tooltip content={isArabic ? 'لوحة المؤثرات الصوتية التفاعلية المباشرة' : 'Live Interactive DJ Soundboard'} position="bottom">
-            <button
-              onClick={() => setShowSoundboard(!showSoundboard)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
-                showSoundboard
-                  ? 'bg-fuchsia-600/20 text-fuchsia-600 dark:text-fuchsia-300 border-fuchsia-500/50 shadow-md'
-                  : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-white'
-              }`}
-            >
-              <Music className="w-3.5 h-3.5 text-fuchsia-500 dark:text-fuchsia-400" />
-              <span className="hidden sm:inline">
-                {isArabic ? 'المؤثرات 🎵' : 'Soundboard 🎵'}
-              </span>
-            </button>
-          </Tooltip>
-
-          {/* Live Background Audio / Local Audio Sharing */}
-          <PodBgMusicPlayer
-            bgMusic={voiceEngine.bgMusic}
-            bgMusicVolume={voiceEngine.bgMusicVolume}
-            isBgMusicMuted={voiceEngine.isBgMusicMuted}
-            onVolumeChange={voiceEngine.setBgMusicVolume}
-            onToggleMute={voiceEngine.toggleBgMusicMute}
-            onStartSharingFile={voiceEngine.startSharingLocalFile}
-            onStartSharingSystem={voiceEngine.startSharingSystemAudio}
-            onPause={voiceEngine.pauseBgMusic}
-            onResume={voiceEngine.resumeBgMusic}
-            onStopSharing={voiceEngine.stopSharingBgMusic}
-          />
         </div>
       </div>
 
-      {/* Live Voice Stage (Full WebRTC P2P Voice Mesh + Audio Visualizer) */}
+      {/* Dedicated Standalone DJ Ambient Music Bar (Renders cleanly when active) */}
+      <AnimatePresence>
+        {voiceEngine.bgMusic.isActive && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, y: -8 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -8 }}
+            className="px-3.5 pt-2.5 z-10"
+          >
+            <PodBgMusicActiveBar
+              bgMusic={voiceEngine.bgMusic}
+              bgMusicVolume={voiceEngine.bgMusicVolume}
+              isBgMusicMuted={voiceEngine.isBgMusicMuted}
+              onVolumeChange={voiceEngine.setBgMusicVolume}
+              onToggleMute={voiceEngine.toggleBgMusicMute}
+              onPause={voiceEngine.pauseBgMusic}
+              onResume={voiceEngine.resumeBgMusic}
+              onStopSharing={voiceEngine.stopSharingBgMusic}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Live Voice Stage (Full WebRTC LiveKit SFU + Audio Visualizer) */}
       <div className="px-3 pt-3 z-10">
         <PodAudioStage
           podId={pod.id}
           hostUsername={pod.hostUsername}
           hostDisplayName={pod.hostDisplayName}
           hostAvatarUrl={pod.hostAvatarUrl}
+          allowOpenMic={pod.allowOpenMic ?? false}
+          isModerator={isModerator}
+          moderatorUserIds={pod.moderatorUserIds}
           speakers={voiceEngine.speakers}
           isOnStage={voiceEngine.isOnStage}
           isMuted={voiceEngine.isMuted}
@@ -489,7 +588,9 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
           onLeaveStage={voiceEngine.handleLeaveStage}
           onToggleMute={voiceEngine.toggleMute}
           onToggleHandRaise={voiceEngine.toggleHandRaise}
-          onInviteUser={voiceEngine.inviteUserToStage}
+          onInviteUser={voiceEngine.hostApproveSpeaker}
+          onHostMuteSpeaker={voiceEngine.hostMuteSpeaker}
+          onHostRemoveSpeaker={voiceEngine.hostRemoveSpeaker}
           onVolumeChange={voiceEngine.setRoomVolume}
           onToggleAudioMute={() => voiceEngine.setIsAudioMuted(!voiceEngine.isAudioMuted)}
         />

@@ -231,4 +231,12 @@ public record GlobalSearchResultDto(
     IReadOnlyList<HashtagDto> Hashtags
 );
 
+public record LiveKitTokenDto(
+    string Token,
+    string ServerUrl,
+    string RoomName,
+    string Identity,
+    bool IsOnStage
+);
+
 

@@ -233,5 +233,13 @@ export interface GlobalSearchResultDto {
   hashtags: HashtagDto[];
 }
 
+export interface LiveKitTokenDto {
+  token: string;
+  serverUrl: string;
+  roomName: string;
+  identity: string;
+  isOnStage: boolean;
+}
+
 
 

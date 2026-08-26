@@ -47,6 +47,9 @@ public static class DependencyInjection
         // Centrifugo RealTime
         services.AddHttpClient<ICentrifugoService, CentrifugoService>();
 
+        // LiveKit SFU RealTime Voice
+        services.AddSingleton<ILiveKitService, LiveKitService>();
+
         // MinIO Blob Storage
         services.AddSingleton<IBlobStorageService, MinioStorageService>();
 

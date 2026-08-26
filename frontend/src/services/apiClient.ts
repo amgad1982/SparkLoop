@@ -15,6 +15,7 @@ import {
   UserFollowDto,
   FollowStatusDto,
   GlobalSearchResultDto,
+  LiveKitTokenDto,
 } from '../types/api';
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5195/api';
@@ -223,11 +224,14 @@ export const api = {
     allowParticipantsChangeTheme?: boolean;
     allowParticipantsPlayBgMusic?: boolean;
     allowOpenMic?: boolean;
+    durationHours?: number;
   }) =>
     fetchWithAuth<MoodPodDto>('/moodpods', {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  getPodVoiceToken: (podId: string, isOnStage = false) =>
+    fetchWithAuth<LiveKitTokenDto>(`/moodpods/${podId}/livekit-token?isOnStage=${isOnStage}`),
   updatePodSettings: (
     podId: string,
     settings: {
@@ -239,11 +243,16 @@ export const api = {
       allowParticipantsPlayBgMusic?: boolean;
       allowOpenMic?: boolean;
       isPrivate?: boolean;
+      durationHours?: number;
     }
   ) =>
     fetchWithAuth<MoodPodDto>(`/moodpods/${podId}/settings`, {
       method: 'PUT',
       body: JSON.stringify(settings),
+    }),
+  closePod: (podId: string) =>
+    fetchWithAuth<boolean>(`/moodpods/${podId}/close`, {
+      method: 'POST',
     }),
   moderatePodParticipant: (
     podId: string,
