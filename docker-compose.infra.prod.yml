@@ -1,6 +1,7 @@
 # ==========================================
-# SparkLoop Local Development Infrastructure Stack
-# Exposes host ports for IDEs, DBeaver, Redis GUI, MinIO Console
+# SparkLoop Production Infrastructure Stack
+# Private, Zero Host-Port Exposure Network
+# All communication is isolated inside 'sparkloop-net'
 # ==========================================
 
 services:
@@ -9,33 +10,31 @@ services:
     container_name: sparkloop-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: sparkloop
-      POSTGRES_USER: sparkuser
-      POSTGRES_PASSWORD: sparkpassword123!
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-sparkloop}
+      POSTGRES_USER: ${POSTGRES_USER:-sparkuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sparkpassword123!}
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U sparkuser -d sparkloop"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sparkuser} -d ${POSTGRES_DB:-sparkloop}"]
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
     container_name: sparkloop-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "volatile-lru"]
     volumes:
       - redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
 
   centrifugo:
     image: centrifugo/centrifugo:v5
@@ -44,25 +43,21 @@ services:
     volumes:
       - ./centrifugo.json:/centrifugo/config.json:ro
     command: centrifugo -c /centrifugo/config.json
-    ports:
-      - "8000:8000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
 
   minio:
     image: minio/minio:latest
     container_name: sparkloop-minio
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    command: server /data
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadminpassword123!
-    ports:
-      - "9000:9000"
-      - "9001:9001"
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadminpassword123!}
     volumes:
       - miniodata:/data
     healthcheck:
@@ -70,23 +65,21 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   livekit:
     image: livekit/livekit-server:latest
     container_name: sparkloop-livekit
     restart: unless-stopped
-    command: --dev --bind 0.0.0.0 --port 7880
-    ports:
-      - "7880:7880"
-      - "7881:7881/tcp"
-      - "50000-50050:50000-50050/udp"
+    command: --bind 0.0.0.0 --port 7880
     environment:
-      LIVEKIT_KEYS: "sparkloop_livekit_key: sparkloop_livekit_secret_2026_super_secure_32chars"
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-sparkloop_livekit_key}: ${LIVEKIT_API_SECRET:-sparkloop_livekit_secret_2026_super_secure_32chars}"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:7880/"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 5s
 
 volumes:
   pgdata:
