@@ -76,6 +76,8 @@ export const App: React.FC = () => {
     queryFn: () => api.getActivePods(),
   });
 
+  const [selectedProfileUsername, setSelectedProfileUsername] = useState<string | null>(null);
+
   const handleSelectHashtag = (tag: string) => {
     setSearchHashtag(tag);
     setActiveTab('feed');
@@ -85,11 +87,19 @@ export const App: React.FC = () => {
     setSearchHashtag(null);
   };
 
+  const handleNavigateProfile = (username?: string) => {
+    setSelectedProfileUsername(username || null);
+    setActiveTab('profile');
+  };
+
   return (
     <>
       <MobileAppShell
         activeTab={activeTab}
         onTabChange={(tab) => {
+          if (tab === 'profile') {
+            setSelectedProfileUsername(null);
+          }
           setActiveTab(tab);
         }}
         isConnected={isConnected}
@@ -203,26 +213,33 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      {/* 6. User Profile & XP Portfolio Tab */}
-      {activeTab === 'profile' && (
-        <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 pb-24 md:pb-8">
-          <ProfileView onOpenCanvas={() => setActiveTab('create')} />
-        </div>
-      )}
-    </MobileAppShell>
+        {/* 6. User Profile & XP Portfolio Tab */}
+        {activeTab === 'profile' && (
+          <div className="flex-1 min-h-0 overflow-y-auto pr-0.5 pb-24 md:pb-8">
+            <ProfileView
+              username={selectedProfileUsername || undefined}
+              onOpenCanvas={() => setActiveTab('create')}
+            />
+          </div>
+        )}
+      </MobileAppShell>
 
-    <GlobalSearchModal
-      isOpen={isSearchOpen}
-      onClose={() => setIsSearchOpen(false)}
-      onNavigateTab={(tab) => {
-        setActiveTab(tab);
-      }}
-      onSelectHashtag={handleSelectHashtag}
-      onSelectPodId={(podId) => {
-        setSelectedPodId(podId);
-        setActiveTab('pods');
-      }}
-    />
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        onNavigateTab={(tab) => {
+          if (tab === 'profile') {
+            setSelectedProfileUsername(null);
+          }
+          setActiveTab(tab);
+        }}
+        onNavigateProfile={handleNavigateProfile}
+        onSelectHashtag={handleSelectHashtag}
+        onSelectPodId={(podId) => {
+          setSelectedPodId(podId);
+          setActiveTab('pods');
+        }}
+      />
 
     <AuthModal />
   </>

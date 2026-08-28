@@ -287,6 +287,14 @@ public class UsersController : ControllerBase
     }
 
     [Authorize]
+    [HttpPut("privacy-settings")]
+    public async Task<ActionResult<UserDto>> UpdatePrivacySettings([FromBody] UpdatePrivacySettingsCommand command)
+    {
+        var result = await _mediator.Send(command);
+        return Ok(result);
+    }
+
+    [Authorize]
     [HttpPost("change-password")]
     public async Task<ActionResult<bool>> ChangePassword([FromBody] ChangePasswordCommand command)
     {

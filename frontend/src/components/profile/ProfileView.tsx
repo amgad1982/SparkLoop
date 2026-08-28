@@ -140,7 +140,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
   const [profile, setProfile] = useState<UserProfileDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'portfolio' | 'edit' | 'security'>('portfolio');
+  const [activeTab, setActiveTab] = useState<'portfolio' | 'edit' | 'privacy' | 'security'>('portfolio');
   const [portfolioSubTab, setPortfolioSubTab] = useState<'posts' | 'chains' | 'badges'>('posts');
 
   // Follow Modals & Drawers State
@@ -175,6 +175,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const bannerFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Privacy Settings Form State
+  const [privacyIsPrivate, setPrivacyIsPrivate] = useState(false);
+  const [privacyIsSearchDiscoverable, setPrivacyIsSearchDiscoverable] = useState(true);
+  const [privacyShowBio, setPrivacyShowBio] = useState(true);
+  const [privacyShowFollowersCount, setPrivacyShowFollowersCount] = useState(true);
+  const [privacyShowBadges, setPrivacyShowBadges] = useState(true);
+  const [privacyShowActivityStats, setPrivacyShowActivityStats] = useState(true);
+  const [isSavingPrivacy, setIsSavingPrivacy] = useState(false);
+  const [privacyMessage, setPrivacyMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Change Password Form State
   const [currentPassword, setCurrentPassword] = useState('');
@@ -406,6 +416,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
         setEditBannerUrl(data.bannerUrl || '');
         setEditPreferredTheme(data.preferredTheme || theme);
         setEditPreferredLanguage(data.preferredLanguage || locale);
+
+        // Sync privacy settings
+        setPrivacyIsPrivate(data.isPrivate ?? false);
+        setPrivacyIsSearchDiscoverable(data.isSearchDiscoverable ?? true);
+        setPrivacyShowBio(data.showBio ?? true);
+        setPrivacyShowFollowersCount(data.showFollowersCount ?? true);
+        setPrivacyShowBadges(data.showBadges ?? true);
+        setPrivacyShowActivityStats(data.showActivityStats ?? true);
       } catch (err) {
         console.error('Failed to load profile:', err);
       } finally {
@@ -574,6 +592,62 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
       });
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  // Handle Save Privacy Settings
+  const handleSavePrivacySettings = async () => {
+    setIsSavingPrivacy(true);
+    setPrivacyMessage(null);
+    try {
+      const updatedUser = await api.updatePrivacySettings({
+        isPrivateProfile: privacyIsPrivate,
+        isSearchDiscoverable: privacyIsSearchDiscoverable,
+        showBio: privacyShowBio,
+        showFollowersCount: privacyShowFollowersCount,
+        showBadges: privacyShowBadges,
+        showActivityStats: privacyShowActivityStats,
+      });
+
+      if (currentUser) {
+        setUser({
+          ...currentUser,
+          isPrivateProfile: updatedUser.isPrivateProfile,
+          isSearchDiscoverable: updatedUser.isSearchDiscoverable,
+          showBio: updatedUser.showBio,
+          showFollowersCount: updatedUser.showFollowersCount,
+          showBadges: updatedUser.showBadges,
+          showActivityStats: updatedUser.showActivityStats,
+        });
+      }
+
+      setProfile((prev) =>
+        prev
+          ? {
+              ...prev,
+              isPrivate: updatedUser.isPrivateProfile,
+              isSearchDiscoverable: updatedUser.isSearchDiscoverable,
+              showBio: updatedUser.showBio,
+              showFollowersCount: updatedUser.showFollowersCount,
+              showBadges: updatedUser.showBadges,
+              showActivityStats: updatedUser.showActivityStats,
+            }
+          : null
+      );
+
+      setPrivacyMessage({
+        type: 'success',
+        text: isArabic ? 'تم حفظ إعدادات الخصوصية والظهور بنجاح!' : 'Privacy & discoverability settings saved successfully!',
+      });
+    } catch (err: unknown) {
+      console.error('Save privacy settings error:', err);
+      const errMsg = err instanceof Error ? err.message : 'Failed to save privacy settings.';
+      setPrivacyMessage({
+        type: 'error',
+        text: isArabic ? `خطأ: ${errMsg}` : `Error: ${errMsg}`,
+      });
+    } finally {
+      setIsSavingPrivacy(false);
     }
   };
 
@@ -810,6 +884,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   </button>
                 </Tooltip>
 
+                <Tooltip content={isArabic ? 'الخصوصية والظهور في البحث ومشاركة الحساب' : 'Privacy, discoverability & visibility'} position="top">
+                  <button
+                    onClick={() => setActiveTab('privacy')}
+                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${
+                      activeTab === 'privacy'
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                    <span>{isArabic ? 'الخصوصية والظهور' : 'Privacy'}</span>
+                  </button>
+                </Tooltip>
+
                 <Tooltip content={isArabic ? 'تغيير كلمة المرور وإعدادات الأمان' : 'Change password & security'} position="top">
                   <button
                     onClick={() => setActiveTab('security')}
@@ -874,19 +962,27 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
           {/* User Bio & Meta */}
           <div className="mt-5 space-y-2.5">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-xl sm:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
                 {profile.displayName}
               </h2>
               <span className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 font-semibold">@{profile.username}</span>
+              {profile.isPrivate && (
+                <span
+                  title={isArabic ? 'حساب خاص - للمتابعين فقط' : 'Private Profile - Followers Only'}
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-xs font-bold shrink-0 shadow-sm"
+                >
+                  <Lock className="w-3 h-3" />
+                  <span>{isArabic ? 'حساب خاص' : 'Private Profile'}</span>
+                </span>
+              )}
             </div>
 
-            <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 max-w-2xl leading-relaxed">
-              {profile.bio ||
-                (isArabic
-                  ? 'صانع محتوى وميمز ومشارك في سلاسل SparkLoop القصصية'
-                  : 'SparkLoop Creator & Storyteller')}
-            </p>
+            {(isOwnProfile || profile.showBio !== false) && profile.bio && (
+              <p className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 max-w-2xl leading-relaxed">
+                {profile.bio}
+              </p>
+            )}
 
             <div className="flex flex-wrap items-center gap-4 text-xs text-zinc-500 dark:text-zinc-400 pt-1.5">
               <span className="flex items-center gap-1.5">
@@ -906,58 +1002,109 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
             </div>
 
             {/* Followers & Following Interactive Counts */}
-            <div className="flex items-center gap-4 text-xs font-bold pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setFollowListType('followers');
-                  setIsFollowListOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-500/20 transition-colors cursor-pointer shadow-sm"
-              >
-                <Users className="w-3.5 h-3.5 text-fuchsia-600 dark:text-fuchsia-400" />
-                <span className="font-black">{profile.followersCount || 0}</span>
-                <span className="font-semibold text-[11px] opacity-80">{isArabic ? 'متابع' : 'Followers'}</span>
-              </button>
+            {(isOwnProfile || profile.showFollowersCount !== false) && (
+              <div className="flex items-center gap-4 text-xs font-bold pt-2">
+                <button
+                  type="button"
+                  disabled={!isOwnProfile && profile.isPrivate && !profile.canViewFullProfile}
+                  onClick={() => {
+                    if (!isOwnProfile && profile.isPrivate && !profile.canViewFullProfile) return;
+                    setFollowListType('followers');
+                    setIsFollowListOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-fuchsia-500/10 hover:bg-fuchsia-500/20 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-500/20 transition-colors cursor-pointer shadow-sm disabled:cursor-default"
+                >
+                  <Users className="w-3.5 h-3.5 text-fuchsia-600 dark:text-fuchsia-400" />
+                  <span className="font-black">{profile.followersCount || 0}</span>
+                  <span className="font-semibold text-[11px] opacity-80">{isArabic ? 'متابع' : 'Followers'}</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setFollowListType('following');
-                  setIsFollowListOpen(true);
-                }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 transition-colors cursor-pointer shadow-sm"
-              >
-                <UserCheck className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                <span className="font-black">{profile.followingCount || 0}</span>
-                <span className="font-semibold text-[11px] opacity-80">{isArabic ? 'يتابع' : 'Following'}</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  disabled={!isOwnProfile && profile.isPrivate && !profile.canViewFullProfile}
+                  onClick={() => {
+                    if (!isOwnProfile && profile.isPrivate && !profile.canViewFullProfile) return;
+                    setFollowListType('following');
+                    setIsFollowListOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20 transition-colors cursor-pointer shadow-sm disabled:cursor-default"
+                >
+                  <UserCheck className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span className="font-black">{profile.followingCount || 0}</span>
+                  <span className="font-semibold text-[11px] opacity-80">{isArabic ? 'يتابع' : 'Following'}</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Reputation XP Bar */}
-          <div className="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 space-y-2.5 shadow-sm">
-            <div className="flex items-center justify-between text-xs sm:text-sm">
-              <span className="font-bold flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
-                <Zap className="w-4 h-4 text-amber-500 dark:text-amber-400" />
-                {isArabic ? 'نقاط السمعة والتفاعل' : 'Reputation Score'}
-              </span>
-              <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
-                {profile.repScore} / {repTier.max} XP
-              </span>
+          {(isOwnProfile || profile.showActivityStats !== false) && (
+            <div className="mt-6 p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 space-y-2.5 shadow-sm">
+              <div className="flex items-center justify-between text-xs sm:text-sm">
+                <span className="font-bold flex items-center gap-1.5 text-amber-500 dark:text-amber-400">
+                  <Zap className="w-4 h-4 text-amber-500 dark:text-amber-400" />
+                  {isArabic ? 'نقاط السمعة والتفاعل' : 'Reputation Score'}
+                </span>
+                <span className="font-mono font-bold text-slate-800 dark:text-slate-200">
+                  {profile.repScore} / {repTier.max} XP
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-950 rounded-full overflow-hidden border border-slate-300 dark:border-slate-800/80">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 via-fuchsia-500 to-cyan-400 rounded-full transition-all duration-700"
+                  style={{ width: `${repProgress}%` }}
+                />
+              </div>
             </div>
-            <div className="w-full h-2.5 bg-slate-200 dark:bg-slate-950 rounded-full overflow-hidden border border-slate-300 dark:border-slate-800/80">
-              <div
-                className="h-full bg-gradient-to-r from-amber-500 via-fuchsia-500 to-cyan-400 rounded-full transition-all duration-700"
-                style={{ width: `${repProgress}%` }}
-              />
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
+      {/* LOCKED PRIVATE PROFILE VIEW */}
+      {!isOwnProfile && profile.isPrivate && !profile.canViewFullProfile && (
+        <div className="glass-card rounded-3xl p-8 sm:p-14 border border-slate-200 dark:border-slate-800 text-center space-y-6 shadow-sm max-w-lg mx-auto my-8">
+          <div className="w-16 h-16 rounded-3xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto text-amber-500 shadow-inner">
+            <Lock className="w-8 h-8" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white">
+              {isArabic ? 'هذا الحساب خاص ومحمي' : 'This Account is Private'}
+            </h3>
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 max-w-xs mx-auto leading-relaxed">
+              {isArabic
+                ? `تابع @${profile.username} للاطلاع على منشوراته وسلاسل المايك والشارات الخاصة به.`
+                : `Follow @${profile.username} to view their posts, story chains, and badges.`}
+            </p>
+          </div>
+          <div className="pt-2 flex justify-center">
+            <FollowButton
+              targetUserId={profile.id}
+              targetUsername={profile.username}
+              initialStatus={profile.followStatus as any}
+              size="lg"
+              onStatusChange={(newStatus) => {
+                setProfile((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        followStatus: newStatus,
+                        followersCount:
+                          newStatus === 'following' || newStatus === 'mutual'
+                            ? (prev.followersCount || 0) + 1
+                            : newStatus === 'none'
+                            ? Math.max(0, (prev.followersCount || 0) - 1)
+                            : prev.followersCount,
+                      }
+                    : null
+                );
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* 2. TAB: PORTFOLIO & ACHIEVEMENTS */}
-      {activeTab === 'portfolio' && (
+      {activeTab === 'portfolio' && (isOwnProfile || !profile.isPrivate || profile.canViewFullProfile) && (
         <div className="space-y-6">
           {/* Stats Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -1456,6 +1603,228 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
         </div>
       )}
 
+      {/* 3. TAB: PRIVACY & DISCOVERABILITY SETTINGS */}
+      {activeTab === 'privacy' && isOwnProfile && (
+        <div className="glass-card rounded-3xl p-6 sm:p-8 border border-slate-200 dark:border-slate-800 space-y-8 shadow-sm transition-colors duration-200">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-5 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                <ShieldCheck className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+                  {isArabic ? 'الخصوصية والظهور في البحث' : 'Privacy & Search Discoverability'}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {isArabic
+                    ? 'تحكم في إمكانية العثور على حسابك ومَن يمكنه رؤية منشوراتك وبياناتك الشخصية'
+                    : 'Control who can find your profile in search, and who can view your posts and details'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              disabled={isSavingPrivacy}
+              onClick={handleSavePrivacySettings}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-xl text-xs font-semibold transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 self-start sm:self-auto"
+            >
+              {isSavingPrivacy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+              <span>{isSavingPrivacy ? (isArabic ? 'جاري الحفظ...' : 'Saving...') : (isArabic ? 'حفظ إعدادات الخصوصية' : 'Save Privacy Settings')}</span>
+            </button>
+          </div>
+
+          {/* Feedback message */}
+          {privacyMessage && (
+            <div
+              className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-2.5 ${
+                privacyMessage.type === 'success'
+                  ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20'
+              }`}
+            >
+              {privacyMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
+              <span>{privacyMessage.text}</span>
+            </div>
+          )}
+
+          {/* Core Privacy Toggles */}
+          <div className="space-y-4">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+              <Lock className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{isArabic ? 'خيارات الخصوصية الرئيسية' : 'Core Account Privacy'}</span>
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Toggle 1: Search Discoverability */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Globe className="w-4 h-4 text-indigo-500" />
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">
+                      {isArabic ? 'الظهور في نتائج البحث' : 'Allow Search Discovery'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {isArabic
+                      ? 'عند تفعيل هذا الخيار، سيتمكن المستخدمون من العثور على حسابك عبر شريط البحث في التطبيق.'
+                      : 'When enabled, other users can find your profile using the search bar in the application.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={privacyIsSearchDiscoverable}
+                  onClick={() => setPrivacyIsSearchDiscoverable(!privacyIsSearchDiscoverable)}
+                  className={`w-12 h-6.5 rounded-full p-1 transition-colors relative shrink-0 ${
+                    privacyIsSearchDiscoverable ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <div
+                    className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${
+                      privacyIsSearchDiscoverable ? 'translate-x-5.5 rtl:-translate-x-5.5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Toggle 2: Private Account (Followers Only) */}
+              <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-amber-500" />
+                    <span className="text-sm font-bold text-slate-900 dark:text-white">
+                      {isArabic ? 'حساب خاص (للمتابعين فقط)' : 'Private Account (Followers Only)'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    {isArabic
+                      ? 'لن يتمكن سوى المتابعين المقبولين من مشاهدة منشوراتك وسلاسل المايك ومحفظتك. سيتطلب أي متابع جديد إرسال طلب متابعة لموافقتك.'
+                      : 'Only approved followers can view your posts and creations. New followers must send a follow request for your approval.'}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={privacyIsPrivate}
+                  onClick={() => setPrivacyIsPrivate(!privacyIsPrivate)}
+                  className={`w-12 h-6.5 rounded-full p-1 transition-colors relative shrink-0 ${
+                    privacyIsPrivate ? 'bg-amber-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <div
+                    className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${
+                      privacyIsPrivate ? 'translate-x-5.5 rtl:-translate-x-5.5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Granular Field Visibility Controls */}
+          <div className="space-y-4 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center gap-1.5">
+              <Eye className="w-3.5 h-3.5 text-cyan-500" />
+              <span>{isArabic ? 'التحكم في ظهور عناصر الملف الشخصي للعامة' : 'Profile Field Visibility to Non-Followers'}</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* Field 1: Bio */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Edit3 className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{isArabic ? 'إظهار النبذة التعريفية (Bio)' : 'Show Bio'}</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {privacyShowBio ? (isArabic ? 'مرئية للجميع' : 'Visible to public') : (isArabic ? 'مخفية عن غير المتابعين' : 'Hidden from non-followers')}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyShowBio(!privacyShowBio)}
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${
+                    privacyShowBio ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <div className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyShowBio ? 'translate-x-4.5 rtl:-translate-x-4.5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {/* Field 2: Followers/Following Count */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{isArabic ? 'إظهار عدد المتابعين والمتابَعين' : 'Show Followers & Following Count'}</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {privacyShowFollowersCount ? (isArabic ? 'مرئي للجميع' : 'Visible to public') : (isArabic ? 'مخفي عن غير المتابعين' : 'Hidden from non-followers')}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyShowFollowersCount(!privacyShowFollowersCount)}
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${
+                    privacyShowFollowersCount ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <div className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyShowFollowersCount ? 'translate-x-4.5 rtl:-translate-x-4.5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {/* Field 3: Badges */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Award className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{isArabic ? 'إظهار الأوسمة والشارات المكتسبة' : 'Show Badges & Trophies'}</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {privacyShowBadges ? (isArabic ? 'مرئية للجميع' : 'Visible to public') : (isArabic ? 'مخفية عن غير المتابعين' : 'Hidden from non-followers')}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyShowBadges(!privacyShowBadges)}
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${
+                    privacyShowBadges ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <div className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyShowBadges ? 'translate-x-4.5 rtl:-translate-x-4.5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+
+              {/* Field 4: Activity stats */}
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-slate-400" />
+                    <span>{isArabic ? 'إظهار نقاط السمعة وإحصائيات النشاط' : 'Show Rep Score & Activity Stats'}</span>
+                  </div>
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                    {privacyShowActivityStats ? (isArabic ? 'مرئية للجميع' : 'Visible to public') : (isArabic ? 'مخفية عن غير المتابعين' : 'Hidden from non-followers')}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyShowActivityStats(!privacyShowActivityStats)}
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${
+                    privacyShowActivityStats ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                  }`}
+                >
+                  <div className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyShowActivityStats ? 'translate-x-4.5 rtl:-translate-x-4.5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 4. TAB: SECURITY & ACCOUNT SETTINGS */}
       {activeTab === 'security' && isOwnProfile && (
         <div className="glass-card rounded-3xl p-6 border border-slate-200 dark:border-slate-800 space-y-6 shadow-sm transition-colors duration-200">
@@ -1511,12 +1880,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <Globe className="w-4 h-4 text-indigo-500" />
-                  <span>{isArabic ? 'الحسابات الاجتماعية المرتبطة' : 'Linked Social Accounts'}</span>
+                  <span>{isArabic ? 'الحسابات المرتبطة' : 'Linked Accounts'}</span>
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {isArabic
-                    ? 'اربط حساباتك في Google أو Facebook أو Twitter/X لتسجيل دخول سريع وآمن'
-                    : 'Link your Google, Facebook, or Twitter/X accounts for fast and secure single sign-on'}
+                    ? 'اربط حساباتك المفضلة لتسجيل دخول سريع وسلس'
+                    : 'Link your favorite accounts for fast and secure sign-in'}
                 </p>
               </div>
 
@@ -1734,18 +2103,18 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
             </form>
           </div>
 
-          {/* Section 4: Active Device Sessions & JWT Security */}
+          {/* Section 4: Active Device Sessions */}
           <div className="pt-6 border-t border-slate-200 dark:border-slate-800 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  <span>{isArabic ? 'الجلسات والأجهزة النشطة (Active JWT Sessions)' : 'Active Device Sessions'}</span>
+                  <span>{isArabic ? 'الأجهزة والجلسات النشطة' : 'Active Device Sessions'}</span>
                 </h4>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
                   {isArabic
-                    ? 'الأجهزة والمتصفحات المسجل دخولها حالياً بحسابك مع رموز التوثيق النشطة'
-                    : 'Devices and browsers currently authenticated with active JWT tokens'}
+                    ? 'الأجهزة والمتصفحات المسجل دخولها حالياً بحسابك'
+                    : 'Devices and browsers currently logged into your account'}
                 </p>
               </div>
 

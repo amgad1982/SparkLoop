@@ -154,7 +154,13 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, A
             user.PreferredTheme,
             user.PreferredLanguage,
             user.BannerUrl,
-            user.IsEmailConfirmed
+            user.IsEmailConfirmed,
+            user.IsPrivateProfile,
+            user.IsSearchDiscoverable,
+            user.ShowBio,
+            user.ShowFollowersCount,
+            user.ShowBadges,
+            user.ShowActivityStats
         );
     }
 
@@ -1171,87 +1177,125 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
             throw new NotFoundException("User", request.Username ?? "Profile");
         }
 
-        var userPosts = await _dbContext.Posts
-            .Include(p => p.Reactions)
-            .Where(p => p.AuthorId == user.Id)
-            .OrderByDescending(p => p.CreatedAtUtc)
-            .Take(20)
-            .ToListAsync(cancellationToken);
+        var currentUserId = _currentUserService.UserId;
+        var isSelf = currentUserId.HasValue && currentUserId.Value == user.Id;
+        var isAcceptedFollower = currentUserId.HasValue && await _dbContext.UserFollows
+            .AnyAsync(f => f.FollowerId == currentUserId.Value && f.FollowingId == user.Id && f.Status == FollowStatus.Accepted, cancellationToken);
+        var canViewFullProfile = isSelf || !user.IsPrivateProfile || isAcceptedFollower;
 
-        var postsCount = userPosts.Count;
-        var totalReactions = userPosts.Sum(p => p.Reactions.Count);
+        var postsCount = 0;
+        var totalReactions = 0;
+        var recentPostDtos = new List<PostDto>();
 
-        var userChains = await _dbContext.Chains
-            .Include(c => c.Steps)
-            .Where(c => c.Steps.Any(s => s.AuthorId == user.Id))
-            .OrderByDescending(c => c.CreatedAtUtc)
-            .Take(10)
-            .ToListAsync(cancellationToken);
+        var userChainsCount = 0;
+        var recentChainDtos = new List<ChainDto>();
 
-        var sparksWon = await _dbContext.Sparks
-            .CountAsync(s => s.WinnerUserId == user.Id, cancellationToken);
+        var sparksWon = 0;
 
-        var badges = user.Badges.Select(b => new BadgeDto(
-            b.Id,
-            b.Name,
-            b.Description,
-            b.Icon,
-            b.AwardedAtUtc
-        )).ToList();
+        if (canViewFullProfile)
+        {
+            var userPosts = await _dbContext.Posts
+                .Include(p => p.Reactions)
+                .Where(p => p.AuthorId == user.Id)
+                .OrderByDescending(p => p.CreatedAtUtc)
+                .Take(20)
+                .ToListAsync(cancellationToken);
 
-        var recentPostDtos = userPosts.Select(p => new PostDto(
-            p.Id,
-            p.AuthorId,
-            p.AuthorUsername,
-            p.AuthorDisplayName ?? p.AuthorUsername,
-            p.AuthorAvatarUrl,
-            p.Content.Value,
-            p.Media != null ? new MediaAttachmentDto(p.Media.Url, p.Media.Type.ToString(), p.Media.Width, p.Media.Height, p.Media.AspectRatio) : null,
-            p.Reactions.Count,
-            p.Reactions.Select(r => new ReactionDto(r.Id, r.UserId, r.Username, r.Type, r.CreatedAtUtc)).ToList(),
-            p.CreatedAtUtc
-        )).ToList();
+            postsCount = userPosts.Count;
+            totalReactions = userPosts.Sum(p => p.Reactions.Count);
 
-        var recentChainDtos = userChains.Select(c => new ChainDto(
-            c.Id,
-            c.Title,
-            c.Theme,
-            c.MaxSteps,
-            c.CurrentStepCount,
-            c.MaxSteps - c.CurrentStepCount,
-            c.Status.ToString(),
-            c.CreatedByUserId,
-            c.CreatedByUsername,
-            c.RowVersion,
-            c.CreatedAtUtc,
-            c.CompletedAtUtc,
-            true,
-            null,
-            c.Steps.Select(s => new ChainStepDto(
-                s.Id,
-                s.ChainId,
-                s.StepNumber,
-                s.AuthorId,
-                s.AuthorUsername,
-                s.AuthorDisplayName ?? s.AuthorUsername,
-                s.AuthorAvatarUrl,
-                s.Content,
-                s.AudioUrl,
-                s.DurationSeconds,
-                s.CreatedAtUtc
+            recentPostDtos = userPosts.Select(p => new PostDto(
+                p.Id,
+                p.AuthorId,
+                p.AuthorUsername,
+                p.AuthorDisplayName ?? p.AuthorUsername,
+                p.AuthorAvatarUrl,
+                p.Content.Value,
+                p.Media != null ? new MediaAttachmentDto(p.Media.Url, p.Media.Type.ToString(), p.Media.Width, p.Media.Height, p.Media.AspectRatio) : null,
+                p.Reactions.Count,
+                p.Reactions.Select(r => new ReactionDto(r.Id, r.UserId, r.Username, r.Type, r.CreatedAtUtc)).ToList(),
+                p.CreatedAtUtc
+            )).ToList();
+
+            var userChains = await _dbContext.Chains
+                .Include(c => c.Steps)
+                .Where(c => c.Steps.Any(s => s.AuthorId == user.Id))
+                .OrderByDescending(c => c.CreatedAtUtc)
+                .Take(10)
+                .ToListAsync(cancellationToken);
+
+            userChainsCount = userChains.Count;
+
+            recentChainDtos = userChains.Select(c => new ChainDto(
+                c.Id,
+                c.Title,
+                c.Theme,
+                c.MaxSteps,
+                c.CurrentStepCount,
+                c.MaxSteps - c.CurrentStepCount,
+                c.Status.ToString(),
+                c.CreatedByUserId,
+                c.CreatedByUsername,
+                c.RowVersion,
+                c.CreatedAtUtc,
+                c.CompletedAtUtc,
+                true,
+                null,
+                c.Steps.Select(s => new ChainStepDto(
+                    s.Id,
+                    s.ChainId,
+                    s.StepNumber,
+                    s.AuthorId,
+                    s.AuthorUsername,
+                    s.AuthorDisplayName ?? s.AuthorUsername,
+                    s.AuthorAvatarUrl,
+                    s.Content,
+                    s.AudioUrl,
+                    s.DurationSeconds,
+                    s.CreatedAtUtc
+                )).ToList()
+            )).ToList();
+
+            sparksWon = await _dbContext.Sparks
+                .CountAsync(s => s.WinnerUserId == user.Id, cancellationToken);
+        }
+
+        var showBadges = isSelf || user.ShowBadges;
+        var badges = showBadges
+            ? user.Badges.Select(b => new BadgeDto(
+                b.Id,
+                b.Name,
+                b.Description,
+                b.Icon,
+                b.AwardedAtUtc
             )).ToList()
-        )).ToList();
+            : new List<BadgeDto>();
 
-        var followersCount = await _dbContext.UserFollows
-            .CountAsync(f => f.FollowingId == user.Id && f.Status == FollowStatus.Accepted, cancellationToken);
+        var followersCount = 0;
+        var followingCount = 0;
+        if (isSelf || user.ShowFollowersCount)
+        {
+            followersCount = await _dbContext.UserFollows
+                .CountAsync(f => f.FollowingId == user.Id && f.Status == FollowStatus.Accepted, cancellationToken);
 
-        var followingCount = await _dbContext.UserFollows
-            .CountAsync(f => f.FollowerId == user.Id && f.Status == FollowStatus.Accepted, cancellationToken);
+            followingCount = await _dbContext.UserFollows
+                .CountAsync(f => f.FollowerId == user.Id && f.Status == FollowStatus.Accepted, cancellationToken);
+        }
+
+        var showStats = isSelf || user.ShowActivityStats;
+        var effectiveRepScore = showStats ? user.RepScore.Value : 0;
+        var effectivePostsCount = showStats ? postsCount : 0;
+        var effectiveReactionsCount = showStats ? totalReactions : 0;
+        var effectiveChainsCount = showStats ? userChainsCount : 0;
+        var effectiveSparksWon = showStats ? sparksWon : 0;
+
+        var showBio = isSelf || user.ShowBio;
+        var effectiveBio = showBio ? user.Bio : null;
 
         string followStatus = "none";
-        if (_currentUserService.UserId.HasValue)
+        if (currentUserId.HasValue)
         {
-            var myId = _currentUserService.UserId.Value;
+            var myId = currentUserId.Value;
             if (myId == user.Id)
             {
                 followStatus = "self";
@@ -1292,14 +1336,14 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
             user.Email,
             user.DisplayName,
             user.AvatarUrl,
-            user.Bio,
-            user.RepScore.Value,
+            effectiveBio,
+            effectiveRepScore,
             badges,
             user.CreatedAtUtc,
-            postsCount,
-            totalReactions,
-            userChains.Count,
-            sparksWon,
+            effectivePostsCount,
+            effectiveReactionsCount,
+            effectiveChainsCount,
+            effectiveSparksWon,
             recentPostDtos,
             recentChainDtos,
             user.PreferredTheme,
@@ -1308,8 +1352,59 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
             followingCount,
             followStatus,
             user.BannerUrl,
-            user.IsEmailConfirmed
+            user.IsEmailConfirmed,
+            user.IsPrivateProfile,
+            canViewFullProfile,
+            user.IsSearchDiscoverable,
+            user.ShowBio,
+            user.ShowFollowersCount,
+            user.ShowBadges,
+            user.ShowActivityStats
         );
+    }
+}
+
+public record UpdatePrivacySettingsCommand(
+    bool IsPrivateProfile,
+    bool IsSearchDiscoverable,
+    bool ShowBio,
+    bool ShowFollowersCount,
+    bool ShowBadges,
+    bool ShowActivityStats
+) : IRequest<UserDto>;
+
+public class UpdatePrivacySettingsCommandHandler : IRequestHandler<UpdatePrivacySettingsCommand, UserDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public UpdatePrivacySettingsCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<UserDto> Handle(UpdatePrivacySettingsCommand request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId ?? throw new UnauthorizedDomainException("Authentication required.");
+
+        var user = await _dbContext.Users
+            .Include(u => u.Badges)
+            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            ?? throw new NotFoundException("User", userId);
+
+        user.UpdatePrivacySettings(
+            request.IsPrivateProfile,
+            request.IsSearchDiscoverable,
+            request.ShowBio,
+            request.ShowFollowersCount,
+            request.ShowBadges,
+            request.ShowActivityStats
+        );
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return RegisterUserCommandHandler.MapUserToDto(user);
     }
 }
 
@@ -1464,6 +1559,7 @@ public class GetTopCreatorsQueryHandler : IRequestHandler<GetTopCreatorsQuery, I
     {
         var users = await _dbContext.Users
             .Include(u => u.Badges)
+            .Where(u => u.IsSearchDiscoverable)
             .OrderByDescending(u => u.RepScore)
             .Take(10)
             .ToListAsync(cancellationToken);

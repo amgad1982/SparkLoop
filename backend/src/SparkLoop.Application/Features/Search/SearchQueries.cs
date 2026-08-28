@@ -6,6 +6,7 @@ using SparkLoop.Application.Features.MoodPods;
 using SparkLoop.Application.Features.Posts;
 using SparkLoop.Application.Features.Sparks;
 using SparkLoop.Application.Interfaces;
+using SparkLoop.Domain.Aggregates.UserAggregate;
 
 namespace SparkLoop.Application.Features.Search;
 
@@ -66,6 +67,28 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
                 .Include(p => p.Reactions)
                 .AsQueryable();
 
+            // Exclude posts from private users unless current user is author or accepted follower
+            var allowedAuthorIds = new HashSet<Guid>();
+            if (currentUserId.HasValue)
+            {
+                var followedAuthorIds = await _dbContext.UserFollows
+                    .Where(f => f.FollowerId == currentUserId.Value && f.Status == FollowStatus.Accepted)
+                    .Select(f => f.FollowingId)
+                    .ToListAsync(cancellationToken);
+                allowedAuthorIds = [.. followedAuthorIds, currentUserId.Value];
+            }
+
+            var privateUserIds = await _dbContext.Users
+                .Where(u => u.IsPrivateProfile)
+                .Select(u => u.Id)
+                .ToListAsync(cancellationToken);
+
+            var restrictedUserIds = privateUserIds.Except(allowedAuthorIds).ToList();
+            if (restrictedUserIds.Count > 0)
+            {
+                postQuery = postQuery.Where(p => !restrictedUserIds.Contains(p.AuthorId));
+            }
+
             if (isHashtagSearch)
             {
                 var tagPattern = "#" + cleanTag;
@@ -93,9 +116,10 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
             var userEntities = await _dbContext.Users
                 .Include(u => u.Badges)
                 .Where(u =>
-                    ((string)u.Username).ToLower().Contains(cleanTag) ||
+                    (u.IsSearchDiscoverable || (currentUserId.HasValue && u.Id == currentUserId.Value)) &&
+                    (((string)u.Username).ToLower().Contains(cleanTag) ||
                     (u.DisplayName != null && u.DisplayName.ToLower().Contains(cleanTag)) ||
-                    (u.Bio != null && u.Bio.ToLower().Contains(cleanTag)))
+                    (u.Bio != null && u.Bio.ToLower().Contains(cleanTag))))
                 .OrderByDescending(u => u.RepScore)
                 .Take(limit)
                 .ToListAsync(cancellationToken);
@@ -106,12 +130,22 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
                 u.Email,
                 u.DisplayName,
                 u.AvatarUrl,
-                u.Bio,
-                u.RepScore.Value,
-                u.Badges.Select(b => new BadgeDto(b.Id, b.Name, b.Description, b.Icon, b.AwardedAtUtc)).ToList(),
+                (currentUserId == u.Id || u.ShowBio) ? u.Bio : null,
+                (currentUserId == u.Id || u.ShowActivityStats) ? u.RepScore.Value : 0,
+                (currentUserId == u.Id || u.ShowBadges)
+                    ? u.Badges.Select(b => new BadgeDto(b.Id, b.Name, b.Description, b.Icon, b.AwardedAtUtc)).ToList()
+                    : new List<BadgeDto>(),
                 u.CreatedAtUtc,
                 u.PreferredTheme,
-                u.PreferredLanguage
+                u.PreferredLanguage,
+                u.BannerUrl,
+                u.IsEmailConfirmed,
+                u.IsPrivateProfile,
+                u.IsSearchDiscoverable,
+                u.ShowBio,
+                u.ShowFollowersCount,
+                u.ShowBadges,
+                u.ShowActivityStats
             )).ToList();
         }
 

@@ -51,6 +51,8 @@ public class FollowUserCommandHandler : IRequestHandler<FollowUserCommand, UserF
         var followerDisplayName = currentUser?.DisplayName ?? _currentUserService.DisplayName ?? followerUsername;
         var followerAvatar = currentUser?.AvatarUrl ?? _currentUserService.AvatarUrl;
 
+        var requiresApproval = targetUser.IsPrivateProfile;
+
         var existingFollow = await _dbContext.UserFollows
             .FirstOrDefaultAsync(f => f.FollowerId == currentUserId.Value && f.FollowingId == targetUser.Id, cancellationToken);
 
@@ -58,8 +60,20 @@ public class FollowUserCommandHandler : IRequestHandler<FollowUserCommand, UserF
         {
             if (existingFollow.Status == FollowStatus.Declined)
             {
-                existingFollow.Accept();
+                existingFollow.ReRequest(requiresApproval);
                 await _dbContext.SaveChangesAsync(cancellationToken);
+
+                var rePayload = new
+                {
+                    type = requiresApproval ? "follow_request_received" : "follow_received",
+                    followId = existingFollow.Id,
+                    followerId = existingFollow.FollowerId,
+                    followerUsername = existingFollow.FollowerUsername,
+                    followerDisplayName = existingFollow.FollowerDisplayName,
+                    followerAvatarUrl = existingFollow.FollowerAvatarUrl,
+                    createdAtUtc = existingFollow.CreatedAtUtc
+                };
+                await _centrifugoService.PublishAsync($"user:{targetUser.Id}", rePayload, cancellationToken);
             }
 
             return MapToDto(existingFollow);
@@ -75,7 +89,7 @@ public class FollowUserCommandHandler : IRequestHandler<FollowUserCommand, UserF
             targetUser.Username.Value,
             targetUser.DisplayName,
             targetUser.AvatarUrl,
-            requiresApproval: false // Direct follow by default
+            requiresApproval: requiresApproval
         );
 
         _dbContext.UserFollows.Add(newFollow);
@@ -84,7 +98,7 @@ public class FollowUserCommandHandler : IRequestHandler<FollowUserCommand, UserF
         // Real-time broadcast to target user
         var payload = new
         {
-            type = "follow_received",
+            type = requiresApproval ? "follow_request_received" : "follow_received",
             followId = newFollow.Id,
             followerId = newFollow.FollowerId,
             followerUsername = newFollow.FollowerUsername,

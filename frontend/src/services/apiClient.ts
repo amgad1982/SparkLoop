@@ -22,6 +22,7 @@ import {
   SocialLoginRequest,
   OAuthUrlResponse,
   OAuthCallbackRequest,
+  PrivacySettingsDto,
 } from '../types/api';
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5195/api';
@@ -250,6 +251,11 @@ export const api = {
     preferredLanguage?: string;
   }) =>
     fetchWithAuth<UserDto>('/users/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  updatePrivacySettings: (data: PrivacySettingsDto) =>
+    fetchWithAuth<UserDto>('/users/privacy-settings', {
       method: 'PUT',
       body: JSON.stringify(data),
     }),

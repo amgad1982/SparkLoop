@@ -13,7 +13,22 @@ public record UserDto(
     string PreferredTheme = "dark",
     string PreferredLanguage = "en",
     string? BannerUrl = null,
-    bool IsEmailConfirmed = false
+    bool IsEmailConfirmed = false,
+    bool IsPrivateProfile = false,
+    bool IsSearchDiscoverable = true,
+    bool ShowBio = true,
+    bool ShowFollowersCount = true,
+    bool ShowBadges = true,
+    bool ShowActivityStats = true
+);
+
+public record PrivacySettingsDto(
+    bool IsPrivateProfile,
+    bool IsSearchDiscoverable,
+    bool ShowBio,
+    bool ShowFollowersCount,
+    bool ShowBadges,
+    bool ShowActivityStats
 );
 
 public record LinkedSocialAccountDto(
@@ -226,7 +241,14 @@ public record UserProfileDto(
     int FollowingCount = 0,
     string FollowStatus = "none",
     string? BannerUrl = null,
-    bool IsEmailConfirmed = false
+    bool IsEmailConfirmed = false,
+    bool IsPrivate = false,
+    bool CanViewFullProfile = true,
+    bool IsSearchDiscoverable = true,
+    bool ShowBio = true,
+    bool ShowFollowersCount = true,
+    bool ShowBadges = true,
+    bool ShowActivityStats = true
 );
 
 public record HashtagDto(

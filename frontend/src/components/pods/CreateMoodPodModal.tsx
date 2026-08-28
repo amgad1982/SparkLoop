@@ -247,7 +247,7 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                         <Clock className="w-3.5 h-3.5 text-amber-500" />
-                        <span>{isArabic ? 'مدة بقاء الحجرة (Room Lifetime)' : 'Room Lifetime & Duration'}</span>
+                        <span>{isArabic ? 'مدة بقاء الحجرة' : 'Room Lifetime & Duration'}</span>
                       </div>
                       <span className="text-[10.5px] font-mono text-amber-600 dark:text-amber-400 font-bold">
                         {DURATION_OPTIONS.find((d) => d.value === durationHours)?.[isArabic ? 'labelAr' : 'labelEn']}
@@ -334,7 +334,7 @@ export const CreateMoodPodModal: React.FC<CreateMoodPodModalProps> = ({
                   <div className="p-3.5 bg-slate-50 dark:bg-[#0b0f17] rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
                     <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-white">
                       <Shield className="w-3.5 h-3.5 text-indigo-500" />
-                      <span>{isArabic ? 'صلاحيات الحضور وإعدادات الموديريشن' : 'Participant & Host Permissions'}</span>
+                      <span>{isArabic ? 'صلاحيات الحضور والإدارة' : 'Participant & Host Permissions'}</span>
                     </div>
 
                     <div className="space-y-2 text-xs">

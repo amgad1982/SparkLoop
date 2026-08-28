@@ -70,4 +70,11 @@ public class UserFollow : Entity<Guid>
         Status = FollowStatus.Declined;
         RespondedAtUtc = DateTime.UtcNow;
     }
+
+    public void ReRequest(bool requiresApproval)
+    {
+        Status = requiresApproval ? FollowStatus.Pending : FollowStatus.Accepted;
+        CreatedAtUtc = DateTime.UtcNow;
+        RespondedAtUtc = requiresApproval ? null : DateTime.UtcNow;
+    }
 }

@@ -16,6 +16,7 @@ import {
   Flame,
   Hash,
   Loader2,
+  Lock,
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -23,6 +24,7 @@ interface GlobalSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigateTab: (tab: TabType | 'profile') => void;
+  onNavigateProfile?: (username: string) => void;
   onSelectHashtag: (tag: string) => void;
   onSelectPodId?: (podId: string) => void;
   initialQuery?: string;
@@ -36,6 +38,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
   isOpen,
   onClose,
   onNavigateTab,
+  onNavigateProfile,
   onSelectHashtag,
   onSelectPodId,
   initialQuery = '',
@@ -365,21 +368,41 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                       >
                         <div
                           onClick={() => {
-                            onNavigateTab('profile');
+                            if (onNavigateProfile) {
+                              onNavigateProfile(user.username);
+                            } else {
+                              onNavigateTab('profile');
+                            }
                             onClose();
                           }}
-                          className="flex items-center gap-2.5 min-w-0 cursor-pointer"
+                          className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1"
                         >
                           <img
                             src={user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
                             alt={user.username}
                             className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 object-cover shrink-0"
                           />
-                          <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-400 transition-colors">
-                              {user.displayName || user.username}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-indigo-400 transition-colors">
+                                {user.displayName || user.username}
+                              </span>
+                              {user.isPrivateProfile && (
+                                <span
+                                  title={isArabic ? 'حساب خاص' : 'Private Account'}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold shrink-0"
+                                >
+                                  <Lock className="w-2.5 h-2.5" />
+                                  <span>{isArabic ? 'خاص' : 'Private'}</span>
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-slate-400 truncate">@{user.username}</div>
+                            {user.bio && (
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5 max-w-[180px]">
+                                {user.bio}
+                              </p>
+                            )}
                           </div>
                         </div>
 

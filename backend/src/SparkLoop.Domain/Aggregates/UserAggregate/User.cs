@@ -74,6 +74,12 @@ public class User : AggregateRoot<Guid>
     public string PreferredLanguage { get; private set; } = "en";
     public RepScore RepScore { get; private set; } = RepScore.Zero;
     public DateTime CreatedAtUtc { get; private set; }
+    public bool IsPrivateProfile { get; private set; } = false;
+    public bool IsSearchDiscoverable { get; private set; } = true;
+    public bool ShowBio { get; private set; } = true;
+    public bool ShowFollowersCount { get; private set; } = true;
+    public bool ShowBadges { get; private set; } = true;
+    public bool ShowActivityStats { get; private set; } = true;
     public IReadOnlyCollection<Badge> Badges => _badges.AsReadOnly();
     public IReadOnlyCollection<UserSocialAccount> SocialAccounts => _socialAccounts.AsReadOnly();
 
@@ -90,7 +96,13 @@ public class User : AggregateRoot<Guid>
         string? passwordHash = null,
         string preferredTheme = "dark",
         string preferredLanguage = "en",
-        bool isEmailConfirmed = false)
+        bool isEmailConfirmed = false,
+        bool isPrivateProfile = false,
+        bool isSearchDiscoverable = true,
+        bool showBio = true,
+        bool showFollowersCount = true,
+        bool showBadges = true,
+        bool showActivityStats = true)
     {
         var user = new User
         {
@@ -106,7 +118,13 @@ public class User : AggregateRoot<Guid>
             PreferredTheme = string.IsNullOrWhiteSpace(preferredTheme) ? "dark" : preferredTheme.Trim().ToLowerInvariant(),
             PreferredLanguage = string.IsNullOrWhiteSpace(preferredLanguage) ? "en" : preferredLanguage.Trim().ToLowerInvariant(),
             RepScore = RepScore.Zero,
-            CreatedAtUtc = DateTime.UtcNow
+            CreatedAtUtc = DateTime.UtcNow,
+            IsPrivateProfile = isPrivateProfile,
+            IsSearchDiscoverable = isSearchDiscoverable,
+            ShowBio = showBio,
+            ShowFollowersCount = showFollowersCount,
+            ShowBadges = showBadges,
+            ShowActivityStats = showActivityStats
         };
 
         return user;
@@ -251,5 +269,21 @@ public class User : AggregateRoot<Guid>
         _badges.Add(badge);
         AddReputation(50); // Bonus rep for badges
         return badge;
+    }
+
+    public void UpdatePrivacySettings(
+        bool isPrivateProfile,
+        bool isSearchDiscoverable,
+        bool showBio,
+        bool showFollowersCount,
+        bool showBadges,
+        bool showActivityStats)
+    {
+        IsPrivateProfile = isPrivateProfile;
+        IsSearchDiscoverable = isSearchDiscoverable;
+        ShowBio = showBio;
+        ShowFollowersCount = showFollowersCount;
+        ShowBadges = showBadges;
+        ShowActivityStats = showActivityStats;
     }
 }

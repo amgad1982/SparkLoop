@@ -261,3 +261,103 @@ public class SparkWinnerPolicyTests
         winner.VoteCount.Should().Be(3);
     }
 }
+
+public class UserPrivacyInvariantsTests
+{
+    [Fact]
+    public void CreateUser_HasSensiblePrivacyDefaults()
+    {
+        var user = SparkLoop.Domain.Aggregates.UserAggregate.User.Create(
+            Guid.NewGuid(),
+            "alice",
+            "alice@example.com",
+            "hashed_pwd",
+            "Alice In Wonderland");
+
+        user.IsPrivateProfile.Should().BeFalse();
+        user.IsSearchDiscoverable.Should().BeTrue();
+        user.ShowBio.Should().BeTrue();
+        user.ShowFollowersCount.Should().BeTrue();
+        user.ShowBadges.Should().BeTrue();
+        user.ShowActivityStats.Should().BeTrue();
+    }
+
+    [Fact]
+    public void UpdatePrivacySettings_UpdatesAllPrivacyFlags()
+    {
+        var user = SparkLoop.Domain.Aggregates.UserAggregate.User.Create(
+            Guid.NewGuid(),
+            "bob",
+            "bob@example.com",
+            "hashed_pwd",
+            "Bob Builder");
+
+        user.UpdatePrivacySettings(
+            isPrivateProfile: true,
+            isSearchDiscoverable: false,
+            showBio: false,
+            showFollowersCount: false,
+            showBadges: false,
+            showActivityStats: false);
+
+        user.IsPrivateProfile.Should().BeTrue();
+        user.IsSearchDiscoverable.Should().BeFalse();
+        user.ShowBio.Should().BeFalse();
+        user.ShowFollowersCount.Should().BeFalse();
+        user.ShowBadges.Should().BeFalse();
+        user.ShowActivityStats.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UserFollow_ForPrivateProfile_RequiresApprovalAndCanBeAccepted()
+    {
+        var followerId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+
+        // Following private profile starts as Pending
+        var follow = SparkLoop.Domain.Aggregates.UserAggregate.UserFollow.Create(
+            Guid.NewGuid(),
+            followerId,
+            "follower_user",
+            "Follower User",
+            null,
+            targetId,
+            "private_creator",
+            "Private Creator",
+            null,
+            requiresApproval: true);
+
+        follow.Status.Should().Be(SparkLoop.Domain.Aggregates.UserAggregate.FollowStatus.Pending);
+
+        // Target user accepts request
+        follow.Accept();
+        follow.Status.Should().Be(SparkLoop.Domain.Aggregates.UserAggregate.FollowStatus.Accepted);
+    }
+
+    [Fact]
+    public void UserFollow_WhenDeclined_CanBeReRequestedWithApproval()
+    {
+        var followerId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+
+        var follow = SparkLoop.Domain.Aggregates.UserAggregate.UserFollow.Create(
+            Guid.NewGuid(),
+            followerId,
+            "follower_user",
+            "Follower User",
+            null,
+            targetId,
+            "private_creator",
+            "Private Creator",
+            null,
+            requiresApproval: true);
+
+        follow.Decline();
+        follow.Status.Should().Be(SparkLoop.Domain.Aggregates.UserAggregate.FollowStatus.Declined);
+
+        // Re-requesting updates status back to Pending
+        follow.ReRequest(requiresApproval: true);
+        follow.Status.Should().Be(SparkLoop.Domain.Aggregates.UserAggregate.FollowStatus.Pending);
+    }
+}
+

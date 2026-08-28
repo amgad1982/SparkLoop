@@ -12,6 +12,21 @@ export interface UserDto {
   preferredLanguage?: 'en' | 'ar';
   bannerUrl?: string;
   isEmailConfirmed?: boolean;
+  isPrivateProfile?: boolean;
+  isSearchDiscoverable?: boolean;
+  showBio?: boolean;
+  showFollowersCount?: boolean;
+  showBadges?: boolean;
+  showActivityStats?: boolean;
+}
+
+export interface PrivacySettingsDto {
+  isPrivateProfile: boolean;
+  isSearchDiscoverable: boolean;
+  showBio: boolean;
+  showFollowersCount: boolean;
+  showBadges: boolean;
+  showActivityStats: boolean;
 }
 
 export interface BadgeDto {
@@ -212,6 +227,13 @@ export interface UserProfileDto {
   followStatus?: 'none' | 'pending_outgoing' | 'pending_incoming' | 'following' | 'follow_back' | 'mutual' | 'self';
   bannerUrl?: string;
   isEmailConfirmed?: boolean;
+  isPrivate?: boolean;
+  canViewFullProfile?: boolean;
+  isSearchDiscoverable?: boolean;
+  showBio?: boolean;
+  showFollowersCount?: boolean;
+  showBadges?: boolean;
+  showActivityStats?: boolean;
 }
 
 export interface LinkedSocialAccountDto {

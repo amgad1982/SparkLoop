@@ -61,6 +61,30 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasDefaultValue(false)
             .IsRequired();
 
+        builder.Property(u => u.IsPrivateProfile)
+            .HasDefaultValue(false)
+            .IsRequired();
+
+        builder.Property(u => u.IsSearchDiscoverable)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(u => u.ShowBio)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(u => u.ShowFollowersCount)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(u => u.ShowBadges)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(u => u.ShowActivityStats)
+            .HasDefaultValue(true)
+            .IsRequired();
+
         builder.Property(u => u.EmailConfirmationCode)
             .HasMaxLength(20);
 
