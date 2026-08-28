@@ -13,6 +13,10 @@ using SparkLoop.Infrastructure.Security;
 using SparkLoop.Infrastructure.Security.OAuth;
 using SparkLoop.Infrastructure.Services;
 using SparkLoop.Infrastructure.Storage;
+using StackExchange.Redis;
+using ZiggyCreatures.Caching.Fusion;
+using ZiggyCreatures.Caching.Fusion.Backplane.StackExchangeRedis;
+using ZiggyCreatures.Caching.Fusion.Serialization.SystemTextJson;
 
 namespace SparkLoop.Infrastructure;
 
@@ -96,8 +100,60 @@ public static class DependencyInjection
         // 4. MinIO Blob Storage
         services.AddSingleton<IBlobStorageService, MinioStorageService>();
 
-        // 5. Redis Caching
-        services.AddSingleton<ICacheService, RedisCacheService>();
+        // 5. FusionCache Hybrid Caching (L1 In-Memory + L2 Redis + Backplane)
+        var redisConnectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379,abortConnect=false";
+        IConnectionMultiplexer? redisMultiplexer = null;
+
+        try
+        {
+            var redisOptions = ConfigurationOptions.Parse(redisConnectionString);
+            redisOptions.AbortOnConnectFail = false;
+            redisOptions.ConnectTimeout = 3000;
+            redisMultiplexer = ConnectionMultiplexer.Connect(redisOptions);
+            services.AddSingleton<IConnectionMultiplexer>(redisMultiplexer);
+        }
+        catch (Exception)
+        {
+            // Redis connection failed; FusionCache will operate in in-memory L1 mode seamlessly
+        }
+
+        var fusionBuilder = services.AddFusionCache()
+            .WithOptions(options =>
+            {
+                options.DefaultEntryOptions = new FusionCacheEntryOptions
+                {
+                    Duration = TimeSpan.FromSeconds(120),
+                    FailSafeMaxDuration = TimeSpan.FromHours(1),
+                    FailSafeThrottleDuration = TimeSpan.FromSeconds(30),
+                    FactorySoftTimeout = TimeSpan.FromMilliseconds(500),
+                    FactoryHardTimeout = TimeSpan.FromMilliseconds(3000),
+                    EagerRefreshThreshold = 0.8f
+                };
+            })
+            .WithSerializer(new FusionCacheSystemTextJsonSerializer(
+                new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                    PropertyNameCaseInsensitive = true
+                }));
+
+        if (redisMultiplexer != null)
+        {
+            try
+            {
+                fusionBuilder.WithBackplane(new RedisBackplane(
+                    new RedisBackplaneOptions
+                    {
+                        Configuration = redisConnectionString
+                    }));
+            }
+            catch (Exception)
+            {
+                // Fallback to local backplane if Redis backplane initialization fails
+            }
+        }
+
+        services.AddSingleton<ICacheService, FusionCacheService>();
 
         // 6. Current User Context
         services.AddHttpContextAccessor();

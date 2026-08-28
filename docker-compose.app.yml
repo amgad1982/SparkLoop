@@ -1,0 +1,69 @@
+# ==========================================
+# SparkLoop Application Docker Compose
+# Services: Backend (.NET 10 API) & Frontend (React/Nginx)
+# Target Hostnames:
+#   - Frontend: https://sloop.mydev-lab.com
+#   - Backend:  https://sloopapi.mydev-lab.com
+# ==========================================
+
+services:
+  sparkloop-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: sparkloop-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:5000
+      - DatabaseProvider=PostgreSQL
+      - ConnectionStrings__DefaultConnection=Host=sparkloop-postgres;Port=5432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!
+      - ConnectionStrings__Redis=sparkloop-redis:6379,abortConnect=false
+      - Centrifugo__ApiUrl=http://sparkloop-centrifugo:8000/api
+      - Centrifugo__ApiKey=sparkloop_centrifugo_api_key_2026_super_secure
+      - Centrifugo__SecretKey=sparkloop_centrifugo_secret_jwt_key_2026_super_secure
+      - Storage__ServiceUrl=http://sparkloop-minio:9000
+      - Storage__AccessKey=minioadmin
+      - Storage__SecretKey=minioadminpassword123!
+      - Storage__BucketName=sparkloop-media
+      - Storage__PublicUrl=https://sloopapi.mydev-lab.com/sparkloop-media
+      - LiveKit__ServerUrl=ws://sparkloop-livekit:7880
+      - LiveKit__ApiKey=sparkloop_livekit_key
+      - LiveKit__ApiSecret=sparkloop_livekit_secret_2026_super_secure_32chars
+      - CorsOrigins__0=https://sloop.mydev-lab.com
+      - CorsOrigins__1=http://localhost:5173
+      - CorsOrigins__2=http://localhost:3000
+    networks:
+      - sparkloop-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  sparkloop-frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        - VITE_API_BASE_URL=https://sloopapi.mydev-lab.com/api
+    container_name: sparkloop-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    networks:
+      - sparkloop-net
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  sparkloop-net:
+    name: sparkloop-net
+    external: true

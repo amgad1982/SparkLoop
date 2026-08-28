@@ -55,39 +55,58 @@ public class GetActiveSparkQueryHandler : IRequestHandler<GetActiveSparkQuery, S
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICacheService _cacheService;
 
-    public GetActiveSparkQueryHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public GetActiveSparkQueryHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICacheService cacheService)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _cacheService = cacheService;
     }
 
     public async Task<SparkDto> Handle(GetActiveSparkQuery request, CancellationToken cancellationToken)
     {
-        var spark = await _dbContext.Sparks
-            .Include(s => s.Submissions)
-                .ThenInclude(sub => sub.Votes)
-            .Where(s => s.Status == SparkStatus.Active)
-            .OrderByDescending(s => s.ActiveFromUtc)
-            .FirstOrDefaultAsync(cancellationToken);
+        var currentUserId = _currentUserService.UserId;
+        var cacheKey = currentUserId.HasValue
+            ? $"sparks:active:user:{currentUserId.Value}"
+            : "sparks:active:anon";
 
-        if (spark is null)
-        {
-            // Auto seed active spark if none found
-            spark = Spark.Create(
-                Guid.NewGuid(),
-                "🔥 Friday Meme Mania: Developer Life in 2026",
-                "Craft or draw a meme showing how you handle production bugs at 5 PM on a Friday. Best meme wins the Spark Champion badge!",
-                "Meme",
-                DateTime.UtcNow,
-                TimeSpan.FromHours(24)
-            );
+        return await _cacheService.GetOrSetAsync<SparkDto>(
+            cacheKey,
+            async ct =>
+            {
+                var spark = await _dbContext.Sparks
+                    .Include(s => s.Submissions)
+                        .ThenInclude(sub => sub.Votes)
+                    .Where(s => s.Status == SparkStatus.Active)
+                    .OrderByDescending(s => s.ActiveFromUtc)
+                    .FirstOrDefaultAsync(ct);
 
-            _dbContext.Sparks.Add(spark);
-            await _dbContext.SaveChangesAsync(cancellationToken);
-        }
+                if (spark is null)
+                {
+                    // Auto seed active spark if none found
+                    spark = Spark.Create(
+                        Guid.NewGuid(),
+                        "🔥 Friday Meme Mania: Developer Life in 2026",
+                        "Craft or draw a meme showing how you handle production bugs at 5 PM on a Friday. Best meme wins the Spark Champion badge!",
+                        "Meme",
+                        DateTime.UtcNow,
+                        TimeSpan.FromHours(24)
+                    );
 
-        return SparkQueries.MapToDto(spark, _currentUserService.UserId);
+                    _dbContext.Sparks.Add(spark);
+                    await _dbContext.SaveChangesAsync(ct);
+                }
+
+                return SparkQueries.MapToDto(spark, currentUserId);
+            },
+            duration: TimeSpan.FromSeconds(30),
+            failSafeMaxDuration: TimeSpan.FromMinutes(10),
+            cancellationToken: cancellationToken
+        );
     }
 }
 
@@ -97,22 +116,41 @@ public class GetSparkHistoryQueryHandler : IRequestHandler<GetSparkHistoryQuery,
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICacheService _cacheService;
 
-    public GetSparkHistoryQueryHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public GetSparkHistoryQueryHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICacheService cacheService)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _cacheService = cacheService;
     }
 
     public async Task<IReadOnlyList<SparkDto>> Handle(GetSparkHistoryQuery request, CancellationToken cancellationToken)
     {
-        var sparks = await _dbContext.Sparks
-            .Include(s => s.Submissions)
-                .ThenInclude(sub => sub.Votes)
-            .OrderByDescending(s => s.ActiveFromUtc)
-            .Take(15)
-            .ToListAsync(cancellationToken);
+        var currentUserId = _currentUserService.UserId;
+        var cacheKey = currentUserId.HasValue
+            ? $"sparks:history:user:{currentUserId.Value}"
+            : "sparks:history:anon";
 
-        return sparks.Select(s => SparkQueries.MapToDto(s, _currentUserService.UserId)).ToList();
+        return await _cacheService.GetOrSetAsync<IReadOnlyList<SparkDto>>(
+            cacheKey,
+            async ct =>
+            {
+                var sparks = await _dbContext.Sparks
+                    .Include(s => s.Submissions)
+                        .ThenInclude(sub => sub.Votes)
+                    .OrderByDescending(s => s.ActiveFromUtc)
+                    .Take(15)
+                    .ToListAsync(ct);
+
+                return sparks.Select(s => SparkQueries.MapToDto(s, currentUserId)).ToList();
+            },
+            duration: TimeSpan.FromMinutes(30),
+            failSafeMaxDuration: TimeSpan.FromHours(12),
+            cancellationToken: cancellationToken
+        );
     }
 }

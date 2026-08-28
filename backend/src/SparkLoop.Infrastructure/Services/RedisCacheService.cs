@@ -34,6 +34,33 @@ public class RedisCacheService : ICacheService
         }
     }
 
+    public async Task<T> GetOrSetAsync<T>(
+        string key,
+        Func<CancellationToken, Task<T>> factory,
+        TimeSpan? duration = null,
+        TimeSpan? failSafeMaxDuration = null,
+        CancellationToken cancellationToken = default)
+    {
+        var existing = await GetAsync<T>(key, cancellationToken);
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        var freshlyComputed = await factory(cancellationToken);
+        await SetAsync(key, freshlyComputed, duration, cancellationToken);
+        return freshlyComputed;
+    }
+
+    public async Task<T?> GetOrDefaultAsync<T>(
+        string key,
+        T? defaultValue = default,
+        CancellationToken cancellationToken = default)
+    {
+        var val = await GetAsync<T>(key, cancellationToken);
+        return val ?? defaultValue;
+    }
+
     public async Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
     {
         if (_db == null || !_isConnected) return default;

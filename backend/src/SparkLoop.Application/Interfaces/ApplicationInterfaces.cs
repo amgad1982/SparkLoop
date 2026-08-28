@@ -52,6 +52,18 @@ public interface ICurrentUserService
 
 public interface ICacheService
 {
+    Task<T> GetOrSetAsync<T>(
+        string key,
+        Func<CancellationToken, Task<T>> factory,
+        TimeSpan? duration = null,
+        TimeSpan? failSafeMaxDuration = null,
+        CancellationToken cancellationToken = default);
+
+    Task<T?> GetOrDefaultAsync<T>(
+        string key,
+        T? defaultValue = default,
+        CancellationToken cancellationToken = default);
+
     Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default);
     Task SetAsync<T>(string key, T value, TimeSpan? expiry = null, CancellationToken cancellationToken = default);
     Task RemoveAsync(string key, CancellationToken cancellationToken = default);

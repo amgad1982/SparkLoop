@@ -283,6 +283,29 @@ public class SecurityUnitTests
     private class MemoryCacheService : ICacheService
     {
         private readonly Dictionary<string, object> _store = new();
+
+        public async Task<T> GetOrSetAsync<T>(
+            string key,
+            Func<CancellationToken, Task<T>> factory,
+            TimeSpan? duration = null,
+            TimeSpan? failSafeMaxDuration = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (_store.TryGetValue(key, out var val) && val is T typed) return typed;
+            var fresh = await factory(cancellationToken);
+            if (fresh != null) _store[key] = fresh;
+            return fresh;
+        }
+
+        public Task<T?> GetOrDefaultAsync<T>(
+            string key,
+            T? defaultValue = default,
+            CancellationToken cancellationToken = default)
+        {
+            if (_store.TryGetValue(key, out var val) && val is T typed) return Task.FromResult<T?>(typed);
+            return Task.FromResult<T?>(defaultValue);
+        }
+
         public Task<T?> GetAsync<T>(string key, CancellationToken cancellationToken = default)
         {
             if (_store.TryGetValue(key, out var val) && val is T typed) return Task.FromResult<T?>(typed);

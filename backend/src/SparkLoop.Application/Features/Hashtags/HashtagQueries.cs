@@ -16,56 +16,69 @@ public class HashtagQueriesHandler :
 {
     private static readonly Regex HashtagRegex = new(@"#([a-zA-Z0-9_\u0600-\u06FF]+)", RegexOptions.Compiled);
     private readonly IAppDbContext _dbContext;
+    private readonly ICacheService _cacheService;
 
-    public HashtagQueriesHandler(IAppDbContext dbContext)
+    public HashtagQueriesHandler(IAppDbContext dbContext, ICacheService cacheService)
     {
         _dbContext = dbContext;
+        _cacheService = cacheService;
     }
 
     public async Task<IReadOnlyList<HashtagDto>> Handle(GetTrendingHashtagsQuery request, CancellationToken cancellationToken)
     {
-        var posts = await _dbContext.Posts
-            .OrderByDescending(p => p.CreatedAtUtc)
-            .Take(200)
-            .Select(p => new { Content = p.Content.Value, p.CreatedAtUtc })
-            .ToListAsync(cancellationToken);
+        var cacheKey = $"hashtags:trending:limit:{request.Limit}";
 
-        var hashtagDict = new Dictionary<string, (int Count, DateTime LastUsed)>(StringComparer.OrdinalIgnoreCase);
-
-        // Include default active hashtags for rich initial suggestions
-        var defaultTags = new[] { "spark", "meme", "arabcreators", "gaming", "dailyvibes", "humor", "storytime", "cyberpunk", "sparkloop", "art" };
-        foreach (var tag in defaultTags)
-        {
-            hashtagDict[tag] = (1, DateTime.UtcNow.AddHours(-1));
-        }
-
-        foreach (var p in posts)
-        {
-            if (string.IsNullOrWhiteSpace(p.Content)) continue;
-
-            var matches = HashtagRegex.Matches(p.Content);
-            foreach (Match match in matches)
+        return await _cacheService.GetOrSetAsync<IReadOnlyList<HashtagDto>>(
+            cacheKey,
+            async ct =>
             {
-                var tag = match.Groups[1].Value.ToLowerInvariant();
-                if (string.IsNullOrWhiteSpace(tag)) continue;
+                var posts = await _dbContext.Posts
+                    .OrderByDescending(p => p.CreatedAtUtc)
+                    .Take(200)
+                    .Select(p => new { Content = p.Content.Value, p.CreatedAtUtc })
+                    .ToListAsync(ct);
 
-                if (hashtagDict.TryGetValue(tag, out var existing))
-                {
-                    hashtagDict[tag] = (existing.Count + 1, p.CreatedAtUtc > existing.LastUsed ? p.CreatedAtUtc : existing.LastUsed);
-                }
-                else
-                {
-                    hashtagDict[tag] = (1, p.CreatedAtUtc);
-                }
-            }
-        }
+                var hashtagDict = new Dictionary<string, (int Count, DateTime LastUsed)>(StringComparer.OrdinalIgnoreCase);
 
-        return hashtagDict
-            .OrderByDescending(kv => kv.Value.Count)
-            .ThenByDescending(kv => kv.Value.LastUsed)
-            .Take(request.Limit)
-            .Select(kv => new HashtagDto(kv.Key, kv.Value.Count, kv.Value.LastUsed))
-            .ToList();
+                // Include default active hashtags for rich initial suggestions
+                var defaultTags = new[] { "spark", "meme", "arabcreators", "gaming", "dailyvibes", "humor", "storytime", "cyberpunk", "sparkloop", "art" };
+                foreach (var tag in defaultTags)
+                {
+                    hashtagDict[tag] = (1, DateTime.UtcNow.AddHours(-1));
+                }
+
+                foreach (var p in posts)
+                {
+                    if (string.IsNullOrWhiteSpace(p.Content)) continue;
+
+                    var matches = HashtagRegex.Matches(p.Content);
+                    foreach (Match match in matches)
+                    {
+                        var tag = match.Groups[1].Value.ToLowerInvariant();
+                        if (string.IsNullOrWhiteSpace(tag)) continue;
+
+                        if (hashtagDict.TryGetValue(tag, out var existing))
+                        {
+                            hashtagDict[tag] = (existing.Count + 1, p.CreatedAtUtc > existing.LastUsed ? p.CreatedAtUtc : existing.LastUsed);
+                        }
+                        else
+                        {
+                            hashtagDict[tag] = (1, p.CreatedAtUtc);
+                        }
+                    }
+                }
+
+                return hashtagDict
+                    .OrderByDescending(kv => kv.Value.Count)
+                    .ThenByDescending(kv => kv.Value.LastUsed)
+                    .Take(request.Limit)
+                    .Select(kv => new HashtagDto(kv.Key, kv.Value.Count, kv.Value.LastUsed))
+                    .ToList();
+            },
+            duration: TimeSpan.FromMinutes(2),
+            failSafeMaxDuration: TimeSpan.FromMinutes(30),
+            cancellationToken: cancellationToken
+        );
     }
 
     public async Task<IReadOnlyList<HashtagDto>> Handle(SearchHashtagsQuery request, CancellationToken cancellationToken)

@@ -1549,21 +1549,34 @@ public record GetTopCreatorsQuery : IRequest<IReadOnlyList<UserDto>>;
 public class GetTopCreatorsQueryHandler : IRequestHandler<GetTopCreatorsQuery, IReadOnlyList<UserDto>>
 {
     private readonly IAppDbContext _dbContext;
+    private readonly ICacheService _cacheService;
 
-    public GetTopCreatorsQueryHandler(IAppDbContext dbContext)
+    public GetTopCreatorsQueryHandler(IAppDbContext dbContext, ICacheService cacheService)
     {
         _dbContext = dbContext;
+        _cacheService = cacheService;
     }
 
     public async Task<IReadOnlyList<UserDto>> Handle(GetTopCreatorsQuery request, CancellationToken cancellationToken)
     {
-        var users = await _dbContext.Users
-            .Include(u => u.Badges)
-            .Where(u => u.IsSearchDiscoverable)
-            .OrderByDescending(u => u.RepScore)
-            .Take(10)
-            .ToListAsync(cancellationToken);
+        var cacheKey = "users:top-creators:limit:10";
 
-        return users.Select(RegisterUserCommandHandler.MapUserToDto).ToList();
+        return await _cacheService.GetOrSetAsync<IReadOnlyList<UserDto>>(
+            cacheKey,
+            async ct =>
+            {
+                var users = await _dbContext.Users
+                    .Include(u => u.Badges)
+                    .Where(u => u.IsSearchDiscoverable)
+                    .OrderByDescending(u => u.RepScore)
+                    .Take(10)
+                    .ToListAsync(ct);
+
+                return users.Select(RegisterUserCommandHandler.MapUserToDto).ToList();
+            },
+            duration: TimeSpan.FromMinutes(5),
+            failSafeMaxDuration: TimeSpan.FromHours(1),
+            cancellationToken: cancellationToken
+        );
     }
 }

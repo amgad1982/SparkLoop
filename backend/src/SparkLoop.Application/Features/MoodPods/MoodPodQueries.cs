@@ -65,22 +65,35 @@ public record GetActivePodsQuery : IRequest<IReadOnlyList<MoodPodDto>>;
 public class GetActivePodsQueryHandler : IRequestHandler<GetActivePodsQuery, IReadOnlyList<MoodPodDto>>
 {
     private readonly IAppDbContext _dbContext;
+    private readonly ICacheService _cacheService;
 
-    public GetActivePodsQueryHandler(IAppDbContext dbContext)
+    public GetActivePodsQueryHandler(IAppDbContext dbContext, ICacheService cacheService)
     {
         _dbContext = dbContext;
+        _cacheService = cacheService;
     }
 
     public async Task<IReadOnlyList<MoodPodDto>> Handle(GetActivePodsQuery request, CancellationToken cancellationToken)
     {
-        var now = DateTime.UtcNow;
-        var pods = await _dbContext.MoodPods
-            .Include(p => p.Messages)
-            .Where(p => p.IsActive && p.ExpiresAtUtc > now)
-            .OrderByDescending(p => p.CreatedAtUtc)
-            .ToListAsync(cancellationToken);
+        var cacheKey = "pods:active";
 
-        return pods.Select(MoodPodQueries.MapToDto).ToList();
+        return await _cacheService.GetOrSetAsync<IReadOnlyList<MoodPodDto>>(
+            cacheKey,
+            async ct =>
+            {
+                var now = DateTime.UtcNow;
+                var pods = await _dbContext.MoodPods
+                    .Include(p => p.Messages)
+                    .Where(p => p.IsActive && p.ExpiresAtUtc > now)
+                    .OrderByDescending(p => p.CreatedAtUtc)
+                    .ToListAsync(ct);
+
+                return pods.Select(MoodPodQueries.MapToDto).ToList();
+            },
+            duration: TimeSpan.FromSeconds(15),
+            failSafeMaxDuration: TimeSpan.FromMinutes(2),
+            cancellationToken: cancellationToken
+        );
     }
 }
 

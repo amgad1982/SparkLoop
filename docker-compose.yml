@@ -87,3 +87,7 @@ volumes:
   pgdata:
   redisdata:
   miniodata:
+
+networks:
+  default:
+    name: sparkloop-net
