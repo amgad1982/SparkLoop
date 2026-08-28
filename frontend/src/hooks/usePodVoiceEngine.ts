@@ -457,8 +457,14 @@ export function usePodVoiceEngine({
           if (isMounted) setIsLiveKitConnected(false);
         });
 
+        // Dynamic LiveKit URL resolution with HTTPS/WSS auto-upgrade
+        let liveKitUrl = (import.meta.env.VITE_LIVEKIT_URL as string) || tokenDto.serverUrl;
+        if (typeof window !== 'undefined' && window.location.protocol === 'https:' && liveKitUrl.startsWith('ws://') && !liveKitUrl.includes('localhost') && !liveKitUrl.includes('127.0.0.1')) {
+          liveKitUrl = liveKitUrl.replace(/^ws:\/\//i, 'wss://');
+        }
+
         // Connect
-        await roomInstance.connect(tokenDto.serverUrl, tokenDto.token);
+        await roomInstance.connect(liveKitUrl, tokenDto.token);
         roomInstance.startAudio().catch(() => {});
       } catch (err) {
         console.error('Failed to connect to LiveKit voice room:', err);

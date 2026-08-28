@@ -14,6 +14,7 @@ public class CentrifugoService : ICentrifugoService
 {
     private readonly HttpClient _httpClient;
     private readonly string _apiUrl;
+    private readonly string _wsUrl;
     private readonly string _apiKey;
     private readonly string _secretKey;
     private readonly ILogger<CentrifugoService> _logger;
@@ -24,11 +25,14 @@ public class CentrifugoService : ICentrifugoService
         _logger = logger;
 
         _apiUrl = configuration["Centrifugo:ApiUrl"] ?? "http://localhost:8000/api";
+        _wsUrl = configuration["Centrifugo:WsUrl"] ?? "ws://localhost:8000/connection/websocket";
         _apiKey = configuration["Centrifugo:ApiKey"] ?? "sparkloop_centrifugo_api_key_2026_super_secure";
         _secretKey = configuration["Centrifugo:SecretKey"] ?? "sparkloop_centrifugo_secret_jwt_key_2026_super_secure";
 
         _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("apikey", _apiKey);
     }
+
+    public string GetWebSocketUrl() => _wsUrl;
 
     public async Task PublishAsync<T>(string channel, T data, CancellationToken cancellationToken = default)
     {

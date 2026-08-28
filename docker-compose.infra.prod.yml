@@ -43,6 +43,8 @@ services:
     volumes:
       - ./centrifugo.json:/centrifugo/config.json:ro
     command: centrifugo -c /centrifugo/config.json
+    ports:
+      - "127.0.0.1:8000:8000"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
       interval: 10s
@@ -55,6 +57,8 @@ services:
     container_name: sparkloop-minio
     restart: unless-stopped
     command: server /data
+    ports:
+      - "127.0.0.1:9000:9000"
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadminpassword123!}
@@ -72,6 +76,9 @@ services:
     container_name: sparkloop-livekit
     restart: unless-stopped
     command: --bind 0.0.0.0 --port 7880
+    ports:
+      - "127.0.0.1:7880:7880"
+      - "50000-50050:50000-50050/udp"
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-sparkloop_livekit_key}: ${LIVEKIT_API_SECRET:-sparkloop_livekit_secret_2026_super_secure_32chars}"
     healthcheck:

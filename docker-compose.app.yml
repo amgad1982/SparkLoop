@@ -22,19 +22,22 @@ services:
       - ConnectionStrings__DefaultConnection=Host=sparkloop-postgres;Port=5432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!
       - ConnectionStrings__Redis=sparkloop-redis:6379,abortConnect=false
       - Centrifugo__ApiUrl=http://sparkloop-centrifugo:8000/api
+      - Centrifugo__WsUrl=wss://sloopws.mydev-lab.com/connection/websocket
       - Centrifugo__ApiKey=sparkloop_centrifugo_api_key_2026_super_secure
       - Centrifugo__SecretKey=sparkloop_centrifugo_secret_jwt_key_2026_super_secure
       - Storage__ServiceUrl=http://sparkloop-minio:9000
       - Storage__AccessKey=minioadmin
       - Storage__SecretKey=minioadminpassword123!
       - Storage__BucketName=sparkloop-media
-      - Storage__PublicUrl=https://sloopapi.mydev-lab.com/sparkloop-media
-      - LiveKit__ServerUrl=ws://sparkloop-livekit:7880
+      - Storage__PublicUrl=https://sloopmedia.mydev-lab.com/sparkloop-media
+      - LiveKit__ServerUrl=wss://slooplive.mydev-lab.com
       - LiveKit__ApiKey=sparkloop_livekit_key
       - LiveKit__ApiSecret=sparkloop_livekit_secret_2026_super_secure_32chars
       - CorsOrigins__0=https://sloop.mydev-lab.com
       - CorsOrigins__1=http://localhost:5173
       - CorsOrigins__2=http://localhost:3000
+      - CorsOrigins__3=http://localhost:7070
+      - CorsOrigins__4=http://127.0.0.1:7070
     networks:
       - sparkloop-net
     healthcheck:
@@ -50,6 +53,8 @@ services:
       dockerfile: frontend/Dockerfile
       args:
         - VITE_API_BASE_URL=https://sloopapi.mydev-lab.com/api
+        - VITE_WS_URL=wss://sloopws.mydev-lab.com/connection/websocket
+        - VITE_LIVEKIT_URL=wss://slooplive.mydev-lab.com
     container_name: sparkloop-frontend
     restart: unless-stopped
     ports:

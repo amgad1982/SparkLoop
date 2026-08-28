@@ -7,9 +7,14 @@
 FROM node:22-alpine AS build
 WORKDIR /app
 
-# Build Argument for Backend API Base URL
+# Build Arguments for Backend API & Real-time WebSockets
 ARG VITE_API_BASE_URL=https://sloopapi.mydev-lab.com/api
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+ARG VITE_WS_URL=wss://sloopws.mydev-lab.com/connection/websocket
+ARG VITE_LIVEKIT_URL=wss://slooplive.mydev-lab.com
+
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
+    VITE_WS_URL=$VITE_WS_URL \
+    VITE_LIVEKIT_URL=$VITE_LIVEKIT_URL
 
 # Copy package dependency manifests for layer caching
 COPY frontend/package.json frontend/package-lock.json ./

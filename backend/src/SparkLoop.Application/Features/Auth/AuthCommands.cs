@@ -1538,7 +1538,7 @@ public class GetCentrifugoTokenQueryHandler : IRequestHandler<GetCentrifugoToken
         var uname = _currentUserService.Username ?? "sparkcreator";
 
         var token = _centrifugoService.GenerateConnectionToken(uid, uname);
-        var wsUrl = "ws://localhost:8000/connection/websocket";
+        var wsUrl = _centrifugoService.GetWebSocketUrl();
 
         return Task.FromResult(new CentrifugoTokenDto(token, wsUrl, uid));
     }

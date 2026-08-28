@@ -73,7 +73,21 @@ async function getOrCreateCentrifuge(
       currentClientUserId = userId;
       const tokenRes = await api.getCentrifugoToken();
 
-      const client = new Centrifuge('ws://localhost:8000/connection/websocket', {
+      // Resolve dynamic WebSocket URL (supports environment variable, backend config, and HTTPS/WSS auto-upgrade)
+      let wsEndpoint = tokenRes?.websocketUrl || (import.meta.env.VITE_WS_URL as string) || '';
+      if (!wsEndpoint) {
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        const host = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+        wsEndpoint = host === 'localhost' || host === '127.0.0.1'
+          ? 'ws://localhost:8000/connection/websocket'
+          : `${isHttps ? 'wss:' : 'ws:'}//${typeof window !== 'undefined' ? window.location.host : 'localhost'}/connection/websocket`;
+      }
+
+      if (typeof window !== 'undefined' && window.location.protocol === 'https:' && wsEndpoint.startsWith('ws://') && !wsEndpoint.includes('localhost') && !wsEndpoint.includes('127.0.0.1')) {
+        wsEndpoint = wsEndpoint.replace(/^ws:\/\//i, 'wss://');
+      }
+
+      const client = new Centrifuge(wsEndpoint, {
         token: tokenRes.token,
         data: {
           user: username,

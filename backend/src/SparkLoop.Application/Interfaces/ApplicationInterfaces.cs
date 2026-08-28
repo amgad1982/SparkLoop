@@ -33,6 +33,7 @@ public interface ICentrifugoService
     Task BroadcastAsync<T>(IEnumerable<string> channels, T data, CancellationToken cancellationToken = default);
     string GenerateConnectionToken(string userId, string username, TimeSpan? ttl = null);
     string GenerateSubscriptionToken(string client, string channel, TimeSpan? ttl = null);
+    string GetWebSocketUrl();
 }
 
 public interface IBlobStorageService
