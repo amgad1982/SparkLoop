@@ -53,7 +53,7 @@ services:
     container_name: sparkloop-frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "7070:80"
     networks:
       - sparkloop-net
     healthcheck:
