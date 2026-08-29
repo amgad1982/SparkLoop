@@ -177,6 +177,14 @@ curl -I http://localhost:8000/health
 curl -I http://localhost:7880/
 ```
 
+### Step 5: Access Centrifugo Admin Web UI
+The Centrifugo Admin Dashboard allows real-time channel inspection, connection metrics, presence debugging, and manual message broadcasting:
+
+- **Local Access URL**: `http://localhost:8000` (or `http://localhost:8000/admin`)
+- **Public URL**: `https://sloopws.mydev-lab.com` (or `https://sloopws.mydev-lab.com/admin`)
+- **Admin Password**: `sparkloop_admin_password_123`
+- **Admin Secret**: `sparkloop_admin_secret_key_2026_super_secure`
+
 ---
 
 ## 5. Security & Port Exposure Reference
