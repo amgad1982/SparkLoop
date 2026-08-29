@@ -52,6 +52,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
           <div className="w-full md:max-w-2xl lg:max-w-2xl xl:max-w-3xl h-full flex flex-col bg-white dark:bg-[#0e1520] border-x border-slate-200 dark:border-slate-800/80 relative shadow-xl overflow-hidden flex-1 transition-colors duration-200">
             {/* Mobile Header (Visible on < md) */}
             <TopHeader
+              activeTab={activeTab}
               isConnected={isConnected}
               onNavigateTab={onTabChange}
               onOpenSearch={onOpenSearch}

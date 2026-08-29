@@ -5,18 +5,20 @@ import { useThemeStore } from '../../stores/useThemeStore';
 import { Languages, Sparkles, Search, LogIn, User } from 'lucide-react';
 
 interface TopHeaderProps {
+  activeTab?: TabType;
   isConnected?: boolean;
   onNavigateTab?: (tab: TabType) => void;
   onOpenSearch?: () => void;
 }
 
-export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true, onNavigateTab, onOpenSearch }) => {
+export const TopHeader: React.FC<TopHeaderProps> = ({ activeTab, isConnected = true, onNavigateTab, onOpenSearch }) => {
   const { currentUser, currentPersona, openAuthModal } = useAuthStore();
   const { locale, toggleLocale } = useThemeStore();
   const isArabic = locale === 'ar';
+  const isProfileActive = activeTab === 'profile';
 
   return (
-    <header className="md:hidden w-full glass-panel border-b border-slate-200 dark:border-slate-800/80 px-4 py-3 shrink-0 z-40">
+    <header className="md:hidden w-full glass-panel border-b border-slate-200 dark:border-slate-800/80 px-4 py-2.5 shrink-0 z-40">
       <div className="max-w-md mx-auto flex items-center justify-between">
         {/* Logo & Realtime Status */}
         <div className="flex items-center gap-2.5">
@@ -74,7 +76,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ isConnected = true, onNavi
                   onNavigateTab('profile');
                 }
               }}
-              className="flex items-center gap-2 p-1 pr-2.5 rtl:pr-1 rtl:pl-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:border-indigo-500/50 transition-all text-xs"
+              className={`flex items-center gap-2 p-1 pr-2.5 rtl:pr-1 rtl:pl-2.5 rounded-2xl transition-all text-xs ${
+                isProfileActive
+                  ? 'bg-indigo-500/15 border-2 border-indigo-500 ring-2 ring-indigo-500/30 text-indigo-600 dark:text-indigo-300 font-bold shadow-md shadow-indigo-500/20'
+                  : 'bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:border-indigo-500/50'
+              }`}
               title={isArabic ? 'عرض الملف الشخصي' : 'View Profile'}
             >
               <img

@@ -77,6 +77,9 @@ export const useAuthStore = create<AuthState>()(
           import('./useThemeStore').then(({ useThemeStore }) => {
             useThemeStore.getState().syncFromUser(user.preferredTheme, user.preferredLanguage);
           });
+          import('./useFollowStore').then(({ useFollowStore }) => {
+            useFollowStore.getState().loadMyFollowing(user.username);
+          });
         }
       },
       setAuthResult: (result) => {
@@ -92,6 +95,9 @@ export const useAuthStore = create<AuthState>()(
         if (result.user) {
           import('./useThemeStore').then(({ useThemeStore }) => {
             useThemeStore.getState().syncFromUser(result.user.preferredTheme, result.user.preferredLanguage);
+          });
+          import('./useFollowStore').then(({ useFollowStore }) => {
+            useFollowStore.getState().loadMyFollowing(result.user.username);
           });
         }
       },
@@ -110,6 +116,9 @@ export const useAuthStore = create<AuthState>()(
             api.revokeToken(token).catch(() => {});
           });
         }
+        import('./useFollowStore').then(({ useFollowStore }) => {
+          useFollowStore.getState().clear();
+        });
         set({
           currentUser: null,
           currentPersona: GUEST_USER,

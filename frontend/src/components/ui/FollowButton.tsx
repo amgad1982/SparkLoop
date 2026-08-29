@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../stores/useAuthStore';
+import { useAuthStore, GUEST_USER } from '../../stores/useAuthStore';
 import { useThemeStore } from '../../stores/useThemeStore';
-import { api } from '../../services/apiClient';
+import { useFollowStore } from '../../stores/useFollowStore';
 import { Tooltip } from './Tooltip';
 import { UserPlus, UserCheck, Clock, RefreshCw, Loader2, UserMinus } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -28,27 +28,54 @@ interface FollowButtonProps {
 export const FollowButton: React.FC<FollowButtonProps> = ({
   targetUserId,
   targetUsername,
-  initialStatus = 'none',
+  initialStatus,
   size = 'sm',
   onStatusChange,
   className = '',
   tooltipPosition = 'top',
 }) => {
-  const { currentPersona } = useAuthStore();
+  const { currentUser, currentPersona, openAuthModal } = useAuthStore();
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
 
-  const [status, setStatus] = useState<FollowStatusType>(initialStatus);
   const [loading, setLoading] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Subscribe to global synchronized follow state
+  const storeStatus = useFollowStore(
+    (s) =>
+      s.followStatuses[targetUsername.toLowerCase()] ||
+      (targetUserId ? s.followStatuses[targetUserId] : undefined)
+  );
+
+  const status: FollowStatusType = storeStatus !== undefined ? storeStatus : (initialStatus || 'none');
+
   const isSelf =
+    (currentUser && (currentUser.id === targetUserId || currentUser.username.toLowerCase() === targetUsername.toLowerCase())) ||
     currentPersona?.id === targetUserId ||
     currentPersona?.username.toLowerCase() === targetUsername.toLowerCase();
 
+  // Register initialStatus if provided
   useEffect(() => {
-    setStatus(initialStatus);
-  }, [initialStatus]);
+    if (initialStatus && storeStatus === undefined) {
+      useFollowStore.getState().setFollowStatus(targetUsername, initialStatus);
+      if (targetUserId) {
+        useFollowStore.getState().setFollowStatus(targetUserId, initialStatus);
+      }
+    }
+  }, [initialStatus, storeStatus, targetUsername, targetUserId]);
+
+  // Fetch follow status from server if user is authenticated and status unknown
+  useEffect(() => {
+    if (
+      currentUser &&
+      !isSelf &&
+      storeStatus === undefined &&
+      (!initialStatus || initialStatus === 'none')
+    ) {
+      useFollowStore.getState().fetchFollowStatus(targetUsername);
+    }
+  }, [currentUser, isSelf, storeStatus, initialStatus, targetUsername]);
 
   if (isSelf || status === 'self') {
     return null;
@@ -58,22 +85,19 @@ export const FollowButton: React.FC<FollowButtonProps> = ({
     e.stopPropagation();
     if (loading) return;
 
+    // If not logged in, prompt authentication
+    if (!currentUser || currentPersona.id === GUEST_USER.id) {
+      openAuthModal('login');
+      return;
+    }
+
     setLoading(true);
     try {
-      if (status === 'following' || status === 'mutual') {
-        await api.unfollowUser(targetUserId);
-        const newStatus = 'none';
-        setStatus(newStatus);
+      if (status === 'following' || status === 'mutual' || status === 'pending_outgoing') {
+        const newStatus = await useFollowStore.getState().unfollowUser(targetUserId, targetUsername);
         onStatusChange?.(newStatus);
-      } else if (status === 'pending_outgoing') {
-        await api.unfollowUser(targetUserId);
-        const newStatus = 'none';
-        setStatus(newStatus);
-        onStatusChange?.(newStatus);
-      } else if (status === 'follow_back' || status === 'none' || status === 'pending_incoming') {
-        await api.followUser(targetUserId);
-        const newStatus: FollowStatusType = status === 'follow_back' ? 'mutual' : 'following';
-        setStatus(newStatus);
+      } else {
+        const newStatus = await useFollowStore.getState().followUser(targetUserId, targetUsername, status);
         onStatusChange?.(newStatus);
       }
     } catch (err) {

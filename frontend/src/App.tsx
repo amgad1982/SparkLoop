@@ -14,6 +14,7 @@ import { AuthModal } from './components/auth/AuthModal';
 import { useCentrifugo } from './hooks/useCentrifugo';
 import { useThemeStore } from './stores/useThemeStore';
 import { useAuthStore } from './stores/useAuthStore';
+import { useFollowStore } from './stores/useFollowStore';
 import { api } from './services/apiClient';
 import { ChainDto, MoodPodDto, PostDto, SparkDto } from './types/api';
 import { Flame, GitBranch, Plus, Radio, Sparkles } from 'lucide-react';
@@ -28,21 +29,36 @@ export const App: React.FC = () => {
 
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
+  const currentUser = useAuthStore((s) => s.currentUser);
 
-  // Ensure active JWT session on startup
+  // Ensure active JWT session and preload follow relationships on startup
   useEffect(() => {
-    const { accessToken, refreshToken, setTokens, setUser } = useAuthStore.getState();
+    const { accessToken, refreshToken, setTokens, setUser, currentUser: initialUser } = useAuthStore.getState();
+    if (initialUser?.username) {
+      useFollowStore.getState().loadMyFollowing(initialUser.username);
+    }
+
     if (!accessToken && refreshToken) {
       api.refreshToken(refreshToken)
         .then((res) => {
           setTokens(res.token, res.refreshToken, res.centrifugoToken, res.refreshTokenExpiresAtUtc);
           setUser(res.user);
+          if (res.user?.username) {
+            useFollowStore.getState().loadMyFollowing(res.user.username);
+          }
         })
         .catch(() => {
           useAuthStore.getState().logout();
         });
     }
   }, []);
+
+  // Sync follow store whenever currentUser changes
+  useEffect(() => {
+    if (currentUser?.username) {
+      useFollowStore.getState().loadMyFollowing(currentUser.username);
+    }
+  }, [currentUser?.username]);
 
   // Global Centrifugo connection status & Real-time query cache updates
   const { isConnected } = useCentrifugo('feed:global', (data) => {
