@@ -158,7 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   void _randomizeAvatar() {
     final randomSeed = 'avatar_${Random().nextInt(999999)}';
     setState(() {
-      _avatarUrlController.text = 'https://api.dicebear.com/7.x/bottts/png?seed=$randomSeed';
+      _avatarUrlController.text = 'https://api.dicebear.com/7.x/bottts/svg?seed=$randomSeed';
     });
   }
 

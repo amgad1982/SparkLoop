@@ -20,22 +20,44 @@ class FeedViewModel extends ChangeNotifier {
   String? get selectedHashtag => _selectedHashtag;
 
   FeedViewModel({
-    required this._feedRepository,
-    required this._centrifugoService,
-  }) {
+    required FeedRepository feedRepository,
+    required CentrifugoService centrifugoService,
+  })  : _feedRepository = feedRepository,
+        _centrifugoService = centrifugoService {
+    _centrifugoService.subscribe('feed');
     _centrifugoService.subscribe('feed:global');
     _centrifugoService.events.listen(_handleCentrifugoEvent);
     fetchFeed();
   }
 
   void _handleCentrifugoEvent(CentrifugoEvent event) {
-    if (event.channel == 'feed:global') {
+    if (event.channel == 'feed:global' || event.channel == 'feed') {
       final type = event.data['type'] as String?;
       if (type == 'POST_CREATED' && event.data['post'] != null) {
         final newPost = PostDto.fromJson(event.data['post'] as Map<String, dynamic>);
         if (!_posts.any((p) => p.id == newPost.id)) {
           _posts.insert(0, newPost);
           notifyListeners();
+        }
+      } else if (type == 'POST_REACTED') {
+        final postId = event.data['postId'] as String?;
+        final reactionCount = event.data['reactionCount'] as int?;
+        final reactionsList = event.data['reactions'] as List<dynamic>?;
+
+        if (postId != null) {
+          final idx = _posts.indexWhere((p) => p.id == postId);
+          if (idx != -1) {
+            final post = _posts[idx];
+            final updatedReactions = reactionsList != null
+                ? reactionsList.map((r) => ReactionDto.fromJson(r as Map<String, dynamic>)).toList()
+                : post.reactions;
+
+            _posts[idx] = post.copyWith(
+              reactionCount: reactionCount ?? post.reactionCount,
+              reactions: updatedReactions,
+            );
+            notifyListeners();
+          }
         }
       }
     }

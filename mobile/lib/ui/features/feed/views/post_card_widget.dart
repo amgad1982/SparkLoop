@@ -44,6 +44,16 @@ class PostCardWidget extends StatelessWidget {
 
     final formattedTime = DateFormat('h:mm a').format(post.createdAtUtc.toLocal());
 
+    final isSelf = (authVm.currentUser != null &&
+            (post.authorId == authVm.currentUser!.id ||
+                post.authorUsername.toLowerCase() == authVm.currentUser!.username.toLowerCase())) ||
+        (post.authorUsername.toLowerCase() == authVm.currentPersona.username.toLowerCase() ||
+            post.authorId == authVm.currentPersona.id);
+
+    final resolvedAvatarUrl = (isSelf && (authVm.currentUser?.avatarUrl?.isNotEmpty == true || authVm.currentPersona.avatarUrl.isNotEmpty))
+        ? (authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl)
+        : post.authorAvatarUrl;
+
     return GlassContainer(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(14),
@@ -55,7 +65,7 @@ class PostCardWidget extends StatelessWidget {
           Row(
             children: [
               AvatarBadge(
-                avatarUrl: post.authorAvatarUrl,
+                avatarUrl: resolvedAvatarUrl,
                 username: post.authorUsername,
                 size: 38,
               ),

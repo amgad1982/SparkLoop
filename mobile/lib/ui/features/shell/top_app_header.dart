@@ -172,45 +172,39 @@ class TopAppHeader extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 6),
 
-            // User Profile / Sign In
-            if (authVm.isAuthenticated)
-              GestureDetector(
-                onTap: () => context.push('/profile'),
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: isProfileActive
-                        ? Border.all(color: AppColors.primary, width: 2)
-                        : Border.all(color: Colors.transparent),
-                    boxShadow: isProfileActive
-                        ? [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.35),
-                              blurRadius: 8,
-                            )
-                          ]
-                        : null,
-                  ),
-                  child: AvatarBadge(
-                    avatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
-                    username: authVm.currentUser?.username ?? authVm.currentPersona.username,
-                    size: 28,
-                    showBorder: false,
-                  ),
+            // User Profile Avatar
+            GestureDetector(
+              onTap: () {
+                if (authVm.isAuthenticated) {
+                  context.push('/profile');
+                } else {
+                  context.push('/login');
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: isProfileActive
+                      ? Border.all(color: AppColors.primary, width: 2)
+                      : Border.all(color: Colors.transparent),
+                  boxShadow: isProfileActive
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                          )
+                        ]
+                      : null,
                 ),
-              )
-            else
-              ElevatedButton.icon(
-                onPressed: () => context.push('/login'),
-                icon: const Icon(Icons.login, size: 12),
-                label: Text(isArabic ? 'دخول' : 'Sign In', style: const TextStyle(fontSize: 10.5)),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                child: AvatarBadge(
+                  avatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
+                  username: authVm.currentUser?.username ?? authVm.currentPersona.username,
+                  size: 30,
+                  showBorder: !authVm.isAuthenticated,
                 ),
               ),
+            ),
           ],
         ),
       ),

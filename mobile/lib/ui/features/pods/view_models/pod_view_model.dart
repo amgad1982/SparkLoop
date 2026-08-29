@@ -21,6 +21,12 @@ class PodViewModel extends ChangeNotifier {
   final List<PodChatMessageDto> _chatMessages = [];
   List<PodChatMessageDto> get chatMessages => _chatMessages;
 
+  final List<Map<String, String>> _handRaisedUsers = [];
+  List<Map<String, String>> get handRaisedUsers => _handRaisedUsers;
+
+  Map<String, String>? _activeSoundBanner;
+  Map<String, String>? get activeSoundBanner => _activeSoundBanner;
+
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
@@ -52,22 +58,144 @@ class PodViewModel extends ChangeNotifier {
   void _handleCentrifugoEvent(CentrifugoEvent event) {
     if (_activePod != null && event.channel == 'pod:${_activePod!.id}') {
       final type = event.data['type'] as String?;
-      if (type == 'CHAT_MESSAGE' && event.data['message'] != null) {
-        final newMsg = PodChatMessageDto.fromJson(event.data['message'] as Map<String, dynamic>);
-        _chatMessages.add(newMsg);
+      final signalType = (event.data['signalType'] ?? type) as String?;
+
+      // 1. Live Chat Messages
+      if (type == 'POD_MESSAGE' || type == 'CHAT_MESSAGE') {
+        final msgData = (event.data['message'] ?? event.data) as Map<String, dynamic>;
+        if (msgData.containsKey('text') || msgData.containsKey('content') || msgData.containsKey('audioUrl')) {
+          final newMsg = PodChatMessageDto.fromJson(msgData);
+          final idx = _chatMessages.indexWhere((m) => m.id == newMsg.id);
+          if (idx >= 0) {
+            _chatMessages[idx] = newMsg;
+          } else {
+            _chatMessages.add(newMsg);
+          }
+          notifyListeners();
+        }
+      }
+      // 2. Room Settings and Theme Updates
+      else if (type == 'POD_SETTINGS_UPDATED' || type == 'POD_UPDATED') {
+        final p = (event.data['pod'] ?? event.data['payload'] ?? event.data) as Map<String, dynamic>;
+        _activePod = _activePod!.copyWith(
+          title: p['title'] as String? ?? _activePod!.title,
+          moodEmoji: p['moodEmoji'] as String? ?? _activePod!.moodEmoji,
+          backgroundTheme: p['backgroundTheme'] as String? ?? _activePod!.backgroundTheme,
+          customBackgroundImageUrl: p['customBackgroundImageUrl'] as String? ?? _activePod!.customBackgroundImageUrl,
+          isPrivate: p['isPrivate'] as bool? ?? _activePod!.isPrivate,
+          inviteCode: p['inviteCode'] as String? ?? _activePod!.inviteCode,
+          allowParticipantsChangeTheme: p['allowParticipantsChangeTheme'] as bool? ?? _activePod!.allowParticipantsChangeTheme,
+          allowParticipantsPlayBgMusic: p['allowParticipantsPlayBgMusic'] as bool? ?? _activePod!.allowParticipantsPlayBgMusic,
+          allowOpenMic: p['allowOpenMic'] as bool? ?? _activePod!.allowOpenMic,
+          moderatorUserIds: p['moderatorUserIds'] != null
+              ? List<String>.from(p['moderatorUserIds'] as List)
+              : _activePod!.moderatorUserIds,
+        );
         notifyListeners();
-      } else if (type == 'POD_SETTINGS_UPDATED' && event.data['pod'] != null) {
-        final updated = MoodPodDto.fromJson(event.data['pod'] as Map<String, dynamic>);
-        _activePod = updated;
-        notifyListeners();
-      } else if (type == 'POD_REACTION_BURST') {
+      }
+      // 3. Floating Reaction Bursts
+      else if (type == 'REACTION_BURST' || type == 'POD_REACTION_BURST' || type == 'POD_REACTION') {
         _activeReaction = event.data['emoji'] as String? ?? '🔥';
         notifyListeners();
         Future.delayed(const Duration(seconds: 2), () {
           _activeReaction = null;
           notifyListeners();
         });
-      } else if (type == 'POD_EXPIRED' || type == 'POD_CLOSED') {
+      }
+      // 4. Live Soundboard Audio Effects
+      else if (type == 'SOUND_EFFECT' || type == 'POD_SOUND_EFFECT') {
+        final eff = (event.data['effect'] ?? event.data['effectName']) as String?;
+        final sender = (event.data['senderDisplayName'] ?? event.data['senderUsername'] ?? 'Someone') as String;
+        if (eff != null) {
+          _activeSoundBanner = {'effect': eff, 'sender': sender};
+          notifyListeners();
+          Future.delayed(const Duration(seconds: 3), () {
+            _activeSoundBanner = null;
+            notifyListeners();
+          });
+        }
+      }
+      // 5. Stage Speaking / Mute Status
+      else if (signalType == 'SPEAKING_STATUS' || signalType == 'STAGE_SPEAKING' || signalType == 'STAGE_MUTE_STATUS') {
+        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
+        final isSpk = event.data['isSpeaking'] as bool?;
+        final isMt = event.data['isMuted'] as bool?;
+        if (uId != null) {
+          _liveKitService.setSpeakerStatus(uId, isSpeaking: isSpk, isMuted: isMt);
+        }
+      }
+      // 6. Stage Participant Join
+      else if (signalType == 'STAGE_JOIN') {
+        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
+        final uName = (event.data['username'] ?? event.data['senderUsername']) as String? ?? '';
+        final dName = (event.data['displayName'] ?? event.data['senderDisplayName']) as String? ?? uName;
+        final avUrl = (event.data['avatarUrl'] ?? event.data['senderAvatarUrl']) as String?;
+        if (uId != null) {
+          _liveKitService.addOrUpdateSpeaker(LiveKitSpeaker(
+            userId: uId,
+            username: uName,
+            displayName: dName,
+            avatarUrl: avUrl,
+            isSpeaking: false,
+            isMuted: false,
+          ));
+        }
+      }
+      // 7. Stage Participant Leave
+      else if (signalType == 'STAGE_LEAVE') {
+        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
+        if (uId != null) {
+          _liveKitService.removeSpeaker(uId);
+        }
+      }
+      // 8. Hand Raise Queue
+      else if (signalType == 'HAND_RAISE') {
+        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
+        final uName = (event.data['username'] ?? event.data['senderUsername']) as String? ?? '';
+        final dName = (event.data['displayName'] ?? event.data['senderDisplayName']) as String? ?? uName;
+        if (uId != null && !_handRaisedUsers.any((u) => u['userId'] == uId)) {
+          _handRaisedUsers.add({'userId': uId, 'username': uName, 'displayName': dName});
+          notifyListeners();
+        }
+      } else if (signalType == 'HAND_LOWER') {
+        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
+        if (uId != null) {
+          _handRaisedUsers.removeWhere((u) => u['userId'] == uId);
+          notifyListeners();
+        }
+      }
+      // 9. DJ Background Music State
+      else if (signalType == 'POD_BG_MUSIC' || signalType == 'BG_MUSIC_PLAY') {
+        final title = event.data['trackTitle'] as String? ?? 'Ambient Session';
+        _liveKitService.setBgMusicTitle(title);
+        if (!_liveKitService.isBgMusicPlaying) {
+          _liveKitService.toggleBgMusic();
+        }
+      } else if (signalType == 'BG_MUSIC_STOP') {
+        if (_liveKitService.isBgMusicPlaying) {
+          _liveKitService.toggleBgMusic();
+        }
+      }
+      // 10. Moderation Actions
+      else if (type == 'MODERATION_ACTION') {
+        final action = event.data['action'] as String?;
+        final targetUserId = event.data['targetUserId'] as String?;
+        if (action == 'promote_moderator' && targetUserId != null && _activePod != null) {
+          if (!_activePod!.moderatorUserIds.contains(targetUserId)) {
+            _activePod = _activePod!.copyWith(
+              moderatorUserIds: [..._activePod!.moderatorUserIds, targetUserId],
+            );
+            notifyListeners();
+          }
+        } else if (action == 'demote_moderator' && targetUserId != null && _activePod != null) {
+          _activePod = _activePod!.copyWith(
+            moderatorUserIds: _activePod!.moderatorUserIds.where((id) => id != targetUserId).toList(),
+          );
+          notifyListeners();
+        }
+      }
+      // 11. Pod Lifecycle Closure
+      else if (type == 'POD_EXPIRED' || type == 'POD_CLOSED') {
         leaveActivePod();
       }
     }
@@ -103,10 +231,15 @@ class PodViewModel extends ChangeNotifier {
       _isHost = _activePod?.hostUserId == currentUserId;
       _isModerator = _isHost || (_activePod?.moderatorUserIds.contains(currentUserId) ?? false);
       _chatMessages.clear();
+      _handRaisedUsers.clear();
 
       _centrifugoService.subscribe('pod:$podId');
 
-      final token = await _podRepository.getLiveKitToken(podId, isOnStage: _isHost || _activePod?.allowOpenMic == true, inviteCode: inviteCode);
+      final token = await _podRepository.getLiveKitToken(
+        podId,
+        isOnStage: _isHost || _activePod?.allowOpenMic == true,
+        inviteCode: inviteCode,
+      );
 
       await _liveKitService.connectToRoom(
         podId: podId,
@@ -128,7 +261,8 @@ class PodViewModel extends ChangeNotifier {
     }
   }
 
-  Future<MoodPodDto?> joinByCode(String code, {
+  Future<MoodPodDto?> joinByCode(
+    String code, {
     required String currentUserId,
     required String currentUsername,
     required String currentDisplayName,
@@ -156,10 +290,41 @@ class PodViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendChatMessage(String content) async {
-    if (_activePod == null || content.trim().isEmpty) return;
+  Future<void> sendChatMessage(
+    String content, {
+    String? currentUserId,
+    String? currentUsername,
+    String? currentDisplayName,
+    String? currentAvatarUrl,
+    String? audioUrl,
+    int? durationSeconds,
+  }) async {
+    if (_activePod == null || (content.trim().isEmpty && audioUrl == null)) return;
+
+    final tempId = 'opt_${DateTime.now().millisecondsSinceEpoch}';
+    final optMsg = PodChatMessageDto(
+      id: tempId,
+      podId: _activePod!.id,
+      userId: currentUserId ?? '',
+      username: currentUsername ?? '',
+      displayName: currentDisplayName ?? currentUsername ?? 'You',
+      avatarUrl: currentAvatarUrl,
+      content: content.trim(),
+      createdAtUtc: DateTime.now().toUtc(),
+    );
+    _chatMessages.add(optMsg);
+    notifyListeners();
+
     try {
-      await _podRepository.sendMessage(_activePod!.id, content.trim());
+      final saved = await _podRepository.sendMessage(
+        _activePod!.id,
+        content.trim(),
+      );
+      final idx = _chatMessages.indexWhere((m) => m.id == tempId);
+      if (idx >= 0) {
+        _chatMessages[idx] = saved;
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error sending pod chat: $e');
     }
@@ -180,6 +345,26 @@ class PodViewModel extends ChangeNotifier {
       await _podRepository.sendSoundEffect(_activePod!.id, effectName);
     } catch (e) {
       debugPrint('Error sending sound effect: $e');
+    }
+  }
+
+  Future<void> sendBgMusic({
+    required String action,
+    String? trackTitle,
+    double? currentTime,
+    double? duration,
+  }) async {
+    if (_activePod == null) return;
+    try {
+      await _podRepository.sendBgMusic(
+        _activePod!.id,
+        action: action,
+        trackTitle: trackTitle,
+        currentTime: currentTime,
+        duration: duration,
+      );
+    } catch (e) {
+      debugPrint('Error sending bg music command: $e');
     }
   }
 
@@ -222,7 +407,12 @@ class PodViewModel extends ChangeNotifier {
     }
   }
 
-  Future<bool> moderateParticipant(String targetUserId, String targetUsername, String action, {String? reason}) async {
+  Future<bool> moderateParticipant(
+    String targetUserId,
+    String targetUsername,
+    String action, {
+    String? reason,
+  }) async {
     if (_activePod == null) return false;
     try {
       return await _podRepository.moderateParticipant(
@@ -270,6 +460,8 @@ class PodViewModel extends ChangeNotifier {
     _isModerator = false;
     _isHandRaised = false;
     _chatMessages.clear();
+    _handRaisedUsers.clear();
+    _activeSoundBanner = null;
     notifyListeners();
   }
 

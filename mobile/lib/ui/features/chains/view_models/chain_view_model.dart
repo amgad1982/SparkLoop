@@ -20,11 +20,43 @@ class ChainViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   ChainViewModel({
-    required this._chainRepository,
-    required this._feedRepository,
-    required this._centrifugoService,
-  }) {
+    required ChainRepository chainRepository,
+    required FeedRepository feedRepository,
+    required CentrifugoService centrifugoService,
+  })  : _chainRepository = chainRepository,
+        _feedRepository = feedRepository,
+        _centrifugoService = centrifugoService {
+    _centrifugoService.events.listen(_handleCentrifugoEvent);
     fetchChains();
+  }
+
+  void _handleCentrifugoEvent(CentrifugoEvent event) {
+    if (_selectedChain != null && event.channel == 'chain:${_selectedChain!.id}') {
+      final type = event.data['type'] as String?;
+      if (type == 'STEP_ADDED' && event.data['step'] != null) {
+        final newTurn = StoryTurnDto.fromJson(event.data['step'] as Map<String, dynamic>);
+        if (!_selectedChain!.turns.any((t) => t.id == newTurn.id)) {
+          final updatedTurns = List<StoryTurnDto>.from(_selectedChain!.turns)..add(newTurn);
+          _selectedChain = ChainDto(
+            id: _selectedChain!.id,
+            title: _selectedChain!.title,
+            creatorId: _selectedChain!.creatorId,
+            creatorUsername: _selectedChain!.creatorUsername,
+            creatorDisplayName: _selectedChain!.creatorDisplayName,
+            creatorAvatarUrl: _selectedChain!.creatorAvatarUrl,
+            maxTurns: _selectedChain!.maxTurns,
+            turnTimeoutMinutes: _selectedChain!.turnTimeoutMinutes,
+            isCompleted: updatedTurns.length >= _selectedChain!.maxTurns,
+            currentTurnIndex: updatedTurns.length,
+            createdAtUtc: _selectedChain!.createdAtUtc,
+            turns: updatedTurns,
+          );
+          notifyListeners();
+        }
+      } else if (type == 'CHAIN_COMPLETED') {
+        selectChain(_selectedChain!.id);
+      }
+    }
   }
 
   Future<void> fetchChains() async {

@@ -72,6 +72,7 @@ class CreatePodDialog extends StatefulWidget {
 }
 
 class _CreatePodDialogState extends State<CreatePodDialog> {
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   String _selectedEmoji = '🎧';
   String _selectedTheme = 'cosmic-purple';
@@ -90,14 +91,17 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
   }
 
   Future<void> _submit(BuildContext context) async {
-    final title = _titleController.text.trim();
-    if (title.isEmpty) return;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
     setState(() => _isSubmitting = true);
     final podVm = context.read<PodViewModel>();
 
     final created = await podVm.createPod(
-      title: title,
+      title: _titleController.text.trim(),
       moodEmoji: _selectedEmoji,
       backgroundTheme: _selectedTheme,
       isPrivate: _isPrivate,
@@ -109,12 +113,27 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
 
     if (mounted) {
       setState(() => _isSubmitting = false);
-      Navigator.pop(context);
       if (created != null) {
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Room "${created.title}" created successfully!'),
+            content: Text(
+              isArabic
+                  ? 'تم إنشاء حجرة "${created.title}" بنجاح! 🚀'
+                  : 'Room "${created.title}" created successfully! 🚀',
+            ),
             backgroundColor: AppColors.accentEmerald,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isArabic
+                  ? 'فشل إنشاء الحجرة. تأكد من الاتصال وسجل الدخول.'
+                  : 'Failed to create room. Please verify connection or sign in.',
+            ),
+            backgroundColor: AppColors.error,
           ),
         );
       }
@@ -136,256 +155,291 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
       child: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).viewInsets.bottom + 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.grey.withValues(alpha: 0.4),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              // Title & Icon Header
-              Row(
-                children: [
-                  Container(
-                    width: 36,
-                    height: 36,
+          child: Form(
+            key: _formKey,
+            autovalidateMode: AutovalidateMode.onUserInteraction,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
                     decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.radio, color: Colors.white, size: 20),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isArabic ? 'إنشاء حجرة مزاج جديدة' : 'Create Mood Pod',
-                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
-                        ),
-                        Text(
-                          isArabic ? 'بث صوتي حي مع أجواء مخصصة وموسيقى' : 'Live audio space with custom ambient vibe',
-                          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                        ),
-                      ],
+                      color: Colors.grey.withValues(alpha: 0.4),
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // 1. Room Title Input
-              Text(
-                isArabic ? 'عنوان الحجرة' : 'Room Title',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              const SizedBox(height: 6),
-              TextField(
-                controller: _titleController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: isArabic ? 'مثال: سوالف تقنية، جلسة كودينغ...' : 'e.g. Late Night Coding, Friday Memes...',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 ),
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 14),
 
-              // 2. Mood Emoji Presets
-              Text(
-                isArabic ? 'أيقونة المزاج' : 'Mood Emoji',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 44,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: podEmojiPresets.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, i) {
-                    final emoji = podEmojiPresets[i];
-                    final isSelected = emoji == _selectedEmoji;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedEmoji = emoji),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 44,
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary.withValues(alpha: 0.2)
-                              : (isDark ? AppColors.surfaceDark : const Color(0xFFF1F5F9)),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isSelected ? AppColors.primary : Colors.transparent,
-                            width: 2,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(emoji, style: const TextStyle(fontSize: 20)),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 3. Theme Presets
-              Text(
-                isArabic ? 'سمة وألوان الحجرة' : 'Room Theme & Atmosphere',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 42,
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: podThemePresets.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 8),
-                  itemBuilder: (context, i) {
-                    final theme = podThemePresets[i];
-                    final isSelected = theme['id'] == _selectedTheme;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedTheme = theme['id'] as String),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: theme['gradient'] as List<Color>,
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isSelected ? (theme['accent'] as Color) : Colors.white24,
-                            width: isSelected ? 2 : 1,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              isArabic ? (theme['nameAr'] as String) : (theme['name'] as String),
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
-                              ),
-                            ),
-                            if (isSelected) ...[
-                              const SizedBox(width: 6),
-                              Icon(Icons.check_circle, size: 14, color: theme['accent'] as Color),
-                            ],
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // 4. Room Duration
-              Text(
-                isArabic ? 'مدة بقاء الحجرة' : 'Room Duration',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<int>(
-                value: _selectedDuration,
-                decoration: const InputDecoration(
-                  contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                items: podDurationOptions.map((opt) {
-                  return DropdownMenuItem<int>(
-                    value: opt['value'] as int,
-                    child: Text(
-                      isArabic ? (opt['ar'] as String) : (opt['en'] as String),
-                      style: const TextStyle(fontSize: 12.5),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedDuration = val);
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // 5. Room Settings & Permission Switches
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
-                ),
-                child: Column(
+                // Title & Icon Header
+                Row(
                   children: [
-                    _buildSwitchTile(
-                      icon: Icons.lock_outline,
-                      title: isArabic ? 'حجرة خاصة (برمز دعوة فقط)' : 'Private Pod (Invite Only)',
-                      value: _isPrivate,
-                      onChanged: (v) => setState(() => _isPrivate = v),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.radio, color: Colors.white, size: 20),
                     ),
-                    const Divider(height: 12),
-                    _buildSwitchTile(
-                      icon: Icons.mic_outlined,
-                      title: isArabic ? 'مايك مفتوح للجميع' : 'Open Mic (Allow anyone to speak)',
-                      value: _allowOpenMic,
-                      onChanged: (v) => setState(() => _allowOpenMic = v),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isArabic ? 'إنشاء حجرة مزاج جديدة' : 'Create Mood Pod',
+                            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
+                          ),
+                          Text(
+                            isArabic ? 'بث صوتي حي مع أجواء مخصصة وموسيقى' : 'Live audio space with custom ambient vibe',
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                          ),
+                        ],
+                      ),
                     ),
-                    const Divider(height: 12),
-                    _buildSwitchTile(
-                      icon: Icons.music_note_outlined,
-                      title: isArabic ? 'السماح للضيوف بتشغيل الموسيقى' : 'Allow guests to control ambient audio',
-                      value: _allowParticipantsPlayBgMusic,
-                      onChanged: (v) => setState(() => _allowParticipantsPlayBgMusic = v),
-                    ),
-                    const Divider(height: 12),
-                    _buildSwitchTile(
-                      icon: Icons.palette_outlined,
-                      title: isArabic ? 'السماح بتغيير الثيم' : 'Allow guests to change room theme',
-                      value: _allowParticipantsChangeTheme,
-                      onChanged: (v) => setState(() => _allowParticipantsChangeTheme = v),
+                    IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () => Navigator.pop(context),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-              // Action Button
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: _isSubmitting ? null : () => _submit(context),
-                  icon: _isSubmitting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.rocket_launch, size: 18),
-                  label: Text(
-                    isArabic ? 'إطلاق الحجرة الآن' : 'Launch Mood Pod',
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                // 1. Room Title Input with Strict Validation
+                Row(
+                  children: [
+                    Text(
+                      isArabic ? 'عنوان الحجرة' : 'Room Title',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(width: 4),
+                    const Text('*', style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _titleController,
+                  autofocus: true,
+                  maxLength: 60,
+                  validator: (value) {
+                    final trimmed = value?.trim() ?? '';
+                    if (trimmed.isEmpty) {
+                      return isArabic ? 'يرجى إدخال عنوان للحجرة' : 'Please enter a room title';
+                    }
+                    if (trimmed.length < 3) {
+                      return isArabic
+                          ? 'يجب أن يتكون العنوان من 3 أحرف على الأقل'
+                          : 'Room title must be at least 3 characters';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: isArabic ? 'مثال: سوالف تقنية، جلسة كودينغ...' : 'e.g. Late Night Coding, Friday Memes...',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    counterText: '',
+                    prefixIcon: const Icon(Icons.title, size: 18),
+                    errorStyle: const TextStyle(fontSize: 11, color: AppColors.error),
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 16),
+
+                // 2. Mood Emoji Presets
+                Row(
+                  children: [
+                    Text(
+                      isArabic ? 'أيقونة المزاج' : 'Mood Emoji',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      _selectedEmoji,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 44,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: podEmojiPresets.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, i) {
+                      final emoji = podEmojiPresets[i];
+                      final isSelected = emoji == _selectedEmoji;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedEmoji = emoji),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 44,
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? AppColors.primary.withValues(alpha: 0.2)
+                                : (isDark ? AppColors.surfaceDark : const Color(0xFFF1F5F9)),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected ? AppColors.primary : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(emoji, style: const TextStyle(fontSize: 20)),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 3. Theme Presets
+                Text(
+                  isArabic ? 'سمة وألوان الحجرة' : 'Room Theme & Atmosphere',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 42,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: podThemePresets.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (context, i) {
+                      final theme = podThemePresets[i];
+                      final isSelected = theme['id'] == _selectedTheme;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedTheme = theme['id'] as String),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: theme['gradient'] as List<Color>,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isSelected ? (theme['accent'] as Color) : Colors.white24,
+                              width: isSelected ? 2 : 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Text(
+                                isArabic ? (theme['nameAr'] as String) : (theme['name'] as String),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                                ),
+                              ),
+                              if (isSelected) ...[
+                                const SizedBox(width: 6),
+                                Icon(Icons.check_circle, size: 14, color: theme['accent'] as Color),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // 4. Room Duration
+                Text(
+                  isArabic ? 'مدة بقاء الحجرة' : 'Room Duration',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<int>(
+                  value: _selectedDuration,
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  items: podDurationOptions.map((opt) {
+                    return DropdownMenuItem<int>(
+                      value: opt['value'] as int,
+                      child: Text(
+                        isArabic ? (opt['ar'] as String) : (opt['en'] as String),
+                        style: const TextStyle(fontSize: 12.5),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedDuration = val);
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // 5. Room Settings & Permission Switches
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildSwitchTile(
+                        icon: Icons.lock_outline,
+                        title: isArabic ? 'حجرة خاصة (برمز دعوة فقط)' : 'Private Pod (Invite Only)',
+                        value: _isPrivate,
+                        onChanged: (v) => setState(() => _isPrivate = v),
+                      ),
+                      const Divider(height: 12),
+                      _buildSwitchTile(
+                        icon: Icons.mic_outlined,
+                        title: isArabic ? 'مايك مفتوح للجميع' : 'Open Mic (Allow anyone to speak)',
+                        value: _allowOpenMic,
+                        onChanged: (v) => setState(() => _allowOpenMic = v),
+                      ),
+                      const Divider(height: 12),
+                      _buildSwitchTile(
+                        icon: Icons.music_note_outlined,
+                        title: isArabic ? 'السماح للضيوف بتشغيل الموسيقى' : 'Allow guests to control ambient audio',
+                        value: _allowParticipantsPlayBgMusic,
+                        onChanged: (v) => setState(() => _allowParticipantsPlayBgMusic = v),
+                      ),
+                      const Divider(height: 12),
+                      _buildSwitchTile(
+                        icon: Icons.palette_outlined,
+                        title: isArabic ? 'السماح بتغيير الثيم' : 'Allow guests to change room theme',
+                        value: _allowParticipantsChangeTheme,
+                        onChanged: (v) => setState(() => _allowParticipantsChangeTheme = v),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSubmitting ? null : () => _submit(context),
+                    icon: _isSubmitting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.rocket_launch, size: 18),
+                    label: Text(
+                      isArabic ? 'إطلاق الحجرة الآن' : 'Launch Mood Pod',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -411,7 +465,7 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
         Switch.adaptive(
           value: value,
           onChanged: onChanged,
-          activeColor: AppColors.primary,
+          activeTrackColor: AppColors.primary,
         ),
       ],
     );

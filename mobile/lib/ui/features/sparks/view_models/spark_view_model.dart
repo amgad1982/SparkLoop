@@ -20,31 +20,52 @@ class SparkViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   SparkViewModel({
-    required this._sparkRepository,
-    required this._feedRepository,
-    required this._centrifugoService,
-  }) {
+    required SparkRepository sparkRepository,
+    required FeedRepository feedRepository,
+    required CentrifugoService centrifugoService,
+  })  : _sparkRepository = sparkRepository,
+        _feedRepository = feedRepository,
+        _centrifugoService = centrifugoService {
+    _centrifugoService.subscribe('sparks:daily');
     _centrifugoService.subscribe('sparks:active');
     _centrifugoService.events.listen(_handleCentrifugoEvent);
     loadActiveSpark();
   }
 
   void _handleCentrifugoEvent(CentrifugoEvent event) {
-    if (event.channel == 'sparks:active') {
+    if (event.channel == 'sparks:daily' || event.channel == 'sparks:active') {
       final type = event.data['type'] as String?;
-      if (type == 'VOTE_RECORDED' && _activeSpark != null) {
-        final subId = event.data['submissionId'] as String?;
-        final count = event.data['voteCount'] as int? ?? 1;
 
-        final updatedSubs = _activeSpark!.submissions.map((s) {
-          if (s.id == subId) {
-            return s.copyWith(voteCount: count);
+      if ((type == 'SPARK_VOTE_CAST' || type == 'VOTE_RECORDED') && _activeSpark != null) {
+        final subId = (event.data['submissionId'] ?? event.data['id']) as String?;
+        final count = (event.data['newVoteCount'] ?? event.data['voteCount']) as int? ?? 1;
+
+        if (subId != null) {
+          final updatedSubs = _activeSpark!.submissions.map((s) {
+            if (s.id == subId) {
+              return s.copyWith(voteCount: count);
+            }
+            return s;
+          }).toList();
+
+          _activeSpark = _activeSpark!.copyWith(submissions: updatedSubs);
+          notifyListeners();
+        }
+      } else if ((type == 'SPARK_SUBMISSION_ADDED' || type == 'SUBMISSION_ADDED') && _activeSpark != null) {
+        final subMap = event.data['submission'] as Map<String, dynamic>?;
+        if (subMap != null) {
+          final newSub = SparkSubmissionDto.fromJson(subMap);
+          if (!_activeSpark!.submissions.any((s) => s.id == newSub.id)) {
+            final updated = List<SparkSubmissionDto>.from(_activeSpark!.submissions)..insert(0, newSub);
+            _activeSpark = _activeSpark!.copyWith(
+              totalSubmissions: _activeSpark!.totalSubmissions + 1,
+              submissions: updated,
+            );
+            notifyListeners();
           }
-          return s;
-        }).toList();
-
-        _activeSpark = _activeSpark!.copyWith(submissions: updatedSubs);
-        notifyListeners();
+        }
+      } else if (type == 'SPARK_WINNER_SELECTED' || type == 'SPARK_CREATED') {
+        loadActiveSpark();
       }
     }
   }

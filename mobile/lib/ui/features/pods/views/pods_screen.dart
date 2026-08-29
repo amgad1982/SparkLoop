@@ -15,77 +15,97 @@ class PodsScreen extends StatelessWidget {
   void _showJoinByCodeDialog(BuildContext context) {
     final controller = TextEditingController();
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    String? errorText;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.key, color: AppColors.accentEmerald, size: 20),
-            const SizedBox(width: 8),
-            Text(isArabic ? 'الانضمام برمز الدعوة' : 'Join by Invite Code'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              isArabic
-                  ? 'أدخل رمز دعوة الحجرة الخاصة المكون من 6 إلى 8 أحرف:'
-                  : 'Enter the 6-8 character invite code for the private pod:',
-              style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              textCapitalization: TextCapitalization.characters,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: 'SPARK-1234',
-                prefixIcon: const Icon(Icons.lock_open, size: 18),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.key, color: AppColors.accentEmerald, size: 20),
+              const SizedBox(width: 8),
+              Text(isArabic ? 'الانضمام برمز الدعوة' : 'Join by Invite Code'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isArabic
+                    ? 'أدخل رمز دعوة الحجرة الخاصة المكون من 6 إلى 8 أحرف:'
+                    : 'Enter the 6-8 character invite code for the private pod:',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
               ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                textCapitalization: TextCapitalization.characters,
+                autofocus: true,
+                onChanged: (_) {
+                  if (errorText != null) {
+                    setDialogState(() => errorText = null);
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: 'SPARK-1234',
+                  prefixIcon: const Icon(Icons.lock_open, size: 18),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  errorText: errorText,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final code = controller.text.trim();
+                if (code.isEmpty) {
+                  setDialogState(() {
+                    errorText = isArabic ? 'يرجى إدخال رمز الدعوة' : 'Please enter an invite code';
+                  });
+                  return;
+                }
+                if (code.length < 4) {
+                  setDialogState(() {
+                    errorText = isArabic ? 'رمز الدعوة قصير جداً' : 'Invite code is too short';
+                  });
+                  return;
+                }
+                Navigator.pop(ctx);
+
+                final authVm = context.read<AuthViewModel>();
+                final podVm = context.read<PodViewModel>();
+
+                final pod = await podVm.joinByCode(
+                  code,
+                  currentUserId: authVm.currentUser?.id ?? authVm.currentPersona.id,
+                  currentUsername: authVm.currentUser?.username ?? authVm.currentPersona.username,
+                  currentDisplayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
+                  currentAvatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
+                );
+
+                if (pod != null && context.mounted) {
+                  context.push('/pods/${pod.id}');
+                } else if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(isArabic ? 'رمز الدعوة غير صحيح أو الغرفة مغلقة' : 'Invalid invite code or pod closed'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              },
+              style: FilledButton.styleFrom(backgroundColor: AppColors.accentEmerald),
+              child: Text(isArabic ? 'انضمام' : 'Join Room'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              final code = controller.text.trim();
-              if (code.isEmpty) return;
-              Navigator.pop(ctx);
-
-              final authVm = context.read<AuthViewModel>();
-              final podVm = context.read<PodViewModel>();
-
-              final pod = await podVm.joinByCode(
-                code,
-                currentUserId: authVm.currentUser?.id ?? authVm.currentPersona.id,
-                currentUsername: authVm.currentUser?.username ?? authVm.currentPersona.username,
-                currentDisplayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
-                currentAvatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
-              );
-
-              if (pod != null && context.mounted) {
-                context.push('/pods/${pod.id}');
-              } else if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(isArabic ? 'رمز الدعوة غير صحيح أو الغرفة مغلقة' : 'Invalid invite code or pod closed'),
-                    backgroundColor: AppColors.error,
-                  ),
-                );
-              }
-            },
-            style: FilledButton.styleFrom(backgroundColor: AppColors.accentEmerald),
-            child: Text(isArabic ? 'انضمام' : 'Join Room'),
-          ),
-        ],
       ),
     );
   }

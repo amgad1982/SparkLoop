@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -10,7 +11,21 @@ import '../../../core/widgets/glass_container.dart';
 import '../../auth/view_models/auth_view_model.dart';
 import '../view_models/pod_view_model.dart';
 import 'create_pod_dialog.dart';
+import 'pod_bg_music_player.dart';
 import 'pod_moderation_sheet.dart';
+
+const List<Map<String, String>> soundboardEffects = [
+  {'id': 'applause', 'name': 'Applause', 'emoji': '👏', 'arName': 'تصفيق حار'},
+  {'id': 'airhorn', 'name': 'DJ Airhorn', 'emoji': '📢', 'arName': 'هورن DJ'},
+  {'id': 'drumroll', 'name': 'Drum Roll', 'emoji': '🥁', 'arName': 'دقات طبول'},
+  {'id': 'cheer', 'name': 'Crowd Cheer', 'emoji': '🥳', 'arName': 'هتاف تشجيع'},
+  {'id': 'laugh', 'name': 'Laugh Track', 'emoji': '😂', 'arName': 'ضحكات جمهور'},
+  {'id': 'magic', 'name': 'Magic Chime', 'emoji': '✨', 'arName': 'رنين سحري'},
+  {'id': 'victory', 'name': 'Victory Fanfare', 'emoji': '🏆', 'arName': 'لحن الفوز'},
+  {'id': 'tada', 'name': 'Tada Fanfare', 'emoji': '🎉', 'arName': 'احتفال تادا'},
+  {'id': 'boo', 'name': 'Crowd Boo', 'emoji': '👎', 'arName': 'استهجان'},
+  {'id': 'gasp', 'name': 'Audience Gasp', 'emoji': '😱', 'arName': 'شهقة ذهول'},
+];
 
 class PodRoomScreen extends StatefulWidget {
   const PodRoomScreen({super.key, required this.podId});
@@ -23,6 +38,8 @@ class PodRoomScreen extends StatefulWidget {
 
 class _PodRoomScreenState extends State<PodRoomScreen> {
   final TextEditingController _chatController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  Timer? _countdownTimer;
 
   @override
   void initState() {
@@ -38,18 +55,214 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         currentDisplayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
         currentAvatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
       );
+
+      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
     });
+  }
+
+  String _getFormattedTimeLeft(MoodPodDto? pod, bool isArabic) {
+    if (pod == null) {
+      return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
+    }
+
+    final expiresAt = pod.expiresAtUtc;
+    final diff = expiresAt.difference(DateTime.now().toUtc());
+    if (diff.inDays > 365) {
+      return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
+    }
+
+    if (diff.isNegative) {
+      return isArabic ? 'منتهية' : 'Expired';
+    }
+
+    final hours = diff.inHours;
+    final minutes = diff.inMinutes % 60;
+    final seconds = diff.inSeconds % 60;
+
+    String pad(int n) => n.toString().padLeft(2, '0');
+    if (hours >= 24) {
+      final days = diff.inDays;
+      final remHours = hours % 24;
+      return '${days}d ${pad(remHours)}h ${pad(minutes)}m';
+    } else {
+      return '${pad(hours)}:${pad(minutes)}:${pad(seconds)}';
+    }
   }
 
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     _chatController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   void _leave() {
     context.read<PodViewModel>().leaveActivePod();
     context.pop();
+  }
+
+  void _showAllSoundEffects(BuildContext context) {
+    final podVm = context.read<PodViewModel>();
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF131B28) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.music_note, color: AppColors.accentEmerald, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  isArabic ? 'لوحة المؤثرات الصوتية' : 'Studio Soundboard',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                const Spacer(),
+                IconButton(icon: const Icon(Icons.close, size: 18), onPressed: () => Navigator.pop(ctx)),
+              ],
+            ),
+            const SizedBox(height: 12),
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 2.8,
+              ),
+              itemCount: soundboardEffects.length,
+              itemBuilder: (context, i) {
+                final effect = soundboardEffects[i];
+                return ElevatedButton(
+                  onPressed: () {
+                    podVm.sendSoundEffect(effect['id']!);
+                    Navigator.pop(ctx);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? AppColors.surfaceDark : const Color(0xFFF1F5F9),
+                    foregroundColor: isDark ? Colors.white : Colors.black87,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(effect['emoji']!, style: const TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          isArabic ? effect['arName']! : effect['name']!,
+                          style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showHandRaiseQueue(BuildContext context) {
+    final podVm = context.read<PodViewModel>();
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF131B28) : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.pan_tool, color: AppColors.accentAmber, size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  isArabic ? 'طلبات الصعود للمنصة' : 'Stage Hand Raises (${podVm.handRaisedUsers.length})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (podVm.handRaisedUsers.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text(
+                    isArabic ? 'لا توجد أيدي مرفوعة حالياً' : 'No hands currently raised',
+                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 13),
+                  ),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                itemCount: podVm.handRaisedUsers.length,
+                separatorBuilder: (_, __) => const Divider(height: 8),
+                itemBuilder: (context, i) {
+                  final user = podVm.handRaisedUsers[i];
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: AvatarBadge(username: user['username'] ?? '', size: 36),
+                    title: Text(user['displayName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    subtitle: Text('@${user['username']}', style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
+                    trailing: podVm.isHost || podVm.isModerator
+                        ? FilledButton.tonal(
+                            onPressed: () {
+                              podVm.moderateParticipant(user['userId']!, user['username'] ?? '', 'promote_speaker');
+                              Navigator.pop(ctx);
+                            },
+                            child: Text(isArabic ? 'قبول' : 'Approve'),
+                          )
+                        : null,
+                  );
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _sendCurrentChat(BuildContext context) {
+    final podVm = context.read<PodViewModel>();
+    final authVm = context.read<AuthViewModel>();
+    final text = _chatController.text.trim();
+    if (text.isNotEmpty) {
+      podVm.sendChatMessage(
+        text,
+        currentUserId: authVm.currentUser?.id ?? authVm.currentPersona.id,
+        currentUsername: authVm.currentUser?.username ?? authVm.currentPersona.username,
+        currentDisplayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
+        currentAvatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
+      );
+      _chatController.clear();
+    }
   }
 
   @override
@@ -118,15 +331,44 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    '${pod.vibe} • Live Voice Stage',
-                    style: const TextStyle(fontSize: 10.5, color: AppColors.accentEmerald),
+                    '${pod.vibe} • ${_getFormattedTimeLeft(pod, isArabic)}',
+                    style: const TextStyle(fontSize: 10.5, color: AppColors.accentEmerald, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
             ],
           ),
           actions: [
-            // Settings & Moderation Sheet Trigger
+            // DJ Background Music Booth Trigger
+            IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: liveKit.isBgMusicActive
+                      ? const Color(0xFFD946EF).withValues(alpha: 0.25)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  border: liveKit.isBgMusicActive
+                      ? Border.all(color: const Color(0xFFD946EF))
+                      : null,
+                ),
+                child: Icon(
+                  Icons.album,
+                  color: liveKit.isBgMusicActive ? const Color(0xFFD946EF) : Colors.white70,
+                  size: 20,
+                ),
+              ),
+              tooltip: isArabic ? 'كابينة الـ DJ وموسيقى الخلفية' : 'DJ Background Music',
+              onPressed: () => PodBgMusicModal.show(context),
+            ),
+            if (podVm.handRaisedUsers.isNotEmpty)
+              IconButton(
+                icon: Badge(
+                  label: Text('${podVm.handRaisedUsers.length}'),
+                  child: const Icon(Icons.pan_tool, color: AppColors.accentAmber, size: 20),
+                ),
+                onPressed: () => _showHandRaiseQueue(context),
+              ),
             IconButton(
               icon: const Icon(Icons.tune, color: AppColors.accentEmerald),
               onPressed: () => PodModerationSheet.show(context),
@@ -139,7 +381,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         ),
         body: Stack(
           children: [
-            // Background Atmosphere
+            // Background Atmosphere Gradient
             Positioned.fill(
               child: Container(
                 decoration: BoxDecoration(
@@ -154,7 +396,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               ),
             ),
 
-            // Optional Custom Wallpaper
+            // Optional Custom Wallpaper Overlay
             if (pod.customBackgroundImageUrl != null && pod.customBackgroundImageUrl!.isNotEmpty)
               Positioned.fill(
                 child: Opacity(
@@ -171,11 +413,39 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             SafeArea(
               child: Column(
                 children: [
-                  // 1. Stage Area (Speakers & Listeners)
+                  // Soundboard Banner (Triggered by real-time sound effect)
+                  if (podVm.activeSoundBanner != null)
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        gradient: AppColors.primaryGradient,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.volume_up, color: Colors.white, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            '${podVm.activeSoundBanner!['sender']} played ${podVm.activeSoundBanner!['effect']}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11.5),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                  // 1. Stage Area (Speakers)
                   Expanded(
                     flex: 5,
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       child: _buildStageGrid(context, pod, liveKit, isArabic),
                     ),
                   ),
@@ -184,12 +454,15 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                   Expanded(
                     flex: 4,
                     child: Container(
-                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                       child: _buildChatSection(context, podVm, isArabic),
                     ),
                   ),
 
-                  // 3. Sound Effects & Toolbar
+                  // Standalone Active DJ Ambient Bar (When active)
+                  const PodBgMusicActiveBar(),
+
+                  // 3. Sound Effects Toolbar
                   _buildSoundEffectsBar(context, podVm),
 
                   // 4. Bottom Controls Bar
@@ -201,19 +474,19 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             // Floating Burst Reactions
             if (podVm.activeReaction != null)
               Positioned(
-                top: 150,
+                top: 140,
                 right: 30,
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 500),
+                  duration: const Duration(milliseconds: 600),
                   builder: (context, val, child) {
                     return Transform.scale(
-                      scale: 1.0 + val * 0.5,
+                      scale: 1.0 + val * 0.6,
                       child: Opacity(
                         opacity: (1.0 - val).clamp(0.0, 1.0),
                         child: Text(
                           podVm.activeReaction!,
-                          style: const TextStyle(fontSize: 48),
+                          style: const TextStyle(fontSize: 52),
                         ),
                       ),
                     );
@@ -227,8 +500,15 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   }
 
   Widget _buildStageGrid(BuildContext context, MoodPodDto pod, LiveKitService liveKit, bool isArabic) {
+    // Deduplicate host from remote speakers list so the creator never appears twice
+    final otherSpeakers = liveKit.remoteSpeakers.where((s) {
+      final isHostUser = (s.userId.isNotEmpty && s.userId == pod.hostUserId) ||
+          (s.username.isNotEmpty && s.username.toLowerCase() == pod.hostUsername.toLowerCase());
+      return !isHostUser;
+    }).toList();
+
     return GlassContainer(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       borderRadius: 24,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,16 +542,16 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Expanded(
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
-                crossAxisSpacing: 12,
-                mainAxisSpacing: 12,
-                childAspectRatio: 0.85,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.88,
               ),
-              itemCount: 1 + liveKit.remoteSpeakers.length,
+              itemCount: 1 + otherSpeakers.length,
               itemBuilder: (context, index) {
                 if (index == 0) {
                   // Host / Local Speaker
@@ -284,7 +564,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                     isSpeaking: liveKit.isSpeaking,
                   );
                 }
-                final speaker = liveKit.remoteSpeakers[index - 1];
+                final speaker = otherSpeakers[index - 1];
                 return _buildSpeakerAvatar(
                   username: speaker.username,
                   displayName: speaker.displayName,
@@ -328,7 +608,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               child: AvatarBadge(
                 avatarUrl: avatarUrl,
                 username: username,
-                size: 52,
+                size: 48,
               ),
             ),
             Positioned(
@@ -364,7 +644,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         Text(
           displayName,
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
@@ -377,7 +657,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
 
   Widget _buildChatSection(BuildContext context, PodViewModel podVm, bool isArabic) {
     return GlassContainer(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       borderRadius: 20,
       child: Column(
         children: [
@@ -388,7 +668,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               itemBuilder: (context, index) {
                 final msg = podVm.chatMessages[podVm.chatMessages.length - 1 - index];
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  padding: const EdgeInsets.symmetric(vertical: 2.5),
                   child: RichText(
                     text: TextSpan(
                       children: [
@@ -407,7 +687,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               },
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Row(
             children: [
               Expanded(
@@ -418,23 +698,13 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     isDense: true,
                   ),
-                  onSubmitted: (val) {
-                    if (val.trim().isNotEmpty) {
-                      podVm.sendChatMessage(val.trim());
-                      _chatController.clear();
-                    }
-                  },
+                  onSubmitted: (_) => _sendCurrentChat(context),
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
               IconButton.filled(
-                onPressed: () {
-                  if (_chatController.text.trim().isNotEmpty) {
-                    podVm.sendChatMessage(_chatController.text.trim());
-                    _chatController.clear();
-                  }
-                },
-                icon: const Icon(Icons.send, size: 16),
+                onPressed: () => _sendCurrentChat(context),
+                icon: const Icon(Icons.send, size: 15),
                 style: IconButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.all(8),
@@ -448,7 +718,8 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   }
 
   Widget _buildSoundEffectsBar(BuildContext context, PodViewModel podVm) {
-    const effects = [
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    const quickEffects = [
       {'name': 'applause', 'emoji': '👏', 'label': 'Clap'},
       {'name': 'airhorn', 'emoji': '📢', 'label': 'Horn'},
       {'name': 'laugh', 'emoji': '😂', 'label': 'Laugh'},
@@ -460,18 +731,25 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
-        children: effects.map((e) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: ActionChip(
-              padding: EdgeInsets.zero,
-              labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-              avatar: Text(e['emoji']!, style: const TextStyle(fontSize: 13)),
-              label: Text(e['label']!, style: const TextStyle(fontSize: 11)),
-              onPressed: () => podVm.sendSoundEffect(e['name']!),
-            ),
-          );
-        }).toList(),
+        children: [
+          ...quickEffects.map((e) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: ActionChip(
+                padding: EdgeInsets.zero,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+                avatar: Text(e['emoji']!, style: const TextStyle(fontSize: 13)),
+                label: Text(e['label']!, style: const TextStyle(fontSize: 10.5)),
+                onPressed: () => podVm.sendSoundEffect(e['name']!),
+              ),
+            );
+          }),
+          IconButton(
+            icon: const Icon(Icons.grid_view, size: 16, color: AppColors.accentEmerald),
+            tooltip: isArabic ? 'كل المؤثرات' : 'More FX',
+            onPressed: () => _showAllSoundEffects(context),
+          ),
+        ],
       ),
     );
   }
@@ -485,14 +763,14 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     const reactions = ['🔥', '❤️', '⚡', '🎉', '🤣'];
 
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           // Mic Mute Toggle
           IconButton.filled(
             onPressed: () => liveKit.toggleMute(),
-            icon: Icon(liveKit.isMuted ? Icons.mic_off : Icons.mic),
+            icon: Icon(liveKit.isMuted ? Icons.mic_off : Icons.mic, size: 18),
             style: IconButton.styleFrom(
               backgroundColor: liveKit.isMuted ? AppColors.surfaceDarkElevated : AppColors.accentEmerald,
               foregroundColor: liveKit.isMuted ? Colors.white : Colors.black,
@@ -502,7 +780,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
           // Raise Hand Toggle
           IconButton.filledTonal(
             onPressed: () => podVm.toggleHandRaise(),
-            icon: Icon(podVm.isHandRaised ? Icons.pan_tool : Icons.pan_tool_outlined),
+            icon: Icon(podVm.isHandRaised ? Icons.pan_tool : Icons.pan_tool_outlined, size: 18),
             style: IconButton.styleFrom(
               backgroundColor: podVm.isHandRaised ? AppColors.accentAmber : null,
               foregroundColor: podVm.isHandRaised ? Colors.black : null,
