@@ -12,6 +12,8 @@
     "http://localhost:5000",
     "http://localhost:5242",
     "https://sloop.mydev-lab.com",
+    "https://*.mydev-lab.com",
+    "http://*.mydev-lab.com",
     "*"
   ],
   "allow_anonymous_connect_with_empty_token": true,
