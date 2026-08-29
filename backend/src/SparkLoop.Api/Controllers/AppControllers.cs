@@ -212,7 +212,7 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
-    [Authorize]
+    [AllowAnonymous]
     [HttpGet("centrifugo-token")]
     public async Task<ActionResult<CentrifugoTokenDto>> GetCentrifugoToken()
     {

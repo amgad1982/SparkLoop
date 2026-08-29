@@ -1534,8 +1534,8 @@ public class GetCentrifugoTokenQueryHandler : IRequestHandler<GetCentrifugoToken
 
     public Task<CentrifugoTokenDto> Handle(GetCentrifugoTokenQuery request, CancellationToken cancellationToken)
     {
-        var uid = _currentUserService.UserId?.ToString() ?? throw new UnauthorizedDomainException("Authentication required to obtain real-time connection token.");
-        var uname = _currentUserService.Username ?? "sparkcreator";
+        var uid = _currentUserService.UserId?.ToString() ?? ("anon_" + Guid.NewGuid().ToString("N")[..8]);
+        var uname = _currentUserService.Username ?? "guest";
 
         var token = _centrifugoService.GenerateConnectionToken(uid, uname);
         var wsUrl = _centrifugoService.GetWebSocketUrl();
