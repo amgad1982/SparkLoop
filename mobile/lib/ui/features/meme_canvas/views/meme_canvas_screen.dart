@@ -31,18 +31,19 @@ class _MemeCanvasScreenState extends State<MemeCanvasScreen> {
   }
 
   void _showAddTextDialog(BuildContext context) {
-    final controller = TextEditingController(text: 'MEME TEXT');
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final controller = TextEditingController(text: isArabic ? 'نص الميم' : 'MEME TEXT');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add Text Layer'),
+        title: Text(isArabic ? 'إضافة طبقة نص' : 'Add Text Layer'),
         content: TextField(
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(hintText: 'Enter text...'),
+          decoration: InputDecoration(hintText: isArabic ? 'اكتب النص هنا...' : 'Enter text...'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(isArabic ? 'إلغاء' : 'Cancel')),
           ElevatedButton(
             onPressed: () {
               if (controller.text.trim().isNotEmpty) {
@@ -50,7 +51,7 @@ class _MemeCanvasScreenState extends State<MemeCanvasScreen> {
               }
               Navigator.pop(ctx);
             },
-            child: const Text('Add'),
+            child: Text(isArabic ? 'إضافة' : 'Add'),
           ),
         ],
       ),
@@ -58,37 +59,42 @@ class _MemeCanvasScreenState extends State<MemeCanvasScreen> {
   }
 
   void _showStickerSheet(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     const emojis = ['🔥', '😂', '💀', '🚀', '💯', '👑', '👀', '✨', '🤡', '😎', '💎', '🎉'];
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Theme.of(context).brightness == Brightness.dark
-              ? AppColors.surfaceDarkElevated
-              : Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Choose Sticker', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 16,
-              runSpacing: 16,
-              children: emojis.map((e) {
-                return GestureDetector(
-                  onTap: () {
-                    context.read<MemeCanvasViewModel>().addSticker(e);
-                    Navigator.pop(ctx);
-                  },
-                  child: Text(e, style: const TextStyle(fontSize: 32)),
-                );
-              }).toList(),
-            ),
-          ],
+      builder: (ctx) => Material(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppColors.surfaceDarkElevated
+            : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                isArabic ? 'اختر ملصق' : 'Choose Sticker',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: emojis.map((e) {
+                  return GestureDetector(
+                    onTap: () {
+                      context.read<MemeCanvasViewModel>().addSticker(e);
+                      Navigator.pop(ctx);
+                    },
+                    child: Text(e, style: const TextStyle(fontSize: 32)),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -142,22 +148,31 @@ class _MemeCanvasScreenState extends State<MemeCanvasScreen> {
                     child: const Icon(Icons.palette, color: Colors.white, size: 18),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    isArabic ? 'صانع الميم واستوديو التصميم' : 'Meme Studio Canvas',
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => canvasVm.undoStroke(),
-                    icon: const Icon(Icons.undo, size: 20),
-                    tooltip: 'Undo',
-                  ),
-                  IconButton(
-                    onPressed: () => canvasVm.clearCanvas(),
-                    icon: const Icon(Icons.refresh, size: 20),
-                    tooltip: 'Clear',
+                  Expanded(
+                    child: Text(
+                      isArabic ? 'استوديو الميم' : 'Meme Studio',
+                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                   const SizedBox(width: 4),
+                  IconButton(
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => canvasVm.undoStroke(),
+                    icon: const Icon(Icons.undo, size: 20),
+                    tooltip: isArabic ? 'تراجع' : 'Undo',
+                  ),
+                  const SizedBox(width: 2),
+                  IconButton(
+                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    padding: EdgeInsets.zero,
+                    onPressed: () => canvasVm.clearCanvas(),
+                    icon: const Icon(Icons.refresh, size: 20),
+                    tooltip: isArabic ? 'مسح' : 'Clear',
+                  ),
+                  const SizedBox(width: 6),
                   ElevatedButton.icon(
                     onPressed: _isExporting ? null : () => _exportAndPost(),
                     icon: _isExporting
@@ -169,8 +184,9 @@ class _MemeCanvasScreenState extends State<MemeCanvasScreen> {
                         : const Icon(Icons.share, size: 14),
                     label: Text(isArabic ? 'مشاركة' : 'Share'),
                     style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                       minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                   ),
                 ],

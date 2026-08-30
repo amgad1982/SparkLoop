@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../../../data/models/spark_models.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_network_image.dart';
 import '../../../core/widgets/glass_container.dart';
 import '../../../core/widgets/spark_timer_badge.dart';
 import 'submit_spark_dialog.dart';
@@ -73,22 +73,12 @@ class SparkHeroCard extends StatelessWidget {
           if (spark.bannerUrl != null && spark.bannerUrl!.isNotEmpty) ...[
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: CachedNetworkImage(
+              child: AppNetworkImage(
                 imageUrl: spark.bannerUrl!,
                 height: 160,
                 width: double.infinity,
                 fit: BoxFit.cover,
-                memCacheWidth: 800,
-                maxHeightDiskCache: 800,
-                maxWidthDiskCache: 800,
-                placeholder: (context, url) => Container(
-                  height: 160,
-                  color: AppColors.surfaceDarkElevated,
-                  child: const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentAmber),
-                  ),
-                ),
-                errorWidget: (context, url, error) => const SizedBox.shrink(),
+                accentColor: AppColors.accentAmber,
               ),
             ),
             const SizedBox(height: 14),

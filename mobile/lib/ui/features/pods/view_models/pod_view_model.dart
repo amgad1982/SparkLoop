@@ -42,6 +42,11 @@ class PodViewModel extends ChangeNotifier {
   String? _activeReaction;
   String? get activeReaction => _activeReaction;
 
+  String? _localUserId;
+  String? _localUsername;
+  String? _localDisplayName;
+  String? _localAvatarUrl;
+
   PodViewModel({
     required this._podRepository,
     required this._userRepository,
@@ -57,12 +62,16 @@ class PodViewModel extends ChangeNotifier {
       final type = event.data['type'] as String?;
       final signalType = (event.data['signalType'] ?? type) as String?;
 
-      // 1. Live Chat Messages
+      // 1. Live Chat Messages (with optimistic deduplication)
       if (type == 'POD_MESSAGE' || type == 'CHAT_MESSAGE') {
         final msgData = (event.data['message'] ?? event.data) as Map<String, dynamic>;
         if (msgData.containsKey('text') || msgData.containsKey('content') || msgData.containsKey('audioUrl')) {
           final newMsg = PodChatMessageDto.fromJson(msgData);
-          final idx = _chatMessages.indexWhere((m) => m.id == newMsg.id);
+          final idx = _chatMessages.indexWhere((m) =>
+              m.id == newMsg.id ||
+              (m.id.startsWith('opt_') &&
+                  m.userId == newMsg.userId &&
+                  m.content.trim() == newMsg.content.trim()));
           if (idx >= 0) {
             _chatMessages[idx] = newMsg;
           } else {
@@ -105,6 +114,7 @@ class PodViewModel extends ChangeNotifier {
         final sender = (event.data['senderDisplayName'] ?? event.data['senderUsername'] ?? 'Someone') as String;
         if (eff != null) {
           _activeSoundBanner = {'effect': eff, 'sender': sender};
+          _liveKitService.playSoundEffect(eff);
           notifyListeners();
           Future.delayed(const Duration(seconds: 3), () {
             _activeSoundBanner = null;
@@ -121,21 +131,43 @@ class PodViewModel extends ChangeNotifier {
           _liveKitService.setSpeakerStatus(uId, isSpeaking: isSpk, isMuted: isMt);
         }
       }
-      // 6. Stage Participant Join
-      else if (signalType == 'STAGE_JOIN') {
+      // 6. Stage Participant Join & Presence Handshake
+      else if (signalType == 'STAGE_JOIN' || signalType == 'STAGE_PRESENCE') {
         final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
         final uName = (event.data['username'] ?? event.data['senderUsername']) as String? ?? '';
         final dName = (event.data['displayName'] ?? event.data['senderDisplayName']) as String? ?? uName;
         final avUrl = (event.data['avatarUrl'] ?? event.data['senderAvatarUrl']) as String?;
-        if (uId != null) {
+        final isMt = (event.data['isMuted'] as bool?) ?? false;
+        final isSpk = (event.data['isSpeaking'] as bool?) ?? false;
+        final isOnStage = (event.data['isOnStage'] as bool?) ?? true;
+
+        if (uId != null && isOnStage) {
           _liveKitService.addOrUpdateSpeaker(LiveKitSpeaker(
             userId: uId,
             username: uName,
             displayName: dName,
             avatarUrl: avUrl,
-            isSpeaking: false,
-            isMuted: false,
+            isSpeaking: isSpk,
+            isMuted: isMt,
           ));
+        }
+
+        // If another user joined, respond with our presence so they know we are in the room
+        if (signalType == 'STAGE_JOIN' && _activePod != null && _localUserId != null && uId != _localUserId) {
+          _podRepository.sendSignal(
+            _activePod!.id,
+            'STAGE_PRESENCE',
+            payload: {
+              'userId': _localUserId,
+              'username': _localUsername ?? '',
+              'displayName': _localDisplayName ?? '',
+              'avatarUrl': _localAvatarUrl,
+              'isOnStage': _isHost || (_activePod?.allowOpenMic == true),
+              'isMuted': _liveKitService.isMicMuted,
+              'isSpeaking': !_liveKitService.isMicMuted,
+            },
+            targetUserId: uId,
+          );
         }
       }
       // 7. Stage Participant Leave
@@ -161,16 +193,49 @@ class PodViewModel extends ChangeNotifier {
           notifyListeners();
         }
       }
-      // 9. DJ Background Music State
-      else if (signalType == 'POD_BG_MUSIC' || signalType == 'BG_MUSIC_PLAY') {
+      // 9. DJ Background Music State Synchronization
+      else if (type == 'BG_MUSIC_STATE' || signalType == 'POD_BG_MUSIC' || signalType == 'BG_MUSIC_PLAY') {
+        final action = event.data['action'] as String? ?? 'play';
         final title = event.data['trackTitle'] as String? ?? 'Ambient Session';
-        _liveKitService.setBgMusicTitle(title);
-        if (!_liveKitService.isBgMusicPlaying) {
-          _liveKitService.toggleBgMusic();
-        }
-      } else if (signalType == 'BG_MUSIC_STOP') {
-        if (_liveKitService.isBgMusicPlaying) {
-          _liveKitService.toggleBgMusic();
+        final url = event.data['trackUrl'] as String?;
+        final presetId = event.data['presetId'] as String?;
+        final djId = (event.data['djUserId'] ?? event.data['senderId']) as String? ?? '';
+        final djName = (event.data['djDisplayName'] ?? event.data['djUsername'] ?? 'DJ') as String;
+        final djAv = (event.data['djAvatarUrl'] ?? event.data['senderAvatarUrl']) as String?;
+
+        if (action == 'play') {
+          _liveKitService.setBgMusicTitle(title);
+          // If remote DJ played music, stream the audio locally so all participants hear it
+          if (djId != _localUserId) {
+            PresetVibe? matchedPreset;
+            if (presetId != null && presetId.isNotEmpty) {
+              matchedPreset = presetVibes.where((p) => p.id == presetId).firstOrNull;
+            }
+            matchedPreset ??= presetVibes.where((p) => p.title == title || title.contains(p.title)).firstOrNull;
+
+            if (matchedPreset != null) {
+              _liveKitService.playPresetTrack(
+                matchedPreset,
+                djUserId: djId,
+                djUsername: djName,
+                djAvatarUrl: djAv,
+              );
+            } else if (url != null && url.isNotEmpty) {
+              _liveKitService.playRemoteTrack(
+                url,
+                title,
+                djUserId: djId,
+                djUsername: djName,
+                djAvatarUrl: djAv,
+              );
+            }
+          }
+        } else if (action == 'pause') {
+          _liveKitService.pauseBgMusic();
+        } else if (action == 'resume') {
+          _liveKitService.resumeBgMusic();
+        } else if (action == 'stop') {
+          _liveKitService.stopBgMusic();
         }
       }
       // 10. Moderation Actions
@@ -224,6 +289,11 @@ class PodViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      _localUserId = currentUserId;
+      _localUsername = currentUsername;
+      _localDisplayName = currentDisplayName;
+      _localAvatarUrl = currentAvatarUrl;
+
       _activePod = await _podRepository.getMoodPodById(podId, inviteCode: inviteCode);
       _isHost = _activePod?.hostUserId == currentUserId;
       _isModerator = _isHost || (_activePod?.moderatorUserIds.contains(currentUserId) ?? false);
@@ -232,9 +302,11 @@ class PodViewModel extends ChangeNotifier {
 
       _centrifugoService.subscribe('pod:$podId');
 
+      final isSpeakerRole = _isHost || (_activePod?.allowOpenMic == true);
+
       final token = await _podRepository.getLiveKitToken(
         podId,
-        isOnStage: _isHost || _activePod?.allowOpenMic == true,
+        isOnStage: isSpeakerRole,
         inviteCode: inviteCode,
       );
 
@@ -246,8 +318,24 @@ class PodViewModel extends ChangeNotifier {
         currentUsername: currentUsername,
         currentDisplayName: currentDisplayName,
         currentAvatarUrl: currentAvatarUrl,
-        asSpeaker: _isHost || (_activePod?.allowOpenMic == true),
+        asSpeaker: isSpeakerRole,
       );
+
+      // Broadcast our presence to all users in the pod
+      _podRepository.sendSignal(
+        podId,
+        'STAGE_JOIN',
+        payload: {
+          'userId': currentUserId,
+          'username': currentUsername,
+          'displayName': currentDisplayName,
+          'avatarUrl': currentAvatarUrl,
+          'isOnStage': isSpeakerRole,
+          'isMuted': !isSpeakerRole,
+          'isSpeaking': false,
+        },
+      );
+
       return true;
     } catch (e) {
       debugPrint('Error joining mood pod: $e');
@@ -257,7 +345,6 @@ class PodViewModel extends ChangeNotifier {
       notifyListeners();
     }
   }
-
   Future<MoodPodDto?> joinByCode(
     String code, {
     required String currentUserId,
@@ -284,7 +371,40 @@ class PodViewModel extends ChangeNotifier {
 
   void toggleHandRaise() {
     _isHandRaised = !_isHandRaised;
+    if (_activePod != null && _localUserId != null) {
+      _podRepository.sendSignal(
+        _activePod!.id,
+        _isHandRaised ? 'HAND_RAISE' : 'HAND_LOWER',
+        payload: {
+          'userId': _localUserId,
+          'username': _localUsername ?? '',
+          'displayName': _localDisplayName ?? '',
+        },
+      );
+    }
     notifyListeners();
+  }
+
+  Future<void> toggleMic({required String currentUserId}) async {
+    _liveKitService.toggleMute(currentUserId);
+    final isMuted = _liveKitService.isMicMuted;
+    final isSpeaking = !isMuted;
+
+    if (isSpeaking) {
+      _liveKitService.playVoiceActiveTone();
+    }
+
+    if (_activePod != null) {
+      try {
+        await _podRepository.setSpeakingStatus(
+          _activePod!.id,
+          isSpeaking: isSpeaking,
+          isMuted: isMuted,
+        );
+      } catch (e) {
+        debugPrint('Error syncing speaking status: $e');
+      }
+    }
   }
 
   Future<void> sendChatMessage(
@@ -302,10 +422,10 @@ class PodViewModel extends ChangeNotifier {
     final optMsg = PodChatMessageDto(
       id: tempId,
       podId: _activePod!.id,
-      userId: currentUserId ?? '',
-      username: currentUsername ?? '',
-      displayName: currentDisplayName ?? currentUsername ?? 'You',
-      avatarUrl: currentAvatarUrl,
+      userId: currentUserId ?? _localUserId ?? '',
+      username: currentUsername ?? _localUsername ?? '',
+      displayName: currentDisplayName ?? _localDisplayName ?? currentUsername ?? 'You',
+      avatarUrl: currentAvatarUrl ?? _localAvatarUrl,
       content: content.trim(),
       createdAtUtc: DateTime.now().toUtc(),
     );
@@ -320,8 +440,13 @@ class PodViewModel extends ChangeNotifier {
       final idx = _chatMessages.indexWhere((m) => m.id == tempId);
       if (idx >= 0) {
         _chatMessages[idx] = saved;
-        notifyListeners();
+      } else {
+        final realIdx = _chatMessages.indexWhere((m) => m.id == saved.id);
+        if (realIdx < 0) {
+          _chatMessages.add(saved);
+        }
       }
+      notifyListeners();
     } catch (e) {
       debugPrint('Error sending pod chat: $e');
     }
@@ -339,6 +464,7 @@ class PodViewModel extends ChangeNotifier {
   Future<void> sendSoundEffect(String effectName) async {
     if (_activePod == null) return;
     try {
+      _liveKitService.playSoundEffect(effectName);
       await _podRepository.sendSoundEffect(_activePod!.id, effectName);
     } catch (e) {
       debugPrint('Error sending sound effect: $e');
@@ -348,6 +474,8 @@ class PodViewModel extends ChangeNotifier {
   Future<void> sendBgMusic({
     required String action,
     String? trackTitle,
+    String? trackUrl,
+    String? presetId,
     double? currentTime,
     double? duration,
   }) async {
@@ -357,6 +485,8 @@ class PodViewModel extends ChangeNotifier {
         _activePod!.id,
         action: action,
         trackTitle: trackTitle,
+        trackUrl: trackUrl,
+        presetId: presetId,
         currentTime: currentTime,
         duration: duration,
       );
@@ -449,6 +579,13 @@ class PodViewModel extends ChangeNotifier {
 
   void leaveActivePod() {
     if (_activePod != null) {
+      if (_localUserId != null) {
+        _podRepository.sendSignal(
+          _activePod!.id,
+          'STAGE_LEAVE',
+          payload: {'userId': _localUserId},
+        );
+      }
       _centrifugoService.unsubscribe('pod:${_activePod!.id}');
     }
     _liveKitService.leaveRoom();
@@ -456,6 +593,10 @@ class PodViewModel extends ChangeNotifier {
     _isHost = false;
     _isModerator = false;
     _isHandRaised = false;
+    _localUserId = null;
+    _localUsername = null;
+    _localDisplayName = null;
+    _localAvatarUrl = null;
     _chatMessages.clear();
     _handRaisedUsers.clear();
     _activeSoundBanner = null;

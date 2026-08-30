@@ -1143,14 +1143,32 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
         if (user is null && !string.IsNullOrWhiteSpace(request.Username))
         {
             var rawUsername = request.Username.Trim();
-            try
+            if (rawUsername.Equals("me", StringComparison.OrdinalIgnoreCase))
             {
-                var target = Username.Create(rawUsername);
-                user = await _dbContext.Users
-                    .Include(u => u.Badges)
-                    .FirstOrDefaultAsync(u => u.Username == target, cancellationToken);
+                if (_currentUserService.UserId.HasValue)
+                {
+                    user = await _dbContext.Users
+                        .Include(u => u.Badges)
+                        .FirstOrDefaultAsync(u => u.Id == _currentUserService.UserId.Value, cancellationToken);
+                }
             }
-            catch {}
+            else
+            {
+                try
+                {
+                    var target = Username.Create(rawUsername);
+                    user = await _dbContext.Users
+                        .Include(u => u.Badges)
+                        .FirstOrDefaultAsync(u => u.Username == target, cancellationToken);
+                }
+                catch
+                {
+                    var normalized = rawUsername.ToLowerInvariant();
+                    user = await _dbContext.Users
+                        .Include(u => u.Badges)
+                        .FirstOrDefaultAsync(u => u.Username.Value == normalized, cancellationToken);
+                }
+            }
         }
 
         if (user is null && _currentUserService.UserId.HasValue)
@@ -1409,7 +1427,7 @@ public class UpdatePrivacySettingsCommandHandler : IRequestHandler<UpdatePrivacy
 }
 
 public record UpdateUserProfileCommand(
-    string DisplayName,
+    string? DisplayName = null,
     string? Bio = null,
     string? AvatarUrl = null,
     string? BannerUrl = null,
@@ -1422,11 +1440,16 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICentrifugoService _centrifugoService;
 
-    public UpdateUserProfileCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public UpdateUserProfileCommandHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICentrifugoService centrifugoService)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _centrifugoService = centrifugoService;
     }
 
     public async Task<UserDto> Handle(UpdateUserProfileCommand request, CancellationToken cancellationToken)
@@ -1450,17 +1473,32 @@ public class UpdateUserProfileCommandHandler : IRequestHandler<UpdateUserProfile
         }
 
         user.UpdateProfile(
-            request.DisplayName,
-            request.Bio,
-            request.AvatarUrl,
-            request.BannerUrl,
-            request.Email,
-            request.PreferredTheme,
-            request.PreferredLanguage
+            request.DisplayName ?? user.DisplayName,
+            request.Bio ?? user.Bio,
+            request.AvatarUrl ?? user.AvatarUrl,
+            request.BannerUrl ?? user.BannerUrl,
+            request.Email ?? user.Email,
+            request.PreferredTheme ?? user.PreferredTheme,
+            request.PreferredLanguage ?? user.PreferredLanguage
         );
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return RegisterUserCommandHandler.MapUserToDto(user);
+        var userDto = RegisterUserCommandHandler.MapUserToDto(user);
+
+        var payload = new
+        {
+            type = "USER_UPDATED",
+            userId = user.Id,
+            username = user.Username.Value,
+            displayName = user.DisplayName,
+            avatarUrl = user.AvatarUrl,
+            bannerUrl = user.BannerUrl
+        };
+
+        await _centrifugoService.PublishAsync("feed", payload, cancellationToken);
+        await _centrifugoService.PublishAsync("feed:global", payload, cancellationToken);
+
+        return userDto;
     }
 }
 

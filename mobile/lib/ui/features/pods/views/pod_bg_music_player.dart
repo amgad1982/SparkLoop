@@ -78,6 +78,8 @@ class _PodBgMusicModalState extends State<PodBgMusicModal> {
         podVm.sendBgMusic(
           action: 'play',
           trackTitle: vibe.title,
+          trackUrl: vibe.url,
+          presetId: vibe.id,
         );
       }
 
@@ -98,16 +100,15 @@ class _PodBgMusicModalState extends State<PodBgMusicModal> {
     final isLocalDj = liveKit.djUserId == currentUserId;
     final isAnotherDjActive = liveKit.isBgMusicActive && !isLocalDj;
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131B28) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-        border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Material(
+      color: isDark ? const Color(0xFF131B28) : Colors.white,
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
           Row(
@@ -346,7 +347,8 @@ class _PodBgMusicModalState extends State<PodBgMusicModal> {
           ),
         ],
       ),
-    );
+    ),
+  );
   }
 }
 
@@ -431,16 +433,33 @@ class PodBgMusicActiveBar extends StatelessWidget {
             ),
           ),
 
-          // Volume & Mute
+          // Volume & Mute with inline slider
           IconButton(
             padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+            constraints: const BoxConstraints(minWidth: 26, minHeight: 26),
             icon: Icon(
               liveKit.isBgMusicMuted ? Icons.volume_off : Icons.volume_up,
               size: 16,
-              color: liveKit.isBgMusicMuted ? AppColors.error : AppColors.accentCyan,
+              color: liveKit.isBgMusicMuted ? AppColors.error : const Color(0xFFD946EF),
             ),
             onPressed: () => liveKit.toggleBgMusicMute(),
+          ),
+          SizedBox(
+            width: 72,
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3.0,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 8),
+              ),
+              child: Slider(
+                value: liveKit.isBgMusicMuted ? 0.0 : liveKit.bgMusicVolume,
+                min: 0.0,
+                max: 1.0,
+                activeColor: const Color(0xFFD946EF),
+                onChanged: (val) => liveKit.setBgMusicVolume(val),
+              ),
+            ),
           ),
 
           // DJ Controls

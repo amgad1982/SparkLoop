@@ -1,11 +1,11 @@
 import 'dart:async';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../../../data/models/pod_models.dart';
 import '../../../../data/services/livekit_service.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_network_image.dart';
 import '../../../core/widgets/avatar_badge.dart';
 import '../../../core/widgets/glass_container.dart';
 import '../../auth/view_models/auth_view_model.dart';
@@ -67,11 +67,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
       return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
     }
 
-    final expiresAt = pod.expiresAtUtc;
-    if (expiresAt == null) {
-      return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
-    }
-    final diff = expiresAt.difference(DateTime.now().toUtc());
+    final diff = pod.expiresAtUtc.difference(DateTime.now().toUtc());
     if (diff.inDays > 365) {
       return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
     }
@@ -404,10 +400,9 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               Positioned.fill(
                 child: Opacity(
                   opacity: 0.25,
-                  child: CachedNetworkImage(
+                  child: AppNetworkImage(
                     imageUrl: pod.customBackgroundImageUrl!,
                     fit: BoxFit.cover,
-                    memCacheWidth: 800,
                   ),
                 ),
               ),
@@ -503,12 +498,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   }
 
   Widget _buildStageGrid(BuildContext context, MoodPodDto pod, LiveKitService liveKit, bool isArabic) {
-    // Deduplicate host from remote speakers list so the creator never appears twice
-    final otherSpeakers = liveKit.remoteSpeakers.where((s) {
-      final isHostUser = (s.userId.isNotEmpty && s.userId == pod.hostUserId) ||
-          (s.username.isNotEmpty && s.username.toLowerCase() == pod.hostUsername.toLowerCase());
-      return !isHostUser;
-    }).toList();
+    final speakers = liveKit.speakers;
 
     return GlassContainer(
       padding: const EdgeInsets.all(14),
@@ -521,7 +511,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               const Icon(Icons.mic, size: 14, color: AppColors.accentEmerald),
               const SizedBox(width: 6),
               Text(
-                isArabic ? 'منصة المتحدثين' : 'Speakers Stage',
+                isArabic ? 'منصة المتحدثين (${speakers.length})' : 'Speakers Stage (${speakers.length})',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
               ),
               const Spacer(),
@@ -547,37 +537,43 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: GridView.builder(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.88,
-              ),
-              itemCount: 1 + otherSpeakers.length,
-              itemBuilder: (context, index) {
-                if (index == 0) {
-                  // Host / Local Speaker
-                  return _buildSpeakerAvatar(
-                    username: pod.hostUsername,
-                    displayName: pod.hostDisplayName,
-                    avatarUrl: pod.hostAvatarUrl,
-                    isHost: true,
-                    isMuted: liveKit.isMuted,
-                    isSpeaking: liveKit.isSpeaking,
-                  );
-                }
-                final speaker = otherSpeakers[index - 1];
-                return _buildSpeakerAvatar(
-                  username: speaker.username,
-                  displayName: speaker.displayName,
-                  avatarUrl: speaker.avatarUrl,
-                  isHost: false,
-                  isMuted: speaker.isMuted,
-                  isSpeaking: speaker.isSpeaking,
-                );
-              },
-            ),
+            child: speakers.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.mic_none, size: 32, color: Colors.grey.withValues(alpha: 0.4)),
+                        const SizedBox(height: 6),
+                        Text(
+                          isArabic ? 'لا يوجد متحدثون على المنصة حالياً' : 'No speakers on stage currently',
+                          style: TextStyle(fontSize: 11.5, color: Colors.grey.withValues(alpha: 0.6)),
+                        ),
+                      ],
+                    ),
+                  )
+                : GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 3,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 0.88,
+                    ),
+                    itemCount: speakers.length,
+                    itemBuilder: (context, index) {
+                      final speaker = speakers[index];
+                      final isHostUser = (speaker.userId.isNotEmpty && speaker.userId == pod.hostUserId) ||
+                          (speaker.username.isNotEmpty && speaker.username.toLowerCase() == pod.hostUsername.toLowerCase());
+
+                      return _buildSpeakerAvatar(
+                        username: speaker.username,
+                        displayName: speaker.displayName,
+                        avatarUrl: speaker.avatarUrl,
+                        isHost: isHostUser,
+                        isMuted: speaker.isMuted,
+                        isSpeaking: speaker.isSpeaking,
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -764,6 +760,8 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     bool isArabic,
   ) {
     const reactions = ['🔥', '❤️', '⚡', '🎉', '🤣'];
+    final authVm = context.read<AuthViewModel>();
+    final currentUserId = authVm.currentUser?.id ?? authVm.currentPersona.id;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
@@ -772,7 +770,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         children: [
           // Mic Mute Toggle
           IconButton.filled(
-            onPressed: () => liveKit.toggleMute(),
+            onPressed: () => podVm.toggleMic(currentUserId: currentUserId),
             icon: Icon(liveKit.isMuted ? Icons.mic_off : Icons.mic, size: 18),
             style: IconButton.styleFrom(
               backgroundColor: liveKit.isMuted ? AppColors.surfaceDarkElevated : AppColors.accentEmerald,

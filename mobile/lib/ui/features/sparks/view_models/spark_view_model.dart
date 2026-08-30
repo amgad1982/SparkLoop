@@ -128,19 +128,20 @@ class SparkViewModel extends ChangeNotifier {
   Future<bool> submitEntry({
     required String caption,
     File? imageFile,
+    String? mediaUrl,
   }) async {
     if (_activeSpark == null) return false;
 
     try {
-      String? mediaUrl;
+      String? resolvedMediaUrl = mediaUrl;
       if (imageFile != null) {
-        mediaUrl = await _feedRepository.uploadImage(imageFile);
+        resolvedMediaUrl = await _feedRepository.uploadImage(imageFile);
       }
 
       final submission = await _sparkRepository.submitEntry(
         sparkId: _activeSpark!.id,
         caption: caption,
-        mediaUrl: mediaUrl,
+        mediaUrl: resolvedMediaUrl,
       );
 
       final updatedSubs = List<SparkSubmissionDto>.from(_activeSpark!.submissions);

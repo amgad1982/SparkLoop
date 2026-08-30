@@ -107,7 +107,7 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
                 .Take(limit)
                 .ToListAsync(cancellationToken);
 
-            posts = postEntities.Select(PostQueries.MapToDto).ToList();
+            posts = postEntities.Select(p => PostQueries.MapToDto(p, null, null)).ToList();
         }
 
         // 2. Search Users

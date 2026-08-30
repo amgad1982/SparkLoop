@@ -279,6 +279,14 @@ public class UsersController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("me")]
+    public async Task<ActionResult<UserProfileDto>> GetCurrentUserProfile()
+    {
+        var result = await _mediator.Send(new GetUserProfileQuery());
+        return Ok(result);
+    }
+
+    [Authorize]
     [HttpPut("profile")]
     public async Task<ActionResult<UserDto>> UpdateProfile([FromBody] UpdateUserProfileCommand command)
     {
@@ -729,6 +737,8 @@ public class MoodPodsController : ControllerBase
             id,
             request.Action,
             request.TrackTitle,
+            request.TrackUrl,
+            request.PresetId,
             request.CurrentTime,
             request.Duration,
             request.AudioBase64,
@@ -747,6 +757,8 @@ public class MoodPodsController : ControllerBase
     public record PodBgMusicRequest(
         string Action,
         string? TrackTitle = null,
+        string? TrackUrl = null,
+        string? PresetId = null,
         double? CurrentTime = null,
         double? Duration = null,
         string? AudioBase64 = null,

@@ -45,6 +45,31 @@ public class CreatePostCommandHandler : IRequestHandler<CreatePostCommand, PostD
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is not null)
+        {
+            username = user.Username.Value;
+            displayName = user.DisplayName ?? username;
+            avatarUrl = user.AvatarUrl ?? avatarUrl;
+        }
+        else
+        {
+            var norm = System.Text.RegularExpressions.Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
+            if (norm.Length < 3) norm = norm.PadRight(3, '0');
+            if (norm.Length > 30) norm = norm[..30];
+
+            user = SparkLoop.Domain.Aggregates.UserAggregate.User.Create(
+                userId,
+                norm,
+                $"{norm}@sparkloop.app",
+                displayName,
+                avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={norm}",
+                "SparkLoop Creator"
+            );
+            user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
+            _dbContext.Users.Add(user);
+        }
+
         MediaAttachment? media = null;
         if (!string.IsNullOrWhiteSpace(request.MediaUrl))
         {
@@ -67,25 +92,6 @@ public class CreatePostCommandHandler : IRequestHandler<CreatePostCommand, PostD
             media);
 
         _dbContext.Posts.Add(post);
-
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        if (user is null)
-        {
-            var norm = System.Text.RegularExpressions.Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
-            if (norm.Length < 3) norm = norm.PadRight(3, '0');
-            if (norm.Length > 30) norm = norm[..30];
-
-            user = SparkLoop.Domain.Aggregates.UserAggregate.User.Create(
-                userId,
-                norm,
-                $"{norm}@sparkloop.app",
-                displayName,
-                avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={norm}",
-                "SparkLoop Creator"
-            );
-            user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
-            _dbContext.Users.Add(user);
-        }
         user.AddReputation(5);
 
         await _dbContext.SaveChangesAsync(cancellationToken);

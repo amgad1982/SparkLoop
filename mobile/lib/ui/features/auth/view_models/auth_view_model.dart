@@ -140,6 +140,34 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateCurrentUser(UserDto user) {
+    _currentUser = user;
+    _currentPersona = Persona.fromUser(user);
+    notifyListeners();
+  }
+
+  void updateUserFields({
+    String? displayName,
+    String? bio,
+    String? avatarUrl,
+    String? bannerUrl,
+    String? preferredTheme,
+    String? preferredLanguage,
+  }) {
+    if (_currentUser != null) {
+      _currentUser = _currentUser!.copyWith(
+        displayName: displayName,
+        bio: bio,
+        avatarUrl: avatarUrl,
+        bannerUrl: bannerUrl,
+        preferredTheme: preferredTheme,
+        preferredLanguage: preferredLanguage,
+      );
+      _currentPersona = Persona.fromUser(_currentUser!);
+      notifyListeners();
+    }
+  }
+
   Future<void> logout() async {
     await _authRepository.logout();
     _currentUser = null;

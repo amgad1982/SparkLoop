@@ -292,6 +292,11 @@ public class PostDomainEventsHandler :
                 content = notification.Content,
                 mediaUrl = notification.MediaUrl,
                 mediaType = notification.MediaType,
+                media = string.IsNullOrWhiteSpace(notification.MediaUrl) ? null : new
+                {
+                    url = notification.MediaUrl,
+                    type = notification.MediaType
+                },
                 reactionCount = 0,
                 reactions = Array.Empty<object>(),
                 hashtags = notification.Hashtags ?? Array.Empty<string>(),

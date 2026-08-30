@@ -1,9 +1,9 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../../data/models/post_models.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_network_image.dart';
 import '../../../core/widgets/avatar_badge.dart';
 import '../../../core/widgets/follow_button.dart';
 import '../../../core/widgets/glass_container.dart';
@@ -123,40 +123,36 @@ class PostCardWidget extends StatelessWidget {
                 constraints: const BoxConstraints(maxHeight: 420),
                 width: double.infinity,
                 color: AppColors.surfaceDark,
-                child: CachedNetworkImage(
-                  imageUrl: post.media!.url,
-                  fit: BoxFit.cover,
-                  memCacheWidth: 800,
-                  maxHeightDiskCache: 800,
-                  maxWidthDiskCache: 800,
-                  placeholder: (context, url) => Container(
-                    height: 200,
-                    color: AppColors.surfaceDarkElevated,
-                    child: const Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-                      ),
+                child: Stack(
+                  children: [
+                    AppNetworkImage(
+                      imageUrl: post.media!.url,
+                      fit: BoxFit.cover,
+                      width: double.infinity,
                     ),
-                  ),
-                  errorWidget: (context, url, error) => Container(
-                    height: 140,
-                    color: AppColors.surfaceDarkElevated,
-                    child: const Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.image_not_supported_outlined, color: Color(0xFF64748B), size: 28),
-                          SizedBox(height: 4),
-                          Text(
-                            'Image preview unavailable',
-                            style: TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                    if (AppNetworkImage.isGifUrl(post.media!.url))
+                      Positioned(
+                        bottom: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: AppColors.accentCyan.withValues(alpha: 0.5)),
                           ),
-                        ],
+                          child: const Text(
+                            'GIF',
+                            style: TextStyle(
+                              color: AppColors.accentCyan,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
+                  ],
                 ),
               ),
             ),

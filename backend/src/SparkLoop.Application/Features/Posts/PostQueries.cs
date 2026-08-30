@@ -10,7 +10,7 @@ namespace SparkLoop.Application.Features.Posts;
 
 public static class PostQueries
 {
-    public static PostDto MapToDto(Post post)
+    public static PostDto MapToDto(Post post, string? authorAvatarUrl = null, string? authorDisplayName = null)
     {
         var reactions = post.Reactions.Select(r => new ReactionDto(
             r.Id,
@@ -32,12 +32,15 @@ public static class PostQueries
             );
         }
 
+        var effectiveDisplayName = authorDisplayName ?? post.AuthorDisplayName ?? post.AuthorUsername;
+        var effectiveAvatarUrl = authorAvatarUrl ?? post.AuthorAvatarUrl;
+
         return new PostDto(
             post.Id,
             post.AuthorId,
             post.AuthorUsername,
-            post.AuthorDisplayName ?? post.AuthorUsername,
-            post.AuthorAvatarUrl,
+            effectiveDisplayName,
+            effectiveAvatarUrl,
             post.Content.Value,
             mediaDto,
             post.ReactionCount,
@@ -115,6 +118,16 @@ public class GetFeedPostsQueryHandler : IRequestHandler<GetFeedPostsQuery, IRead
             .Take(request.PageSize)
             .ToListAsync(cancellationToken);
 
-        return posts.Select(PostQueries.MapToDto).ToList();
+        var authorIds = posts.Select(p => p.AuthorId).Distinct().ToList();
+        var authors = await _dbContext.Users
+            .Where(u => authorIds.Contains(u.Id))
+            .Select(u => new { u.Id, u.AvatarUrl, u.DisplayName })
+            .ToDictionaryAsync(u => u.Id, cancellationToken);
+
+        return posts.Select(p =>
+        {
+            authors.TryGetValue(p.AuthorId, out var author);
+            return PostQueries.MapToDto(p, author?.AvatarUrl, author?.DisplayName);
+        }).ToList();
     }
 }

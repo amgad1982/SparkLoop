@@ -35,7 +35,7 @@ class ProfileViewModel extends ChangeNotifier {
     required this._followRepository,
   });
 
-  Future<void> loadProfile(String username) async {
+  Future<void> loadProfile(String username, {UserDto? fallbackUser}) async {
     _isLoading = true;
     notifyListeners();
 
@@ -43,6 +43,13 @@ class ProfileViewModel extends ChangeNotifier {
       _profile = await _userRepository.getUserProfile(username);
     } catch (e) {
       debugPrint('Error loading user profile: $e');
+      if (_profile == null) {
+        if (fallbackUser != null) {
+          _profile = UserProfileDto.fromUser(fallbackUser);
+        } else {
+          _profile = UserProfileDto.createDefault(username);
+        }
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -148,7 +155,7 @@ class ProfileViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _userRepository.updateProfile(
+      final updatedUser = await _userRepository.updateProfile(
         displayName: displayName,
         bio: bio,
         avatarUrl: avatarUrl,
@@ -156,12 +163,35 @@ class ProfileViewModel extends ChangeNotifier {
         preferredTheme: preferredTheme,
         preferredLanguage: preferredLanguage,
       );
+
       if (_profile != null) {
-        await loadProfile(_profile!.username);
+        _profile = _profile!.copyWith(
+          displayName: displayName,
+          bio: bio,
+          avatarUrl: avatarUrl,
+          bannerUrl: bannerUrl,
+          preferredTheme: preferredTheme,
+          preferredLanguage: preferredLanguage,
+        );
+      } else {
+        _profile = UserProfileDto.fromUser(updatedUser);
       }
+
+      notifyListeners();
       return true;
     } catch (e) {
       debugPrint('Error updating profile: $e');
+      if (_profile != null) {
+        _profile = _profile!.copyWith(
+          displayName: displayName,
+          bio: bio,
+          avatarUrl: avatarUrl,
+          bannerUrl: bannerUrl,
+          preferredTheme: preferredTheme,
+          preferredLanguage: preferredLanguage,
+        );
+        notifyListeners();
+      }
       return false;
     } finally {
       _isSaving = false;

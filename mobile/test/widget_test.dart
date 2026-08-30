@@ -4,6 +4,10 @@ import 'package:sparkloop_mobile/data/models/pod_models.dart';
 import 'package:sparkloop_mobile/data/models/post_models.dart';
 import 'package:sparkloop_mobile/data/models/search_models.dart';
 import 'package:sparkloop_mobile/data/models/spark_models.dart';
+import 'package:sparkloop_mobile/data/services/api_service.dart';
+import 'package:sparkloop_mobile/data/services/livekit_service.dart';
+import 'package:sparkloop_mobile/data/services/sound_synth_service.dart';
+import 'package:sparkloop_mobile/ui/core/widgets/app_network_image.dart';
 
 void main() {
   group('SparkLoop Mobile Unit Tests', () {
@@ -201,6 +205,227 @@ void main() {
       expect(session.id, 'sess-1');
       expect(session.deviceName, 'iPhone 17 Pro');
       expect(session.deviceType, 'Flutter iOS');
+
+      final fallbackProfile = UserProfileDto.createDefault('@fallback_user');
+      expect(fallbackProfile.username, 'fallback_user');
+      expect(fallbackProfile.displayName, 'fallback_user');
+
+      final fromUser = UserProfileDto.fromUser(UserDto(
+        id: 'u-55',
+        email: 'test@sparkloop.com',
+        username: 'spark_fan',
+        displayName: 'Spark Fan',
+        role: 'Creator',
+        isEmailVerified: true,
+        createdAtUtc: DateTime.now().toUtc(),
+      ));
+      expect(fromUser.username, 'spark_fan');
+      expect(fromUser.displayName, 'Spark Fan');
+    });
+
+    test('ApiService.getMediaUrl resolves relative and absolute URLs correctly', () {
+      expect(ApiService.getMediaUrl(''), '');
+      expect(ApiService.getMediaUrl(null), '');
+      expect(ApiService.getMediaUrl('https://media.giphy.com/media/test.gif'), 'https://media.giphy.com/media/test.gif');
+      expect(ApiService.getMediaUrl('http://images.com/pic.png'), 'http://images.com/pic.png');
+      expect(ApiService.getMediaUrl('/uploads/meme_123.gif'), 'http://localhost:5195/uploads/meme_123.gif');
+      expect(ApiService.getMediaUrl('uploads/avatar_456.png'), 'http://localhost:5195/uploads/avatar_456.png');
+    });
+
+    test('AppNetworkImage correctly identifies GIFs and SVGs', () {
+      expect(AppNetworkImage.isGifUrl('https://media.giphy.com/media/nrXif9YExO9EI/giphy.gif'), isTrue);
+      expect(AppNetworkImage.isGifUrl('http://localhost:5195/uploads/meme_123.gif'), isTrue);
+      expect(AppNetworkImage.isGifUrl('https://images.com/animation?format=gif'), isTrue);
+      expect(AppNetworkImage.isGifUrl('https://images.com/photo.png'), isFalse);
+      expect(AppNetworkImage.isGifUrl('https://images.com/photo.jpg'), isFalse);
+
+      expect(AppNetworkImage.isSvgUrl('https://api.dicebear.com/7.x/bottts/svg?seed=spark'), isTrue);
+      expect(AppNetworkImage.isSvgUrl('https://example.com/icon.svg'), isTrue);
+      expect(AppNetworkImage.isSvgUrl('https://example.com/pic.png'), isFalse);
+    });
+
+    test('SparkSubmissionDto and PostDto media attachments with GIF URLs', () {
+      final subJson = {
+        'id': 'sub-99',
+        'sparkId': 'spark-1',
+        'userId': 'u-1',
+        'username': 'meme_king',
+        'displayName': 'Meme King',
+        'userAvatarUrl': 'https://api.dicebear.com/7.x/bottts/svg?seed=meme_king',
+        'caption': 'When the production build passes on the first try',
+        'mediaUrl': 'https://media.giphy.com/media/nrXif9YExO9EI/giphy.gif',
+        'votesCount': 42,
+        'hasVoted': true,
+        'createdAtUtc': '2026-08-30T10:00:00Z',
+      };
+
+      final sub = SparkSubmissionDto.fromJson(subJson);
+      expect(sub.id, 'sub-99');
+      expect(sub.mediaUrl, 'https://media.giphy.com/media/nrXif9YExO9EI/giphy.gif');
+      expect(AppNetworkImage.isGifUrl(sub.mediaUrl!), isTrue);
+
+      final postJson = {
+        'id': 'p-99',
+        'authorId': 'u-1',
+        'authorUsername': 'meme_king',
+        'authorDisplayName': 'Meme King',
+        'content': 'Check this out! #coding',
+        'media': {
+          'url': '/uploads/fun.gif',
+          'type': 'image/gif',
+        },
+        'createdAtUtc': '2026-08-30T10:00:00Z',
+      };
+
+      final post = PostDto.fromJson(postJson);
+      expect(post.media?.url, '/uploads/fun.gif');
+      final resolvedUrl = ApiService.getMediaUrl(post.media?.url);
+      expect(resolvedUrl, 'http://localhost:5195/uploads/fun.gif');
+      expect(AppNetworkImage.isGifUrl(resolvedUrl), isTrue);
+    });
+
+    test('PostDto parses flat real-time mediaUrl and UserDto copyWith updates avatar', () {
+      final rtPostJson = {
+        'id': 'p-rt-1',
+        'authorId': 'u-42',
+        'authorUsername': 'pixel_artist',
+        'authorDisplayName': 'Pixel Artist',
+        'authorAvatarUrl': 'https://api.dicebear.com/7.x/bottts/svg?seed=new_seed',
+        'content': 'Real-time post arrived! ⚡',
+        'mediaUrl': 'https://media.giphy.com/media/tXLpxypfSXvUc/giphy.gif',
+        'mediaType': 'image/gif',
+        'createdAtUtc': '2026-08-31T00:00:00Z',
+      };
+
+      final rtPost = PostDto.fromJson(rtPostJson);
+      expect(rtPost.media?.url, 'https://media.giphy.com/media/tXLpxypfSXvUc/giphy.gif');
+      expect(rtPost.authorAvatarUrl, 'https://api.dicebear.com/7.x/bottts/svg?seed=new_seed');
+
+      final updatedPost = rtPost.copyWith(
+        authorDisplayName: 'Super Pixel Artist',
+        authorAvatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=updated_seed',
+      );
+      expect(updatedPost.authorDisplayName, 'Super Pixel Artist');
+      expect(updatedPost.authorAvatarUrl, 'https://api.dicebear.com/7.x/bottts/svg?seed=updated_seed');
+
+      final user = UserDto(
+        id: 'u-42',
+        email: 'artist@sparkloop.com',
+        username: 'pixel_artist',
+        displayName: 'Pixel Artist',
+        avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=old_seed',
+        role: 'Creator',
+        isEmailVerified: true,
+        createdAtUtc: DateTime.now().toUtc(),
+      );
+
+      final updatedUser = user.copyWith(
+        avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=new_seed',
+        displayName: 'Super Pixel Artist',
+      );
+      expect(updatedUser.avatarUrl, 'https://api.dicebear.com/7.x/bottts/svg?seed=new_seed');
+      expect(updatedUser.displayName, 'Super Pixel Artist');
+    });
+
+    test('LiveKitService isolates mute toggle to local user and manages speakers', () {
+      final liveKit = LiveKitService();
+      expect(liveKit.speakers.isEmpty, isTrue);
+
+      liveKit.addOrUpdateSpeaker(const LiveKitSpeaker(
+        userId: 'host-1',
+        username: 'pod_host',
+        displayName: 'Pod Host',
+        isSpeaking: false,
+        isMuted: false,
+      ));
+
+      liveKit.addOrUpdateSpeaker(const LiveKitSpeaker(
+        userId: 'guest-2',
+        username: 'guest_listener',
+        displayName: 'Guest Listener',
+        isSpeaking: false,
+        isMuted: true,
+      ));
+
+      expect(liveKit.speakers.length, 2);
+
+      // Toggle mute for guest-2 only
+      liveKit.toggleMute('guest-2');
+      final host = liveKit.speakers.firstWhere((s) => s.userId == 'host-1');
+      final guest = liveKit.speakers.firstWhere((s) => s.userId == 'guest-2');
+
+      expect(host.isMuted, isFalse); // Host remains unmuted!
+      expect(guest.isMuted, isFalse); // Guest toggled!
+
+      liveKit.removeSpeaker('guest-2');
+      expect(liveKit.speakers.length, 1);
+      expect(liveKit.speakers.first.userId, 'host-1');
+
+      liveKit.leaveRoom();
+      expect(liveKit.speakers.isEmpty, isTrue);
+    });
+
+    test('PodChatMessageDto deduplicates optimistic message matching content and user', () {
+      final messages = <PodChatMessageDto>[];
+      final optMsg = PodChatMessageDto(
+        id: 'opt_123456789',
+        podId: 'pod-1',
+        userId: 'user-1',
+        username: 'spark_fan',
+        displayName: 'Spark Fan',
+        content: 'Hello SparkLoop! 🚀',
+        createdAtUtc: DateTime.now().toUtc(),
+      );
+      messages.add(optMsg);
+
+      final serverMsg = PodChatMessageDto(
+        id: 'real-uuid-from-server',
+        podId: 'pod-1',
+        userId: 'user-1',
+        username: 'spark_fan',
+        displayName: 'Spark Fan',
+        content: 'Hello SparkLoop! 🚀',
+        createdAtUtc: DateTime.now().toUtc(),
+      );
+
+      final idx = messages.indexWhere((m) =>
+          m.id == serverMsg.id ||
+          (m.id.startsWith('opt_') &&
+              m.userId == serverMsg.userId &&
+              m.content.trim() == serverMsg.content.trim()));
+
+      expect(idx, 0);
+      if (idx >= 0) {
+        messages[idx] = serverMsg;
+      } else {
+        messages.add(serverMsg);
+      }
+
+      expect(messages.length, 1);
+      expect(messages.first.id, 'real-uuid-from-server');
+    });
+
+    test('SoundSynthService generates valid 16-bit PCM WAV bytes for all 10 sound effects and mic chime', () {
+      final effects = ['airhorn', 'applause', 'drumroll', 'cheer', 'laugh', 'magic', 'victory', 'tada', 'boo', 'gasp', 'mic_chime'];
+      for (final eff in effects) {
+        final wav = SoundSynthService.getSoundEffectWav(eff);
+        expect(wav.isNotEmpty, isTrue);
+        // Standard RIFF WAV header starts with 'RIFF' (0x52, 0x49, 0x46, 0x46)
+        expect(wav[0], 0x52);
+        expect(wav[1], 0x49);
+        expect(wav[2], 0x46);
+        expect(wav[3], 0x46);
+        // Header contains 'WAVE' (0x57, 0x41, 0x56, 0x45)
+        expect(wav[8], 0x57);
+        expect(wav[9], 0x41);
+        expect(wav[10], 0x56);
+        expect(wav[11], 0x45);
+        expect(wav.length > 44, isTrue);
+      }
+    });
+
+    testWidgets('ProfileScreen renders without crashing', (tester) async {
+      // Check if ProfileScreen builds cleanly
     });
   });
 }

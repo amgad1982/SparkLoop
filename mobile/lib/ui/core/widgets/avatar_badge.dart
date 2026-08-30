@@ -25,10 +25,7 @@ class AvatarBadge extends StatelessWidget {
   String get effectiveAvatarUrl {
     final raw = avatarUrl?.trim();
     if (raw != null && raw.isNotEmpty) {
-      if (raw.startsWith('/')) {
-        return '${ApiService.defaultBaseUrl}$raw';
-      }
-      return raw;
+      return ApiService.getMediaUrl(raw);
     }
     final seed = username.trim().isNotEmpty ? Uri.encodeComponent(username.trim()) : 'guest';
     return 'https://api.dicebear.com/7.x/bottts/svg?seed=$seed';
@@ -37,6 +34,11 @@ class AvatarBadge extends StatelessWidget {
   bool get isSvg {
     final url = effectiveAvatarUrl.toLowerCase();
     return url.contains('.svg') || url.contains('/svg?') || url.contains('/svg/');
+  }
+
+  bool get isGif {
+    final url = effectiveAvatarUrl.toLowerCase();
+    return url.endsWith('.gif') || url.contains('.gif?') || url.contains('/giphy.com/') || url.contains('media.tenor.com');
   }
 
   LinearGradient _getFallbackGradient() {
@@ -99,6 +101,29 @@ class AvatarBadge extends StatelessWidget {
             ),
           ),
         ),
+      );
+    } else if (isGif) {
+      imageContent = Image.network(
+        url,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return Container(
+            width: size,
+            height: size,
+            color: AppColors.surfaceDarkElevated,
+            child: const Center(
+              child: SizedBox(
+                width: 12,
+                height: 12,
+                child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+              ),
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) => _buildFallbackWidget(),
       );
     } else {
       imageContent = CachedNetworkImage(

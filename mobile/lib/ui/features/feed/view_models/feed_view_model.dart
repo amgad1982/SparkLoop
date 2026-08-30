@@ -58,6 +58,28 @@ class FeedViewModel extends ChangeNotifier {
             notifyListeners();
           }
         }
+      } else if (type == 'USER_UPDATED') {
+        final userId = event.data['userId'] as String?;
+        final username = event.data['username'] as String?;
+        final displayName = event.data['displayName'] as String?;
+        final avatarUrl = event.data['avatarUrl'] as String?;
+        if (userId != null || username != null) {
+          bool changed = false;
+          for (int i = 0; i < _posts.length; i++) {
+            final p = _posts[i];
+            if ((userId != null && p.authorId == userId) ||
+                (username != null && p.authorUsername.toLowerCase() == username.toLowerCase())) {
+              _posts[i] = p.copyWith(
+                authorDisplayName: displayName,
+                authorAvatarUrl: avatarUrl,
+              );
+              changed = true;
+            }
+          }
+          if (changed) {
+            notifyListeners();
+          }
+        }
       }
     }
   }
@@ -84,20 +106,21 @@ class FeedViewModel extends ChangeNotifier {
   Future<bool> createPost({
     required String content,
     File? imageFile,
+    String? mediaUrl,
     required String currentUserId,
     required String currentUsername,
     required String currentDisplayName,
     String? currentAvatarUrl,
   }) async {
     try {
-      String? mediaUrl;
+      String? resolvedMediaUrl = mediaUrl;
       if (imageFile != null) {
-        mediaUrl = await _feedRepository.uploadImage(imageFile);
+        resolvedMediaUrl = await _feedRepository.uploadImage(imageFile);
       }
 
       final post = await _feedRepository.createPost(
         content: content,
-        mediaUrl: mediaUrl,
+        mediaUrl: resolvedMediaUrl,
       );
 
       if (!_posts.any((p) => p.id == post.id)) {
