@@ -20,12 +20,10 @@ class ChainViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   ChainViewModel({
-    required ChainRepository chainRepository,
-    required FeedRepository feedRepository,
-    required CentrifugoService centrifugoService,
-  })  : _chainRepository = chainRepository,
-        _feedRepository = feedRepository,
-        _centrifugoService = centrifugoService {
+    required this._chainRepository,
+    required this._feedRepository,
+    required this._centrifugoService,
+  }) {
     _centrifugoService.events.listen(_handleCentrifugoEvent);
     fetchChains();
   }

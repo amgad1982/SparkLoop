@@ -61,12 +61,13 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
   }
 
   Future<void> _pickAndUploadWallpaper(BuildContext context) async {
+    final podVm = context.read<PodViewModel>();
     final picker = ImagePicker();
     final file = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (file == null) return;
 
+    if (!mounted) return;
     setState(() => _isUploadingWallpaper = true);
-    final podVm = context.read<PodViewModel>();
     final url = await podVm.uploadCustomWallpaper(File(file.path));
 
     if (mounted) {
@@ -95,15 +96,15 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
 
     if (mounted) {
       setState(() => _isSaving = false);
-      if (success) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Room settings saved successfully!'),
-            backgroundColor: AppColors.accentEmerald,
-          ),
-        );
-      }
+    }
+    if (success && context.mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Room settings saved successfully!'),
+          backgroundColor: AppColors.accentEmerald,
+        ),
+      );
     }
   }
 
@@ -266,7 +267,7 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: podThemePresets.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            separatorBuilder: (_, _) => const SizedBox(width: 8),
             itemBuilder: (context, i) {
               final theme = podThemePresets[i];
               final isSelected = theme['id'] == _theme;
@@ -389,7 +390,7 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
         ),
         const SizedBox(height: 8),
         DropdownButtonFormField<int>(
-          value: _extendDuration,
+          initialValue: _extendDuration,
           hint: Text(isArabic ? 'اختر مدة التمديد...' : 'Select duration extension...'),
           decoration: const InputDecoration(
             contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -447,7 +448,9 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
 
                 if (confirm == true && context.mounted) {
                   await podVm.closeActivePod();
-                  Navigator.pop(context);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                  }
                 }
               },
               icon: const Icon(Icons.power_settings_new, color: AppColors.error, size: 18),
@@ -610,7 +613,7 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
         Switch.adaptive(
           value: value,
           onChanged: onChanged,
-          activeColor: AppColors.primary,
+          activeTrackColor: AppColors.primary,
         ),
       ],
     );

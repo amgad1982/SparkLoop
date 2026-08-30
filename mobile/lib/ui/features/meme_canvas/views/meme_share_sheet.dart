@@ -83,6 +83,8 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
 
     if (mounted) {
       setState(() => _isPublishingFeed = false);
+    }
+    if (context.mounted) {
       if (success) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -113,6 +115,8 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
 
     if (mounted) {
       setState(() => _isPublishingSpark = false);
+    }
+    if (context.mounted) {
       if (success) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -141,8 +145,10 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
 
       if (mounted) {
         setState(() => _isSaving = false);
+      }
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Meme saved successfully to app documents!'),
             backgroundColor: AppColors.accentEmerald,
           ),
@@ -151,6 +157,8 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
+      }
+      if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to save image: $e'),
@@ -281,7 +289,7 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _suggestedHashtags.length,
-                  separatorBuilder: (_, __) => const SizedBox(width: 6),
+                  separatorBuilder: (_, _) => const SizedBox(width: 6),
                   itemBuilder: (context, i) {
                     final tag = _suggestedHashtags[i];
                     return ActionChip(

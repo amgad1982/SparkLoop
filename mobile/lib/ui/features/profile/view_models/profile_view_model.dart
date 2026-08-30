@@ -31,10 +31,9 @@ class ProfileViewModel extends ChangeNotifier {
   bool get isSaving => _isSaving;
 
   ProfileViewModel({
-    required UserRepository userRepository,
-    required FollowRepository followRepository,
-  })  : _userRepository = userRepository,
-        _followRepository = followRepository;
+    required this._userRepository,
+    required this._followRepository,
+  });
 
   Future<void> loadProfile(String username) async {
     _isLoading = true;

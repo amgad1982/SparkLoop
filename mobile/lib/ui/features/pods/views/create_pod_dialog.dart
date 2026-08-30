@@ -113,6 +113,8 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
 
     if (mounted) {
       setState(() => _isSubmitting = false);
+    }
+    if (context.mounted) {
       if (created != null) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -269,7 +271,7 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: podEmojiPresets.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, i) {
                       final emoji = podEmojiPresets[i];
                       final isSelected = emoji == _selectedEmoji;
@@ -309,7 +311,7 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: podThemePresets.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    separatorBuilder: (_, _) => const SizedBox(width: 8),
                     itemBuilder: (context, i) {
                       final theme = podThemePresets[i];
                       final isSelected = theme['id'] == _selectedTheme;
@@ -358,7 +360,7 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
                 ),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<int>(
-                  value: _selectedDuration,
+                  initialValue: _selectedDuration,
                   decoration: const InputDecoration(
                     contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   ),

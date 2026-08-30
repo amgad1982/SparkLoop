@@ -20,10 +20,9 @@ class FeedViewModel extends ChangeNotifier {
   String? get selectedHashtag => _selectedHashtag;
 
   FeedViewModel({
-    required FeedRepository feedRepository,
-    required CentrifugoService centrifugoService,
-  })  : _feedRepository = feedRepository,
-        _centrifugoService = centrifugoService {
+    required this._feedRepository,
+    required this._centrifugoService,
+  }) {
     _centrifugoService.subscribe('feed');
     _centrifugoService.subscribe('feed:global');
     _centrifugoService.events.listen(_handleCentrifugoEvent);

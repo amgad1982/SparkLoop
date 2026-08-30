@@ -20,12 +20,10 @@ class SparkViewModel extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   SparkViewModel({
-    required SparkRepository sparkRepository,
-    required FeedRepository feedRepository,
-    required CentrifugoService centrifugoService,
-  })  : _sparkRepository = sparkRepository,
-        _feedRepository = feedRepository,
-        _centrifugoService = centrifugoService {
+    required this._sparkRepository,
+    required this._feedRepository,
+    required this._centrifugoService,
+  }) {
     _centrifugoService.subscribe('sparks:daily');
     _centrifugoService.subscribe('sparks:active');
     _centrifugoService.events.listen(_handleCentrifugoEvent);

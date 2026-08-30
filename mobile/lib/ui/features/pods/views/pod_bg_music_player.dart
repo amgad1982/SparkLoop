@@ -31,7 +31,7 @@ class _PodBgMusicModalState extends State<PodBgMusicModal> {
       final result = await FilePickerPlatform.instance.pickFiles(
         type: FileType.audio,
       );
-      if (result != null && result.isNotEmpty && result.first.path != null && context.mounted) {
+      if (result.isNotEmpty && result.first.path != null && context.mounted) {
         final path = result.first.path!;
         final name = result.first.name;
         final authVm = context.read<AuthViewModel>();

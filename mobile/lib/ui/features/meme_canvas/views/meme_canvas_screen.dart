@@ -6,8 +6,6 @@ import 'package:provider/provider.dart';
 import 'package:screenshot/screenshot.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_container.dart';
-import '../../auth/view_models/auth_view_model.dart';
-import '../../feed/view_models/feed_view_model.dart';
 import '../view_models/meme_canvas_view_model.dart';
 import 'canvas_painter.dart';
 import 'template_picker_sheet.dart';

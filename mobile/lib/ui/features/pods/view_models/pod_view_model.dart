@@ -43,14 +43,11 @@ class PodViewModel extends ChangeNotifier {
   String? get activeReaction => _activeReaction;
 
   PodViewModel({
-    required PodRepository podRepository,
-    required UserRepository userRepository,
-    required CentrifugoService centrifugoService,
-    required LiveKitService liveKitService,
-  })  : _podRepository = podRepository,
-        _userRepository = userRepository,
-        _centrifugoService = centrifugoService,
-        _liveKitService = liveKitService {
+    required this._podRepository,
+    required this._userRepository,
+    required this._centrifugoService,
+    required this._liveKitService,
+  }) {
     fetchPods();
     _centrifugoService.events.listen(_handleCentrifugoEvent);
   }

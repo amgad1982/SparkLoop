@@ -8,6 +8,8 @@ using SparkLoop.Domain.Aggregates.PostAggregate;
 using SparkLoop.Domain.Aggregates.SparkAggregate;
 using SparkLoop.Domain.Aggregates.UserAggregate;
 using SparkLoop.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace SparkLoop.Api.Persistence;
 
@@ -21,7 +23,22 @@ public static class DbInitializer
 
         try
         {
-            await dbContext.Database.EnsureCreatedAsync();
+            var databaseCreator = dbContext.Database.GetService<IDatabaseCreator>() as RelationalDatabaseCreator;
+            if (databaseCreator != null)
+            {
+                if (!await databaseCreator.ExistsAsync())
+                {
+                    await databaseCreator.CreateAsync();
+                }
+                if (!await databaseCreator.HasTablesAsync())
+                {
+                    await databaseCreator.CreateTablesAsync();
+                }
+            }
+            else
+            {
+                await dbContext.Database.EnsureCreatedAsync();
+            }
 
             var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasherService>();
 

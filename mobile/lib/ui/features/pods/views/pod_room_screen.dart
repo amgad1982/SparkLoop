@@ -68,6 +68,9 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     }
 
     final expiresAt = pod.expiresAtUtc;
+    if (expiresAt == null) {
+      return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
+    }
     final diff = expiresAt.difference(DateTime.now().toUtc());
     if (diff.inDays > 365) {
       return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
@@ -223,7 +226,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               ListView.separated(
                 shrinkWrap: true,
                 itemCount: podVm.handRaisedUsers.length,
-                separatorBuilder: (_, __) => const Divider(height: 8),
+                separatorBuilder: (_, _) => const Divider(height: 8),
                 itemBuilder: (context, i) {
                   final user = podVm.handRaisedUsers[i];
                   return ListTile(
