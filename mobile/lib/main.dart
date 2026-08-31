@@ -76,7 +76,10 @@ void main() async {
           create: (_) => ThemeViewModel(storageService: storageService),
         ),
         ChangeNotifierProvider<AuthViewModel>(
-          create: (_) => AuthViewModel(authRepository: authRepository),
+          create: (_) => AuthViewModel(
+            authRepository: authRepository,
+            centrifugoService: centrifugoService,
+          ),
         ),
         ChangeNotifierProvider<FollowViewModel>(
           create: (_) => FollowViewModel(followRepository: followRepository),

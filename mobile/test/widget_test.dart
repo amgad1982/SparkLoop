@@ -262,7 +262,7 @@ void main() {
       final sub = SparkSubmissionDto.fromJson(subJson);
       expect(sub.id, 'sub-99');
       expect(sub.mediaUrl, 'https://media.giphy.com/media/nrXif9YExO9EI/giphy.gif');
-      expect(AppNetworkImage.isGifUrl(sub.mediaUrl!), isTrue);
+      expect(AppNetworkImage.isGifUrl(sub.mediaUrl), isTrue);
 
       final postJson = {
         'id': 'p-99',

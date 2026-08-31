@@ -130,8 +130,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       _selectedBannerPreset = (p.bannerUrl != null && p.bannerUrl!.startsWith('gradient:'))
           ? p.bannerUrl!
           : 'gradient:cosmic-indigo';
-      _selectedTheme = p.preferredTheme;
-      _selectedLanguage = p.preferredLanguage;
+      _selectedTheme = p.preferredTheme ?? 'dark';
+      _selectedLanguage = p.preferredLanguage ?? 'en';
 
       _isPrivate = p.isPrivate;
       _isSearchDiscoverable = p.isSearchDiscoverable;
@@ -1418,7 +1418,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     children: [
                       Text(session.deviceName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
                       Text(
-                        '${session.deviceType} • ${(session.ipAddress != null && session.ipAddress!.isNotEmpty) ? session.ipAddress! : "Local"}',
+                        '${session.deviceType} • ${session.ipAddress.isNotEmpty ? session.ipAddress : "Local"}',
                         style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
                       ),
                     ],

@@ -313,7 +313,7 @@ class PodViewModel extends ChangeNotifier {
       await _liveKitService.connectToRoom(
         podId: podId,
         token: token,
-        wsUrl: 'wss://slooplive.mydev-lab.com',
+        wsUrl: LiveKitService.resolveWsUrl(),
         currentUserId: currentUserId,
         currentUsername: currentUsername,
         currentDisplayName: currentDisplayName,

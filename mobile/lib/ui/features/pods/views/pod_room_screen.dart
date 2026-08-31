@@ -63,11 +63,11 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   }
 
   String _getFormattedTimeLeft(MoodPodDto? pod, bool isArabic) {
-    if (pod == null) {
+    if (pod == null || pod.expiresAtUtc == null) {
       return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
     }
 
-    final diff = pod.expiresAtUtc.difference(DateTime.now().toUtc());
+    final diff = pod.expiresAtUtc!.difference(DateTime.now().toUtc());
     if (diff.inDays > 365) {
       return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
     }

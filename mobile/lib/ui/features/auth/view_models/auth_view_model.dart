@@ -2,9 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../../data/models/auth_models.dart';
 import '../../../../data/repositories/auth_repository.dart';
+import '../../../../data/services/centrifugo_service.dart';
 
 class AuthViewModel extends ChangeNotifier {
   final AuthRepository _authRepository;
+  final CentrifugoService? _centrifugoService;
 
   UserDto? _currentUser;
   UserDto? get currentUser => _currentUser;
@@ -20,7 +22,11 @@ class AuthViewModel extends ChangeNotifier {
 
   bool get isAuthenticated => _currentUser != null;
 
-  AuthViewModel({required this._authRepository}) {
+  AuthViewModel({
+    required AuthRepository authRepository,
+    CentrifugoService? centrifugoService,
+  })  : _authRepository = authRepository, // ignore: prefer_initializing_formals
+        _centrifugoService = centrifugoService { // ignore: prefer_initializing_formals
     _init();
   }
 
@@ -28,6 +34,8 @@ class AuthViewModel extends ChangeNotifier {
     _currentUser = await _authRepository.getInitialUser();
     if (_currentUser != null) {
       _currentPersona = Persona.fromUser(_currentUser!);
+      _centrifugoService?.connect(userId: _currentUser!.id);
+      _centrifugoService?.subscribe('user:${_currentUser!.id}');
     } else {
       _currentPersona = Persona.guest;
     }
@@ -43,6 +51,8 @@ class AuthViewModel extends ChangeNotifier {
       final res = await _authRepository.login(email, password);
       _currentUser = res.user;
       _currentPersona = Persona.fromUser(res.user);
+      _centrifugoService?.connect(userId: res.user.id);
+      _centrifugoService?.subscribe('user:${res.user.id}');
       _isLoading = false;
       notifyListeners();
       return true;
@@ -73,6 +83,8 @@ class AuthViewModel extends ChangeNotifier {
       );
       _currentUser = res.user;
       _currentPersona = Persona.fromUser(res.user);
+      _centrifugoService?.connect(userId: res.user.id);
+      _centrifugoService?.subscribe('user:${res.user.id}');
       _isLoading = false;
       notifyListeners();
       return true;
@@ -98,12 +110,18 @@ class AuthViewModel extends ChangeNotifier {
           username: _currentUser!.username,
           displayName: _currentUser!.displayName,
           avatarUrl: _currentUser!.avatarUrl,
+          bannerUrl: _currentUser!.bannerUrl,
           bio: _currentUser!.bio,
           role: _currentUser!.role,
-          isEmailVerified: true,
-          isPrivateProfile: _currentUser!.isPrivateProfile,
           preferredTheme: _currentUser!.preferredTheme,
           preferredLanguage: _currentUser!.preferredLanguage,
+          isEmailVerified: true,
+          isPrivateProfile: _currentUser!.isPrivateProfile,
+          isSearchDiscoverable: _currentUser!.isSearchDiscoverable,
+          showBio: _currentUser!.showBio,
+          showFollowersCount: _currentUser!.showFollowersCount,
+          showBadges: _currentUser!.showBadges,
+          showActivityStats: _currentUser!.showActivityStats,
           followersCount: _currentUser!.followersCount,
           followingCount: _currentUser!.followingCount,
           repScore: _currentUser!.repScore,
@@ -126,6 +144,30 @@ class AuthViewModel extends ChangeNotifier {
     try {
       return await _authRepository.resendCode(email);
     } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> updatePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final success = await _authRepository.changePassword(
+        oldPassword: oldPassword,
+        newPassword: newPassword,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return success;
+    } catch (e) {
+      _errorMessage = _extractError(e);
+      _isLoading = false;
+      notifyListeners();
       return false;
     }
   }
@@ -169,7 +211,11 @@ class AuthViewModel extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    final oldUserId = _currentUser?.id;
     await _authRepository.logout();
+    if (oldUserId != null) {
+      _centrifugoService?.unsubscribe('user:$oldUserId');
+    }
     _currentUser = null;
     _currentPersona = Persona.guest;
     notifyListeners();
