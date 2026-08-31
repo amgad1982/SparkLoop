@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { MoodPodDto } from '../../types/api';
 import { MoodPodRoom } from './MoodPodRoom';
 import { CreateMoodPodModal } from './CreateMoodPodModal';
@@ -31,6 +32,7 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
   onSelectPodId: setExternalSelectedPodId,
 }) => {
   const { locale } = useThemeStore();
+  const { currentPersona } = useAuthStore();
   const isArabic = locale === 'ar';
 
   const [internalSelectedPodId, setInternalSelectedPodId] = useState<string | null>(null);
@@ -228,7 +230,14 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
                     </h3>
                     <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 mt-1">
                       <img
-                        src={pod.hostAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${pod.hostUsername}`}
+                        src={
+                          (currentPersona &&
+                            (pod.hostUserId === currentPersona.id ||
+                              pod.hostUsername.toLowerCase() === currentPersona.username.toLowerCase()) &&
+                            currentPersona.avatarUrl) ||
+                          pod.hostAvatarUrl ||
+                          `https://api.dicebear.com/7.x/bottts/svg?seed=${pod.hostUsername}`
+                        }
                         alt={pod.hostUsername}
                         className="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-700 object-cover"
                       />

@@ -495,7 +495,9 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
                         <img
                           src={
                             speaker.avatarUrl ||
-                            `https://api.dicebear.com/7.x/bottts/svg?seed=${speaker.username}`
+                            (speaker.username && speaker.username.toLowerCase() === hostUsername.toLowerCase() && hostAvatarUrl
+                              ? hostAvatarUrl
+                              : `https://api.dicebear.com/7.x/bottts/svg?seed=${speaker.username}`)
                           }
                           alt={speaker.username}
                           className={`w-full h-full ${sizeConfig.innerRadius} object-cover bg-white dark:bg-zinc-950`}

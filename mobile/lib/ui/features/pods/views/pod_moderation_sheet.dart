@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/avatar_badge.dart';
 import '../../../core/widgets/glass_container.dart';
+import '../../auth/view_models/auth_view_model.dart';
 import '../view_models/pod_view_model.dart';
 import 'create_pod_dialog.dart';
 
@@ -466,7 +467,6 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
       ],
     );
   }
-
   Widget _buildParticipantsTab(BuildContext context, PodViewModel podVm, bool isArabic, bool isDark) {
     final pod = podVm.activePod!;
 
@@ -480,42 +480,63 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
         const SizedBox(height: 12),
 
         // Host Card
-        GlassContainer(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          borderRadius: 16,
-          child: Row(
-            children: [
-              AvatarBadge(avatarUrl: pod.hostAvatarUrl, username: pod.hostUsername, size: 36),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+        Builder(
+          builder: (context) {
+            final authVm = context.watch<AuthViewModel>();
+            final isSelfHost = (authVm.currentUser != null &&
+                    (pod.hostUserId == authVm.currentUser!.id ||
+                        pod.hostUsername.toLowerCase() == authVm.currentUser!.username.toLowerCase())) ||
+                (pod.hostUsername.toLowerCase() == authVm.currentPersona.username.toLowerCase() ||
+                    pod.hostUserId == authVm.currentPersona.id);
+
+            final resolvedHostAvatar = (isSelfHost && (authVm.currentUser?.avatarUrl?.isNotEmpty == true || authVm.currentPersona.avatarUrl.isNotEmpty))
+                ? (authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl)
+                : pod.hostAvatarUrl;
+
+            final resolvedHostName = isSelfHost
+                ? (authVm.currentUser?.displayName.isNotEmpty == true
+                    ? authVm.currentUser!.displayName
+                    : authVm.currentPersona.displayName)
+                : pod.hostDisplayName;
+
+            return GlassContainer(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              borderRadius: 16,
+              child: Row(
+                children: [
+                  AvatarBadge(avatarUrl: resolvedHostAvatar, username: pod.hostUsername, size: 36),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(pod.hostDisplayName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.star, color: AppColors.accentAmber, size: 14),
+                        Row(
+                          children: [
+                            Text(resolvedHostName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.star, color: AppColors.accentAmber, size: 14),
+                          ],
+                        ),
+                        Text('@${pod.hostUsername}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
                       ],
                     ),
-                    Text('@${pod.hostUsername}', style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-                  ],
-                ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentAmber.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isArabic ? 'المضيف' : 'Host',
+                      style: const TextStyle(color: AppColors.accentAmber, fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ),
+                ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.accentAmber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  isArabic ? 'المضيف' : 'Host',
-                  style: const TextStyle(color: AppColors.accentAmber, fontWeight: FontWeight.bold, fontSize: 11),
-                ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
 
         // Info Note

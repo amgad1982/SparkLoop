@@ -48,6 +48,14 @@ public class CreateMoodPodCommandHandler : IRequestHandler<CreateMoodPodCommand,
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is not null)
+        {
+            username = user.Username.Value;
+            displayName = user.DisplayName ?? username;
+            avatarUrl = user.AvatarUrl ?? avatarUrl;
+        }
+
         TimeSpan? customTtl = request.DurationHours switch
         {
             -1 or 0 => TimeSpan.FromDays(36500), // Permanent / Never closes
@@ -110,6 +118,14 @@ public class SendPodMessageCommandHandler : IRequestHandler<SendPodMessageComman
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is not null)
+        {
+            username = user.Username.Value;
+            displayName = user.DisplayName ?? username;
+            avatarUrl = user.AvatarUrl ?? avatarUrl;
+        }
+
         var msg = pod.AddMessage(
             Guid.NewGuid(),
             userId,
@@ -168,6 +184,14 @@ public class SendPodSpeakingStatusCommandHandler : IRequestHandler<SendPodSpeaki
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
+        if (user is not null)
+        {
+            username = user.Username.Value;
+            displayName = user.DisplayName ?? username;
+            avatarUrl = user.AvatarUrl ?? avatarUrl;
+        }
+
         pod.BroadcastSpeakingStatus(userId, username, displayName, avatarUrl, request.IsSpeaking, request.IsMuted);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -219,11 +243,13 @@ public class SendPodSignalCommandHandler : IRequestHandler<SendPodSignalCommand,
 {
     private readonly ICentrifugoService _centrifugoService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IAppDbContext _dbContext;
 
-    public SendPodSignalCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService)
+    public SendPodSignalCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService, IAppDbContext dbContext)
     {
         _centrifugoService = centrifugoService;
         _currentUserService = currentUserService;
+        _dbContext = dbContext;
     }
 
     public async Task<bool> Handle(SendPodSignalCommand request, CancellationToken cancellationToken)
@@ -232,6 +258,17 @@ public class SendPodSignalCommandHandler : IRequestHandler<SendPodSignalCommand,
         var username = _currentUserService.Username ?? "sparkguest";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
+
+        if (_currentUserService.UserId.HasValue)
+        {
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == _currentUserService.UserId.Value, cancellationToken);
+            if (user is not null)
+            {
+                username = user.Username.Value;
+                displayName = user.DisplayName ?? username;
+                avatarUrl = user.AvatarUrl ?? avatarUrl;
+            }
+        }
 
         var channel = $"pod:{request.PodId}";
         var signalEvent = new
@@ -351,11 +388,13 @@ public class SendPodBgMusicCommandHandler : IRequestHandler<SendPodBgMusicComman
 {
     private readonly ICentrifugoService _centrifugoService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IAppDbContext _dbContext;
 
-    public SendPodBgMusicCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService)
+    public SendPodBgMusicCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService, IAppDbContext dbContext)
     {
         _centrifugoService = centrifugoService;
         _currentUserService = currentUserService;
+        _dbContext = dbContext;
     }
 
     public async Task<bool> Handle(SendPodBgMusicCommand request, CancellationToken cancellationToken)
@@ -364,6 +403,17 @@ public class SendPodBgMusicCommandHandler : IRequestHandler<SendPodBgMusicComman
         var username = _currentUserService.Username ?? "sparkguest";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
+
+        if (_currentUserService.UserId.HasValue)
+        {
+            var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == _currentUserService.UserId.Value, cancellationToken);
+            if (user is not null)
+            {
+                username = user.Username.Value;
+                displayName = user.DisplayName ?? username;
+                avatarUrl = user.AvatarUrl ?? avatarUrl;
+            }
+        }
 
         var channel = $"pod:{request.PodId}";
         var bgMusicEvent = new

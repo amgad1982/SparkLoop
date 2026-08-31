@@ -254,6 +254,24 @@ class PodsScreen extends StatelessWidget {
   }
 
   Widget _buildPodCard(BuildContext context, MoodPodDto pod, bool isArabic) {
+    final authVm = context.watch<AuthViewModel>();
+
+    final isSelf = (authVm.currentUser != null &&
+            (pod.hostUserId == authVm.currentUser!.id ||
+                pod.hostUsername.toLowerCase() == authVm.currentUser!.username.toLowerCase())) ||
+        (pod.hostUsername.toLowerCase() == authVm.currentPersona.username.toLowerCase() ||
+            pod.hostUserId == authVm.currentPersona.id);
+
+    final resolvedAvatarUrl = (isSelf && (authVm.currentUser?.avatarUrl?.isNotEmpty == true || authVm.currentPersona.avatarUrl.isNotEmpty))
+        ? (authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl)
+        : pod.hostAvatarUrl;
+
+    final resolvedDisplayName = isSelf
+        ? (authVm.currentUser?.displayName.isNotEmpty == true
+            ? authVm.currentUser!.displayName
+            : authVm.currentPersona.displayName)
+        : pod.hostDisplayName;
+
     return GestureDetector(
       onTap: () => context.push('/pods/${pod.id}'),
       child: GlassContainer(
@@ -318,7 +336,7 @@ class PodsScreen extends StatelessWidget {
             Row(
               children: [
                 AvatarBadge(
-                  avatarUrl: pod.hostAvatarUrl,
+                  avatarUrl: resolvedAvatarUrl,
                   username: pod.hostUsername,
                   size: 26,
                   showBorder: false,
@@ -326,7 +344,7 @@ class PodsScreen extends StatelessWidget {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    pod.hostDisplayName,
+                    resolvedDisplayName,
                     style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
                     overflow: TextOverflow.ellipsis,
                   ),

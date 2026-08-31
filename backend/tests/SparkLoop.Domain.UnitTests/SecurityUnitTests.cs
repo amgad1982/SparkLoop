@@ -55,6 +55,26 @@ public class SecurityUnitTests
     }
 
     [Fact]
+    public void JwtTokenService_GeneratesToken_WithAvatarUrlClaim_WhenUserHasAvatar()
+    {
+        // Arrange
+        var service = new JwtTokenService(Options.Create(_jwtSettings));
+        var userId = Guid.NewGuid();
+        var user = User.Create(userId, "sarah", "sarah@sparkloop.app", "Sarah Designer", "https://cdn.sparkloop.app/avatars/sarah.jpg", "Bio");
+
+        // Act
+        var tokenString = service.GenerateToken(user);
+
+        // Assert
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var token = tokenHandler.ReadJwtToken(tokenString);
+
+        var avatarClaim = token.Claims.FirstOrDefault(c => c.Type == "avatar_url");
+        avatarClaim.Should().NotBeNull();
+        avatarClaim!.Value.Should().Be("https://cdn.sparkloop.app/avatars/sarah.jpg");
+    }
+
+    [Fact]
     public void PasswordHasherService_HashesAndVerifiesPasswordCorrectly()
     {
         // Arrange

@@ -47,24 +47,14 @@ public class CreateChainCommandHandler : IRequestHandler<CreateChainCommand, Cha
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
-        var chain = Chain.Create(
-            Guid.NewGuid(),
-            request.Title,
-            request.Theme,
-            request.MaxSteps,
-            userId,
-            username,
-            displayName,
-            avatarUrl,
-            request.InitialContent,
-            request.InitialAudioUrl,
-            request.InitialDurationSeconds);
-
-        _dbContext.Chains.Add(chain);
-
-        // Auto-provision user if not exists
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        if (user is null)
+        if (user is not null)
+        {
+            username = user.Username.Value;
+            displayName = user.DisplayName ?? username;
+            avatarUrl = user.AvatarUrl ?? avatarUrl;
+        }
+        else
         {
             var norm = System.Text.RegularExpressions.Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
             if (norm.Length < 3) norm = norm.PadRight(3, '0');
@@ -83,6 +73,20 @@ public class CreateChainCommandHandler : IRequestHandler<CreateChainCommand, Cha
         }
         user.AddReputation(20);
 
+        var chain = Chain.Create(
+            Guid.NewGuid(),
+            request.Title,
+            request.Theme,
+            request.MaxSteps,
+            userId,
+            username,
+            displayName,
+            avatarUrl,
+            request.InitialContent,
+            request.InitialAudioUrl,
+            request.InitialDurationSeconds);
+
+        _dbContext.Chains.Add(chain);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return MapToDto(chain, userId);
@@ -176,23 +180,14 @@ public class SubmitChainStepCommandHandler : IRequestHandler<SubmitChainStepComm
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
-        // Domain method adds step, checks invariants (consecutive user, step limits, length), increments version
-        var step = chain.AddStep(
-            Guid.NewGuid(),
-            userId,
-            username,
-            displayName,
-            avatarUrl,
-            request.Content,
-            request.AudioUrl,
-            request.DurationSeconds,
-            request.ExpectedVersion);
-
-        _dbContext.ChainSteps.Add(step);
-
-        // Award reputation to author / auto-provision
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        if (user is null)
+        if (user is not null)
+        {
+            username = user.Username.Value;
+            displayName = user.DisplayName ?? username;
+            avatarUrl = user.AvatarUrl ?? avatarUrl;
+        }
+        else
         {
             var norm = System.Text.RegularExpressions.Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
             if (norm.Length < 3) norm = norm.PadRight(3, '0');
@@ -209,8 +204,22 @@ public class SubmitChainStepCommandHandler : IRequestHandler<SubmitChainStepComm
             user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
             _dbContext.Users.Add(user);
         }
+
         user.AddReputation(10);
 
+        // Domain method adds step, checks invariants (consecutive user, step limits, length), increments version
+        var step = chain.AddStep(
+            Guid.NewGuid(),
+            userId,
+            username,
+            displayName,
+            avatarUrl,
+            request.Content,
+            request.AudioUrl,
+            request.DurationSeconds,
+            request.ExpectedVersion);
+
+        _dbContext.ChainSteps.Add(step);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return CreateChainCommandHandler.MapToDto(chain, userId);

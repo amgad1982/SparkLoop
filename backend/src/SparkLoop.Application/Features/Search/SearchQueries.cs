@@ -163,7 +163,18 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
                 .Take(limit)
                 .ToListAsync(cancellationToken);
 
-            pods = podEntities.Select(MoodPodQueries.MapToDto).ToList();
+            var hostIds = podEntities.Select(p => p.HostUserId).Distinct().ToList();
+            var hostUsers = await _dbContext.Users
+                .Where(u => hostIds.Contains(u.Id))
+                .ToDictionaryAsync(u => u.Id, u => u.AvatarUrl, cancellationToken);
+
+            pods = podEntities.Select(p =>
+            {
+                var hostAvatar = hostUsers.TryGetValue(p.HostUserId, out var av) && !string.IsNullOrWhiteSpace(av)
+                    ? av
+                    : p.HostAvatarUrl;
+                return MoodPodQueries.MapToDto(p, hostAvatar);
+            }).ToList();
         }
 
         // 4. Search Chains

@@ -63,11 +63,11 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   }
 
   String _getFormattedTimeLeft(MoodPodDto? pod, bool isArabic) {
-    if (pod == null || pod.expiresAtUtc == null) {
+    if (pod == null) {
       return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
     }
 
-    final diff = pod.expiresAtUtc!.difference(DateTime.now().toUtc());
+    final diff = pod.expiresAtUtc.difference(DateTime.now().toUtc());
     if (diff.inDays > 365) {
       return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
     }
@@ -100,7 +100,9 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
 
   void _leave() {
     context.read<PodViewModel>().leaveActivePod();
-    context.pop();
+    if (mounted && Navigator.canPop(context)) {
+      context.pop();
+    }
   }
 
   void _showAllSoundEffects(BuildContext context) {
@@ -227,7 +229,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                   final user = podVm.handRaisedUsers[i];
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    leading: AvatarBadge(username: user['username'] ?? '', size: 36),
+                    leading: AvatarBadge(avatarUrl: user['avatarUrl'], username: user['username'] ?? '', size: 36),
                     title: Text(user['displayName'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                     subtitle: Text('@${user['username']}', style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8))),
                     trailing: podVm.isHost || podVm.isModerator
@@ -302,8 +304,10 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          titleSpacing: 4,
           title: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Row(
                 children: [
@@ -314,6 +318,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                       pod.title,
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5),
                       overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   ),
                 ],
@@ -329,9 +334,13 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  Text(
-                    '${pod.vibe} • ${_getFormattedTimeLeft(pod, isArabic)}',
-                    style: const TextStyle(fontSize: 10.5, color: AppColors.accentEmerald, fontWeight: FontWeight.bold),
+                  Expanded(
+                    child: Text(
+                      '${pod.vibe} • ${_getFormattedTimeLeft(pod, isArabic)}',
+                      style: const TextStyle(fontSize: 10.5, color: AppColors.accentEmerald, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    ),
                   ),
                 ],
               ),
@@ -340,6 +349,9 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
           actions: [
             // DJ Background Music Booth Trigger
             IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(),
               icon: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
@@ -362,6 +374,9 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             ),
             if (podVm.handRaisedUsers.isNotEmpty)
               IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
                 icon: Badge(
                   label: Text('${podVm.handRaisedUsers.length}'),
                   child: const Icon(Icons.pan_tool, color: AppColors.accentAmber, size: 20),
@@ -369,13 +384,20 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                 onPressed: () => _showHandRaiseQueue(context),
               ),
             IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(),
               icon: const Icon(Icons.tune, color: AppColors.accentEmerald),
               onPressed: () => PodModerationSheet.show(context),
             ),
             IconButton(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.all(6),
+              constraints: const BoxConstraints(),
               icon: const Icon(Icons.exit_to_app, color: AppColors.error),
               onPressed: _leave,
             ),
+            const SizedBox(width: 6),
           ],
         ),
         body: Stack(
@@ -564,10 +586,23 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                       final isHostUser = (speaker.userId.isNotEmpty && speaker.userId == pod.hostUserId) ||
                           (speaker.username.isNotEmpty && speaker.username.toLowerCase() == pod.hostUsername.toLowerCase());
 
+                      final authVm = context.read<AuthViewModel>();
+                      final isSelf = (speaker.userId.isNotEmpty &&
+                              (speaker.userId == authVm.currentUser?.id || speaker.userId == authVm.currentPersona.id)) ||
+                          (speaker.username.isNotEmpty &&
+                              (speaker.username.toLowerCase() == authVm.currentUser?.username.toLowerCase() ||
+                               speaker.username.toLowerCase() == authVm.currentPersona.username.toLowerCase()));
+
+                      final resolvedAvatar = isSelf
+                          ? (authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl)
+                          : (speaker.avatarUrl?.isNotEmpty == true
+                              ? speaker.avatarUrl
+                              : (isHostUser ? pod.hostAvatarUrl : null));
+
                       return _buildSpeakerAvatar(
                         username: speaker.username,
                         displayName: speaker.displayName,
-                        avatarUrl: speaker.avatarUrl,
+                        avatarUrl: resolvedAvatar,
                         isHost: isHostUser,
                         isMuted: speaker.isMuted,
                         isSpeaking: speaker.isSpeaking,

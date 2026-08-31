@@ -9,7 +9,7 @@ namespace SparkLoop.Application.Features.MoodPods;
 
 public static class MoodPodQueries
 {
-    public static MoodPodDto MapToDto(MoodPod pod)
+    public static MoodPodDto MapToDto(MoodPod pod, string? hostAvatarOverride = null)
     {
         var messages = pod.Messages
             .OrderByDescending(m => m.CreatedAtUtc)
@@ -42,7 +42,7 @@ public static class MoodPodQueries
             pod.HostUserId,
             pod.HostUsername,
             pod.HostDisplayName ?? pod.HostUsername,
-            pod.HostAvatarUrl,
+            hostAvatarOverride ?? pod.HostAvatarUrl,
             pod.CreatedAtUtc,
             pod.ExpiresAtUtc,
             timeRemaining,
@@ -88,7 +88,18 @@ public class GetActivePodsQueryHandler : IRequestHandler<GetActivePodsQuery, IRe
                     .OrderByDescending(p => p.CreatedAtUtc)
                     .ToListAsync(ct);
 
-                return pods.Select(MoodPodQueries.MapToDto).ToList();
+                var hostIds = pods.Select(p => p.HostUserId).Distinct().ToList();
+                var hostUsers = await _dbContext.Users
+                    .Where(u => hostIds.Contains(u.Id))
+                    .ToDictionaryAsync(u => u.Id, u => u.AvatarUrl, ct);
+
+                return pods.Select(pod =>
+                {
+                    var hostAvatar = hostUsers.TryGetValue(pod.HostUserId, out var av) && !string.IsNullOrWhiteSpace(av)
+                        ? av
+                        : pod.HostAvatarUrl;
+                    return MoodPodQueries.MapToDto(pod, hostAvatar);
+                }).ToList();
             },
             duration: TimeSpan.FromSeconds(15),
             failSafeMaxDuration: TimeSpan.FromMinutes(2),
@@ -123,7 +134,12 @@ public class GetPodByIdQueryHandler : IRequestHandler<GetPodByIdQuery, MoodPodDt
             throw new DomainRuleException("This Mood Pod is private and requires a valid invite code or host invitation.", "PRIVATE_POD_ACCESS_DENIED");
         }
 
-        return MoodPodQueries.MapToDto(pod);
+        var hostUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == pod.HostUserId, cancellationToken);
+        var hostAvatar = (hostUser != null && !string.IsNullOrWhiteSpace(hostUser.AvatarUrl))
+            ? hostUser.AvatarUrl
+            : pod.HostAvatarUrl;
+
+        return MoodPodQueries.MapToDto(pod, hostAvatar);
     }
 }
 
@@ -159,7 +175,12 @@ public class JoinPodByCodeCommandHandler : IRequestHandler<JoinPodByCodeCommand,
             throw new DomainRuleException("No active mood pod found with this invite code.", "POD_NOT_FOUND_OR_EXPIRED");
         }
 
-        return MoodPodQueries.MapToDto(pod);
+        var hostUser = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == pod.HostUserId, cancellationToken);
+        var hostAvatar = (hostUser != null && !string.IsNullOrWhiteSpace(hostUser.AvatarUrl))
+            ? hostUser.AvatarUrl
+            : pod.HostAvatarUrl;
+
+        return MoodPodQueries.MapToDto(pod, hostAvatar);
     }
 }
 

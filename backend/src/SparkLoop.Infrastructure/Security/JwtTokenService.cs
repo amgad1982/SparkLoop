@@ -25,11 +25,12 @@ public class JwtTokenService : IJwtTokenGenerator
             user.Username.Value,
             user.DisplayName,
             user.Email,
-            role: "Creator"
+            role: "Creator",
+            avatarUrl: user.AvatarUrl
         );
     }
 
-    public string GenerateToken(Guid userId, string username, string displayName, string email, string? role = null)
+    public string GenerateToken(Guid userId, string username, string displayName, string email, string? role = null, string? avatarUrl = null)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
         var key = Encoding.UTF8.GetBytes(_jwtSettings.SecretKey);
@@ -46,6 +47,11 @@ public class JwtTokenService : IJwtTokenGenerator
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
         };
+
+        if (!string.IsNullOrWhiteSpace(avatarUrl))
+        {
+            claims.Add(new Claim("avatar_url", avatarUrl));
+        }
 
         if (!string.IsNullOrWhiteSpace(role))
         {

@@ -26,12 +26,14 @@ class AppNetworkImage extends StatelessWidget {
   final Widget? errorWidget;
   final Color accentColor;
 
-  static bool isSvgUrl(String url) {
+  static bool isSvgUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return false;
     final lower = url.toLowerCase();
     return lower.contains('.svg') || lower.contains('/svg?') || lower.contains('/svg/');
   }
 
-  static bool isGifUrl(String url) {
+  static bool isGifUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return false;
     final lower = url.toLowerCase();
     return lower.endsWith('.gif') ||
         lower.contains('.gif?') ||

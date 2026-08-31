@@ -95,10 +95,16 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasForeignKey(b => b.UserId)
             .OnDelete(DeleteBehavior.Cascade);
 
+        builder.Navigation(u => u.Badges)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasMany(u => u.SocialAccounts)
             .WithOne()
             .HasForeignKey(s => s.UserId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(u => u.SocialAccounts)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
 

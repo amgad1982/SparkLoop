@@ -220,13 +220,13 @@ class SparksScreen extends StatelessWidget {
           ],
 
           // Media Preview
-          if (sub.mediaUrl.isNotEmpty)
+          if (sub.mediaUrl != null && sub.mediaUrl!.isNotEmpty)
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
               child: Stack(
                 children: [
                   AppNetworkImage(
-                    imageUrl: sub.mediaUrl,
+                    imageUrl: sub.mediaUrl!,
                     height: 240,
                     width: double.infinity,
                     fit: BoxFit.cover,

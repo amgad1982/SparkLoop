@@ -124,22 +124,24 @@ class PodViewModel extends ChangeNotifier {
       }
       // 5. Stage Speaking / Mute Status
       else if (signalType == 'SPEAKING_STATUS' || signalType == 'STAGE_SPEAKING' || signalType == 'STAGE_MUTE_STATUS') {
-        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
-        final isSpk = event.data['isSpeaking'] as bool?;
-        final isMt = event.data['isMuted'] as bool?;
+        final payload = (event.data['payload'] as Map?) ?? event.data;
+        final uId = (payload['userId'] ?? event.data['userId'] ?? event.data['senderId']) as String?;
+        final isSpk = (payload['isSpeaking'] ?? event.data['isSpeaking']) as bool?;
+        final isMt = (payload['isMuted'] ?? event.data['isMuted']) as bool?;
         if (uId != null) {
           _liveKitService.setSpeakerStatus(uId, isSpeaking: isSpk, isMuted: isMt);
         }
       }
       // 6. Stage Participant Join & Presence Handshake
       else if (signalType == 'STAGE_JOIN' || signalType == 'STAGE_PRESENCE') {
-        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
-        final uName = (event.data['username'] ?? event.data['senderUsername']) as String? ?? '';
-        final dName = (event.data['displayName'] ?? event.data['senderDisplayName']) as String? ?? uName;
-        final avUrl = (event.data['avatarUrl'] ?? event.data['senderAvatarUrl']) as String?;
-        final isMt = (event.data['isMuted'] as bool?) ?? false;
-        final isSpk = (event.data['isSpeaking'] as bool?) ?? false;
-        final isOnStage = (event.data['isOnStage'] as bool?) ?? true;
+        final payload = (event.data['payload'] as Map?) ?? event.data;
+        final uId = (payload['userId'] ?? event.data['userId'] ?? event.data['senderId']) as String?;
+        final uName = (payload['username'] ?? event.data['username'] ?? event.data['senderUsername']) as String? ?? '';
+        final dName = (payload['displayName'] ?? event.data['displayName'] ?? event.data['senderDisplayName']) as String? ?? uName;
+        final avUrl = (payload['avatarUrl'] ?? event.data['avatarUrl'] ?? event.data['senderAvatarUrl']) as String?;
+        final isMt = (payload['isMuted'] ?? event.data['isMuted'] as bool?) ?? false;
+        final isSpk = (payload['isSpeaking'] ?? event.data['isSpeaking'] as bool?) ?? false;
+        final isOnStage = (payload['isOnStage'] ?? event.data['isOnStage'] as bool?) ?? true;
 
         if (uId != null && isOnStage) {
           _liveKitService.addOrUpdateSpeaker(LiveKitSpeaker(
@@ -172,28 +174,48 @@ class PodViewModel extends ChangeNotifier {
       }
       // 7. Stage Participant Leave
       else if (signalType == 'STAGE_LEAVE') {
-        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
-        if (uId != null) {
-          _liveKitService.removeSpeaker(uId);
+        final payload = (event.data['payload'] as Map?) ?? event.data;
+        final uId = (payload['userId'] ?? event.data['userId'] ?? event.data['senderId']) as String?;
+        final uName = (payload['username'] ?? event.data['username'] ?? event.data['senderUsername']) as String?;
+        if (uId != null && uId.isNotEmpty) {
+          _liveKitService.removeSpeaker(uId, uName);
+        } else if (uName != null && uName.isNotEmpty) {
+          _liveKitService.removeSpeaker('', uName);
         }
       }
       // 8. Hand Raise Queue
       else if (signalType == 'HAND_RAISE') {
-        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
-        final uName = (event.data['username'] ?? event.data['senderUsername']) as String? ?? '';
-        final dName = (event.data['displayName'] ?? event.data['senderDisplayName']) as String? ?? uName;
+        final payload = (event.data['payload'] as Map?) ?? event.data;
+        final uId = (payload['userId'] ?? event.data['userId'] ?? event.data['senderId']) as String?;
+        final uName = (payload['username'] ?? event.data['username'] ?? event.data['senderUsername']) as String? ?? '';
+        final dName = (payload['displayName'] ?? event.data['displayName'] ?? event.data['senderDisplayName']) as String? ?? uName;
+        final avUrl = (payload['avatarUrl'] ?? event.data['avatarUrl'] ?? event.data['senderAvatarUrl']) as String? ?? '';
         if (uId != null && !_handRaisedUsers.any((u) => u['userId'] == uId)) {
-          _handRaisedUsers.add({'userId': uId, 'username': uName, 'displayName': dName});
+          _handRaisedUsers.add({'userId': uId, 'username': uName, 'displayName': dName, 'avatarUrl': avUrl});
           notifyListeners();
         }
       } else if (signalType == 'HAND_LOWER') {
-        final uId = (event.data['userId'] ?? event.data['senderId']) as String?;
+        final payload = (event.data['payload'] as Map?) ?? event.data;
+        final uId = (payload['userId'] ?? event.data['userId'] ?? event.data['senderId']) as String?;
         if (uId != null) {
           _handRaisedUsers.removeWhere((u) => u['userId'] == uId);
           notifyListeners();
         }
       }
-      // 9. DJ Background Music State Synchronization
+      // 9. Real-time Audio Chunks from Speakers
+      else if (type == 'AUDIO_CHUNK') {
+        final senderId = (event.data['senderId'] ?? event.data['userId']) as String?;
+        final senderUsername = (event.data['senderUsername'] ?? event.data['username']) as String?;
+        final audioBase64 = event.data['audioBase64'] as String?;
+
+        final isFromSelf = (senderId != null && senderId == _localUserId) ||
+            (senderUsername != null && senderUsername.toLowerCase() == _localUsername?.toLowerCase());
+
+        if (!isFromSelf && audioBase64 != null && audioBase64.isNotEmpty && senderId != null) {
+          _liveKitService.playRemoteAudioChunk(senderId, audioBase64);
+        }
+      }
+      // 10. DJ Background Music State Synchronization
       else if (type == 'BG_MUSIC_STATE' || signalType == 'POD_BG_MUSIC' || signalType == 'BG_MUSIC_PLAY') {
         final action = event.data['action'] as String? ?? 'play';
         final title = event.data['trackTitle'] as String? ?? 'Ambient Session';
@@ -310,6 +332,17 @@ class PodViewModel extends ChangeNotifier {
         inviteCode: inviteCode,
       );
 
+      _liveKitService.onAudioChunkReady = (base64, chunkIndex, durationMs) {
+        if (_activePod != null) {
+          _podRepository.sendAudioChunk(
+            _activePod!.id,
+            audioBase64: base64,
+            chunkIndex: chunkIndex,
+            durationMs: durationMs,
+          );
+        }
+      };
+
       await _liveKitService.connectToRoom(
         podId: podId,
         token: token,
@@ -379,6 +412,7 @@ class PodViewModel extends ChangeNotifier {
           'userId': _localUserId,
           'username': _localUsername ?? '',
           'displayName': _localDisplayName ?? '',
+          'avatarUrl': _localAvatarUrl,
         },
       );
     }
@@ -569,7 +603,7 @@ class PodViewModel extends ChangeNotifier {
     if (_activePod == null) return false;
     try {
       await _podRepository.closePod(_activePod!.id);
-      leaveActivePod();
+      await leaveActivePod();
       return true;
     } catch (e) {
       debugPrint('Error closing pod: $e');
@@ -577,16 +611,26 @@ class PodViewModel extends ChangeNotifier {
     }
   }
 
-  void leaveActivePod() {
+  Future<void> leaveActivePod() async {
     if (_activePod != null) {
-      if (_localUserId != null) {
-        _podRepository.sendSignal(
-          _activePod!.id,
-          'STAGE_LEAVE',
-          payload: {'userId': _localUserId},
-        );
+      final podId = _activePod!.id;
+      final userId = _localUserId;
+      final username = _localUsername;
+      if (userId != null) {
+        try {
+          await _podRepository.sendSignal(
+            podId,
+            'STAGE_LEAVE',
+            payload: {
+              'userId': userId,
+              'username': username ?? '',
+            },
+          );
+        } catch (e) {
+          debugPrint('Error sending STAGE_LEAVE signal: $e');
+        }
       }
-      _centrifugoService.unsubscribe('pod:${_activePod!.id}');
+      _centrifugoService.unsubscribe('pod:$podId');
     }
     _liveKitService.leaveRoom();
     _activePod = null;

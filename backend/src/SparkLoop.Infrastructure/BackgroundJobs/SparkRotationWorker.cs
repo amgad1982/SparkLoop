@@ -37,6 +37,10 @@ public class SparkRotationWorker : BackgroundService
             {
                 await CheckAndRotateDailySparkAsync(stoppingToken);
             }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogInformation("SparkRotationWorker: Concurrency conflict detected (already handled by another worker): {Message}", ex.Message);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in SparkRotationWorker execution loop.");
@@ -64,7 +68,7 @@ public class SparkRotationWorker : BackgroundService
         if (activeSpark is null)
         {
             _logger.LogInformation("No active Spark found. Initializing new daily challenge...");
-            await CreateNextSparkAsync(dbContext, 0, cancellationToken);
+            await EnsureNextSparkCreatedAsync(cancellationToken);
             return;
         }
 
@@ -73,38 +77,91 @@ public class SparkRotationWorker : BackgroundService
         {
             _logger.LogInformation("Active Spark {SparkId} has expired. Resolving winner...", activeSpark.Id);
 
-            try
+            var winner = WinnerPolicy.DetermineWinner(activeSpark.Submissions);
+
+            // Atomically update the expired spark status directly in the database
+            var rowsAffected = await dbContext.Sparks
+                .Where(s => s.Id == activeSpark.Id && s.Status == SparkStatus.Active)
+                .ExecuteUpdateAsync(setter => setter
+                    .SetProperty(s => s.Status, SparkStatus.Completed)
+                    .SetProperty(s => s.WinnerSubmissionId, winner != null ? winner.Id : (Guid?)null)
+                    .SetProperty(s => s.WinnerUserId, winner != null ? winner.AuthorId : (Guid?)null)
+                    .SetProperty(s => s.WinnerUsername, winner != null ? winner.AuthorUsername : null),
+                    cancellationToken);
+
+            if (rowsAffected > 0)
             {
-                var winner = activeSpark.SelectWinner();
+                _logger.LogInformation("Spark {SparkId} completed. Winner: {WinnerUsername}", activeSpark.Id, winner?.AuthorUsername ?? "None");
+
                 if (winner is not null)
                 {
-                    var winnerUser = await dbContext.Users
-                        .Include(u => u.Badges)
-                        .FirstOrDefaultAsync(u => u.Id == winner.AuthorId, cancellationToken);
-
-                    if (winnerUser is not null)
+                    try
                     {
-                        winnerUser.AwardBadge("Spark Champion", "Winner of the 24h Synchronized Daily Spark Challenge", "🏆");
-                        winnerUser.AddReputation(100);
+                        var winnerUser = await dbContext.Users
+                            .Include(u => u.Badges)
+                            .FirstOrDefaultAsync(u => u.Id == winner.AuthorId, cancellationToken);
+
+                        if (winnerUser is not null)
+                        {
+                            winnerUser.AwardBadge("Spark Champion", "Winner of the 24h Synchronized Daily Spark Challenge", "🏆");
+                            winnerUser.AddReputation(100);
+                            await dbContext.SaveChangesAsync(cancellationToken);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Could not award badge/rep to winner {WinnerId}: {Message}", winner.AuthorId, ex.Message);
                     }
                 }
 
-                await dbContext.SaveChangesAsync(cancellationToken);
+                // Invalidate cache and broadcast real-time event
+                var cacheService = scope.ServiceProvider.GetService<ICacheService>();
+                if (cacheService != null)
+                {
+                    await cacheService.RemoveAsync("sparks:active:anon", cancellationToken);
+                    await cacheService.RemoveAsync("sparks:history:anon", cancellationToken);
+                    await cacheService.RemoveAsync("users:top-creators:limit:10", cancellationToken);
+                }
+
+                var centrifugoService = scope.ServiceProvider.GetService<ICentrifugoService>();
+                if (centrifugoService != null)
+                {
+                    await centrifugoService.PublishAsync("sparks:daily", new
+                    {
+                        type = "SPARK_WINNER_SELECTED",
+                        sparkId = activeSpark.Id,
+                        winnerSubmissionId = winner?.Id,
+                        winnerUserId = winner?.AuthorId,
+                        winnerUsername = winner?.AuthorUsername,
+                        winningVoteCount = winner?.VoteCount ?? 0,
+                        badgeAwarded = "Spark Champion"
+                    }, cancellationToken);
+                }
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogWarning(ex, "Could not resolve winner for spark {SparkId}: {Message}", activeSpark.Id, ex.Message);
+                _logger.LogInformation("Spark {SparkId} was already resolved concurrently by another instance.", activeSpark.Id);
             }
 
-            // Create next daily spark
-            var sparkCount = await dbContext.Sparks.CountAsync(cancellationToken);
-            await CreateNextSparkAsync(dbContext, sparkCount, cancellationToken);
+            // Create next daily spark using a fresh scope
+            await EnsureNextSparkCreatedAsync(cancellationToken);
         }
     }
 
-    private async Task CreateNextSparkAsync(IAppDbContext dbContext, int index, CancellationToken cancellationToken)
+    private async Task EnsureNextSparkCreatedAsync(CancellationToken cancellationToken)
     {
-        var template = CuratedSparkTemplates[index % CuratedSparkTemplates.Length];
+        using var scope = _serviceProvider.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IAppDbContext>();
+
+        // Ensure no other active spark was created in the interim
+        var hasActive = await dbContext.Sparks.AnyAsync(s => s.Status == SparkStatus.Active, cancellationToken);
+        if (hasActive)
+        {
+            return;
+        }
+
+        var sparkCount = await dbContext.Sparks.CountAsync(cancellationToken);
+        var template = CuratedSparkTemplates[sparkCount % CuratedSparkTemplates.Length];
         var now = DateTime.UtcNow;
 
         var newSpark = Spark.Create(
@@ -116,9 +173,40 @@ public class SparkRotationWorker : BackgroundService
             TimeSpan.FromHours(24)
         );
 
-        dbContext.Sparks.Add(newSpark);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            dbContext.Sparks.Add(newSpark);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            _logger.LogInformation("New Daily Spark created: {Title} (Expires at {ExpiresAtUtc})", newSpark.Title, newSpark.ActiveUntilUtc);
 
-        _logger.LogInformation("New Daily Spark created: {Title} (Expires at {ExpiresAtUtc})", newSpark.Title, newSpark.ActiveUntilUtc);
+            var cacheService = scope.ServiceProvider.GetService<ICacheService>();
+            if (cacheService != null)
+            {
+                await cacheService.RemoveAsync("sparks:active:anon", cancellationToken);
+            }
+
+            var centrifugoService = scope.ServiceProvider.GetService<ICentrifugoService>();
+            if (centrifugoService != null)
+            {
+                await centrifugoService.PublishAsync("sparks:daily", new
+                {
+                    type = "SPARK_CREATED",
+                    sparkId = newSpark.Id,
+                    title = newSpark.Title,
+                    prompt = newSpark.Prompt,
+                    category = newSpark.Category,
+                    activeFromUtc = newSpark.ActiveFromUtc,
+                    activeUntilUtc = newSpark.ActiveUntilUtc
+                }, cancellationToken);
+            }
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _logger.LogInformation("New spark was already created concurrently.");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to create next spark: {Message}", ex.Message);
+        }
     }
 }

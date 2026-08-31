@@ -77,6 +77,8 @@
 	<string>SparkLoop requires microphone access for interactive live audio Mood Pods and voice messaging.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>SparkLoop requires photo library access to upload avatars, banners, and meme images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SparkLoop requires permission to save memes and generated images to your photo library.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>SparkLoop requires camera access to take profile photos and meme content.</string>
 </dict>

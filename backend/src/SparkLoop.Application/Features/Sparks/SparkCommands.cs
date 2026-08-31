@@ -79,19 +79,14 @@ public class SubmitSparkEntryCommandHandler : IRequestHandler<SubmitSparkEntryCo
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
-        var submission = spark.SubmitEntry(
-            Guid.NewGuid(),
-            userId,
-            username,
-            displayName,
-            avatarUrl,
-            request.MediaUrl,
-            request.Caption);
-
-        _dbContext.SparkSubmissions.Add(submission);
-
         var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        if (user is null)
+        if (user is not null)
+        {
+            username = user.Username.Value;
+            displayName = user.DisplayName ?? username;
+            avatarUrl = user.AvatarUrl ?? avatarUrl;
+        }
+        else
         {
             var norm = System.Text.RegularExpressions.Regex.Replace(username.ToLowerInvariant(), @"[^a-z0-9_]", "_");
             if (norm.Length < 3) norm = norm.PadRight(3, '0');
@@ -109,6 +104,17 @@ public class SubmitSparkEntryCommandHandler : IRequestHandler<SubmitSparkEntryCo
             _dbContext.Users.Add(user);
         }
         user.AddReputation(15);
+
+        var submission = spark.SubmitEntry(
+            Guid.NewGuid(),
+            userId,
+            username,
+            displayName,
+            avatarUrl,
+            request.MediaUrl,
+            request.Caption);
+
+        _dbContext.SparkSubmissions.Add(submission);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
