@@ -54,10 +54,17 @@ public record GetFeedPostsQuery(
     int PageNumber = 1,
     int PageSize = 20,
     string? Hashtag = null,
-    string? SearchQuery = null
-) : IRequest<IReadOnlyList<PostDto>>;
+    string? SearchQuery = null,
+    /// <summary>
+    /// Cursor for keyset pagination — pass the <c>CreatedAtUtc</c> of the last
+    /// item from the previous page in UTC. When provided, <see cref="PageNumber"/>
+    /// is ignored and the query uses an indexed range scan instead of OFFSET.
+    /// </summary>
+    DateTime? CursorCreatedAtUtc = null,
+    Guid? CursorId = null
+) : IRequest<FeedPageDto>;
 
-public class GetFeedPostsQueryHandler : IRequestHandler<GetFeedPostsQuery, IReadOnlyList<PostDto>>
+public class GetFeedPostsQueryHandler : IRequestHandler<GetFeedPostsQuery, FeedPageDto>
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
@@ -68,14 +75,17 @@ public class GetFeedPostsQueryHandler : IRequestHandler<GetFeedPostsQuery, IRead
         _currentUserService = currentUserService;
     }
 
-    public async Task<IReadOnlyList<PostDto>> Handle(GetFeedPostsQuery request, CancellationToken cancellationToken)
+    public async Task<FeedPageDto> Handle(GetFeedPostsQuery request, CancellationToken cancellationToken)
     {
+        // Clamp page size so a malicious client cannot ask for an unbounded fetch.
+        var pageSize = Math.Clamp(request.PageSize, 1, 100);
+
         var currentUserId = _currentUserService.UserId;
         var query = _dbContext.Posts
             .Include(p => p.Reactions)
             .AsQueryable();
 
-        // Exclude posts from private users unless the viewer is self or an accepted follower
+        // Exclude posts from private users unless the viewer is self or an accepted follower.
         var allowedAuthorIds = new HashSet<Guid>();
         if (currentUserId.HasValue)
         {
@@ -112,22 +122,61 @@ public class GetFeedPostsQueryHandler : IRequestHandler<GetFeedPostsQuery, IRead
                                      (p.AuthorDisplayName != null && p.AuthorDisplayName.ToLower().Contains(search)));
         }
 
-        var posts = await query
+        // Keyset (cursor) pagination when a cursor is supplied — O(log n) seek
+        // against the (created_at_utc, id) index. Falls back to OFFSET when no
+        // cursor is provided so existing clients keep working.
+        if (request.CursorCreatedAtUtc.HasValue && request.CursorId.HasValue)
+        {
+            var cursorTs = request.CursorCreatedAtUtc.Value;
+            var cursorId = request.CursorId.Value;
+            query = query.Where(p =>
+                p.CreatedAtUtc < cursorTs ||
+                (p.CreatedAtUtc == cursorTs && p.Id.CompareTo(cursorId) < 0));
+        }
+
+        // Fetch pageSize + 1 so we can detect whether more results exist
+        // without a second COUNT(*) round-trip.
+        var fetched = await query
             .OrderByDescending(p => p.CreatedAtUtc)
-            .Skip((request.PageNumber - 1) * request.PageSize)
-            .Take(request.PageSize)
+            .ThenByDescending(p => p.Id)
+            .Take(pageSize + 1)
             .ToListAsync(cancellationToken);
 
-        var authorIds = posts.Select(p => p.AuthorId).Distinct().ToList();
+        // When no cursor was supplied, honour the original OFFSET semantics for
+        // backwards compatibility (older callers that pass page=2 etc.).
+        if (!request.CursorCreatedAtUtc.HasValue && request.PageNumber > 1)
+        {
+            var skip = (request.PageNumber - 1) * pageSize;
+            fetched = fetched.Skip(skip).ToList();
+        }
+
+        var hasMore = fetched.Count > pageSize;
+        if (hasMore)
+        {
+            fetched = fetched.Take(pageSize).ToList();
+        }
+
+        var authorIds = fetched.Select(p => p.AuthorId).Distinct().ToList();
         var authors = await _dbContext.Users
             .Where(u => authorIds.Contains(u.Id))
             .Select(u => new { u.Id, u.AvatarUrl, u.DisplayName })
             .ToDictionaryAsync(u => u.Id, cancellationToken);
 
-        return posts.Select(p =>
+        var items = fetched.Select(p =>
         {
             authors.TryGetValue(p.AuthorId, out var author);
             return PostQueries.MapToDto(p, author?.AvatarUrl, author?.DisplayName);
         }).ToList();
+
+        var nextCursor = hasMore && items.Count > 0
+            ? (items[^1].CreatedAtUtc, items[^1].Id)
+            : ((DateTime?, Guid?)?)null;
+
+        return new FeedPageDto(
+            items,
+            pageSize,
+            nextCursor?.Item1,
+            nextCursor?.Item2,
+            hasMore);
     }
 }

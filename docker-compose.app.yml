@@ -19,7 +19,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - DatabaseProvider=PostgreSQL
-      - ConnectionStrings__DefaultConnection=Host=sparkloop-postgres;Port=5432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!
+      # The API connects to PgBouncer (transaction-pool mode) rather than directly
+      # to Postgres. PgBouncer multiplexes many short-lived client connections
+      # onto a small pool of long-lived server connections, which avoids the
+      # "Postgres rejected the connection" failure mode when the API scales out.
+      - ConnectionStrings__DefaultConnection=Host=sparkloop-pgbouncer;Port=6432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!;Pooling=true;Maximum Pool Size=80;Timeout=15;Command Timeout=30
       - ConnectionStrings__Redis=sparkloop-redis:6379,abortConnect=false
       - Centrifugo__ApiUrl=http://sparkloop-centrifugo:8000/api
       - Centrifugo__WsUrl=wss://sloopws.mydev-lab.com/connection/websocket

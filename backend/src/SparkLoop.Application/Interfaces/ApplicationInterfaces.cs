@@ -95,3 +95,16 @@ public interface ILiveKitService
     string GenerateVoiceToken(string podId, string userId, string username, string displayName, bool isOnStage, TimeSpan? ttl = null);
     string GetServerUrl();
 }
+
+/// <summary>
+/// Exposes the ambient hosting environment (Development / Production / ...) to
+/// application-layer handlers. This indirection exists so the Application project
+/// can stay free of Microsoft.AspNetCore.Hosting references — handlers depend on
+/// this interface, and the Infrastructure layer wires the concrete implementation.
+/// </summary>
+public interface ICurrentEnvironment
+{
+    bool IsDevelopment();
+    bool IsProduction();
+    string EnvironmentName { get; }
+}

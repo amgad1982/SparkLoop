@@ -1,6 +1,8 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using SparkLoop.Api.RateLimiting;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Features.Auth;
 using SparkLoop.Application.Features.Chains;
@@ -27,6 +29,7 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("register")]
+    [EnableRateLimiting(RateLimitingPolicies.Auth)]
     public async Task<ActionResult<AuthResultDto>> Register([FromBody] RegisterUserCommand command)
     {
         var result = await _mediator.Send(command);
@@ -35,6 +38,7 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
+    [EnableRateLimiting(RateLimitingPolicies.Auth)]
     public async Task<ActionResult<AuthResultDto>> Login([FromBody] LoginUserCommand command)
     {
         var result = await _mediator.Send(command);
@@ -43,6 +47,7 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("verify-email")]
+    [EnableRateLimiting(RateLimitingPolicies.Auth)]
     public async Task<ActionResult<EmailVerificationResultDto>> VerifyEmail([FromBody] VerifyEmailCommand command)
     {
         var result = await _mediator.Send(command);
@@ -51,6 +56,7 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("resend-verification-code")]
+    [EnableRateLimiting(RateLimitingPolicies.Auth)]
     public async Task<ActionResult<EmailVerificationResultDto>> ResendVerificationCode([FromBody] ResendVerificationCodeCommand command)
     {
         var result = await _mediator.Send(command);
@@ -59,6 +65,7 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("oauth/{provider}/url")]
+    [EnableRateLimiting(RateLimitingPolicies.Auth)]
     public async Task<ActionResult<OAuthAuthorizationUrlResult>> GetOAuthUrl(
         string provider,
         [FromQuery] string redirectUri,
@@ -70,6 +77,7 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("oauth/{provider}/callback")]
+    [EnableRateLimiting(RateLimitingPolicies.Auth)]
     public async Task<ActionResult<AuthResultDto>> ProcessOAuthCallback(
         string provider,
         [FromBody] OAuthCallbackRequest request)
@@ -396,6 +404,7 @@ public class SparksController : ControllerBase
 
     [Authorize]
     [HttpPost("submit")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<SparkSubmissionDto>> SubmitEntry([FromBody] SubmitSparkEntryCommand command)
     {
         var result = await _mediator.Send(command);
@@ -404,6 +413,7 @@ public class SparksController : ControllerBase
 
     [Authorize]
     [HttpPost("{sparkId:guid}/submissions/{submissionId:guid}/vote")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<SparkSubmissionDto>> Vote(Guid sparkId, Guid submissionId)
     {
         var result = await _mediator.Send(new VoteSparkSubmissionCommand(sparkId, submissionId));
@@ -448,6 +458,7 @@ public class ChainsController : ControllerBase
 
     [Authorize]
     [HttpPost]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<ChainDto>> CreateChain([FromBody] CreateChainCommand command)
     {
         var result = await _mediator.Send(command);
@@ -464,6 +475,7 @@ public class ChainsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/step")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<ChainDto>> SubmitStep(Guid id, [FromBody] SubmitChainStepCommand command)
     {
         if (id != command.ChainId)
@@ -497,18 +509,21 @@ public class PostsController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<PostDto>>> GetFeed(
+    public async Task<ActionResult<FeedPageDto>> GetFeed(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         [FromQuery] string? hashtag = null,
-        [FromQuery] string? search = null)
+        [FromQuery] string? search = null,
+        [FromQuery] DateTime? cursorCreatedAtUtc = null,
+        [FromQuery] Guid? cursorId = null)
     {
-        var result = await _mediator.Send(new GetFeedPostsQuery(page, pageSize, hashtag, search));
+        var result = await _mediator.Send(new GetFeedPostsQuery(page, pageSize, hashtag, search, cursorCreatedAtUtc, cursorId));
         return Ok(result);
     }
 
     [Authorize]
     [HttpPost]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<PostDto>> CreatePost([FromBody] CreatePostCommand command)
     {
         var result = await _mediator.Send(command);
@@ -517,6 +532,7 @@ public class PostsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/react")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<PostDto>> React(Guid id, [FromBody] ReactRequest request)
     {
         var reactionType = !string.IsNullOrWhiteSpace(request.Type)
@@ -599,6 +615,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<MoodPodDto>> CreatePod([FromBody] CreateMoodPodCommand command)
     {
         var result = await _mediator.Send(command);
@@ -615,6 +632,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpGet("{id:guid}/livekit-token")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<LiveKitTokenDto>> GetLiveKitToken(
         Guid id,
         [FromQuery] bool isOnStage = false,
@@ -626,6 +644,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("join-by-code")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<MoodPodDto>> JoinByCode([FromBody] JoinByCodeRequest request)
     {
         var result = await _mediator.Send(new JoinPodByCodeCommand(request.InviteCode));
@@ -634,6 +653,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPut("{id:guid}/settings")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<MoodPodDto>> UpdateSettings(Guid id, [FromBody] UpdatePodSettingsCommand command)
     {
         if (id != command.PodId)
@@ -648,6 +668,7 @@ public class MoodPodsController : ControllerBase
     [Authorize]
     [HttpPost("{id:guid}/close")]
     [HttpDelete("{id:guid}")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<bool>> ClosePod(Guid id)
     {
         var result = await _mediator.Send(new CloseMoodPodCommand(id));
@@ -656,6 +677,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/moderate")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<bool>> Moderate(Guid id, [FromBody] ModerateRequest request)
     {
         var result = await _mediator.Send(new ModerateParticipantCommand(
@@ -670,6 +692,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/invite")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<bool>> Invite(Guid id, [FromBody] InviteRequest request)
     {
         var result = await _mediator.Send(new InviteUserToPodCommand(id, request.TargetUserId));
@@ -678,6 +701,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/message")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<PodMessageDto>> SendMessage(Guid id, [FromBody] SendPodMessageCommand command)
     {
         if (id != command.PodId)
@@ -691,6 +715,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/react")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<bool>> React(Guid id, [FromBody] PodReactRequest request)
     {
         var result = await _mediator.Send(new SendPodReactionCommand(id, request.Emoji, request.Intensity));
@@ -699,6 +724,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/speaking")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<bool>> SetSpeakingStatus(Guid id, [FromBody] PodSpeakingRequest request)
     {
         var result = await _mediator.Send(new SendPodSpeakingStatusCommand(id, request.IsSpeaking, request.IsMuted));
@@ -707,6 +733,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/signal")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<bool>> SendSignal(Guid id, [FromBody] PodSignalRequest request)
     {
         var result = await _mediator.Send(new SendPodSignalCommand(id, request.SignalType, request.Payload, request.TargetUserId));
@@ -715,6 +742,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/sound-effect")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<bool>> SendSoundEffect(Guid id, [FromBody] PodSoundEffectRequest request)
     {
         var result = await _mediator.Send(new SendPodSoundEffectCommand(id, request.EffectName));
@@ -723,6 +751,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/audio-chunk")]
+    [EnableRateLimiting(RateLimitingPolicies.PodAudio)]
     public async Task<ActionResult<bool>> SendAudioChunk(Guid id, [FromBody] PodAudioChunkRequest request)
     {
         var result = await _mediator.Send(new SendPodAudioChunkCommand(id, request.AudioBase64, request.ChunkIndex, request.DurationMs));
@@ -731,6 +760,7 @@ public class MoodPodsController : ControllerBase
 
     [Authorize]
     [HttpPost("{id:guid}/bg-music")]
+    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
     public async Task<ActionResult<bool>> SendBgMusic(Guid id, [FromBody] PodBgMusicRequest request)
     {
         var result = await _mediator.Send(new SendPodBgMusicCommand(
@@ -792,6 +822,7 @@ public class MediaController : ControllerBase
     [Authorize]
     [HttpPost("upload")]
     [RequestSizeLimit(15 * 1024 * 1024)] // 15 MB Max
+    [EnableRateLimiting(RateLimitingPolicies.Uploads)]
     public async Task<ActionResult<UploadResponse>> UploadFile(IFormFile file)
     {
         if (file == null || file.Length == 0)

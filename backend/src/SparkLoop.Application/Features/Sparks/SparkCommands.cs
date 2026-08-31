@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using SparkLoop.Application.Common;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.SparkAggregate;
@@ -60,11 +61,13 @@ public class SubmitSparkEntryCommandHandler : IRequestHandler<SubmitSparkEntryCo
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
 
-    public SubmitSparkEntryCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public SubmitSparkEntryCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService, ICurrentEnvironment environment)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _environment = environment;
     }
 
     public async Task<SparkSubmissionDto> Handle(SubmitSparkEntryCommand request, CancellationToken cancellationToken)
@@ -74,7 +77,7 @@ public class SubmitSparkEntryCommandHandler : IRequestHandler<SubmitSparkEntryCo
             .FirstOrDefaultAsync(s => s.Id == request.SparkId, cancellationToken)
             ?? throw new NotFoundException("Spark", request.SparkId);
 
-        var userId = _currentUserService.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.AliceId, "submit a Spark entry");
         var username = _currentUserService.Username ?? "sparkcreator";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
@@ -143,11 +146,13 @@ public class VoteSparkSubmissionCommandHandler : IRequestHandler<VoteSparkSubmis
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
 
-    public VoteSparkSubmissionCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public VoteSparkSubmissionCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService, ICurrentEnvironment environment)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _environment = environment;
     }
 
     public async Task<SparkSubmissionDto> Handle(VoteSparkSubmissionCommand request, CancellationToken cancellationToken)
@@ -158,7 +163,7 @@ public class VoteSparkSubmissionCommandHandler : IRequestHandler<VoteSparkSubmis
             .FirstOrDefaultAsync(s => s.Id == request.SparkId, cancellationToken)
             ?? throw new NotFoundException("Spark", request.SparkId);
 
-        var userId = _currentUserService.UserId ?? Guid.Parse("33333333-3333-3333-3333-333333333333");
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.NoorId, "vote on a Spark submission");
 
         var submission = spark.Submissions.FirstOrDefault(s => s.Id == request.SubmissionId)
             ?? throw new NotFoundException("SparkSubmission", request.SubmissionId);

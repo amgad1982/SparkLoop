@@ -22,6 +22,42 @@ services:
       retries: 5
       start_period: 10s
 
+  # PgBouncer connection pooler sits between the API and Postgres. The API
+  # opens many short-lived connections; PgBouncer multiplexes them onto a
+  # much smaller pool of long-lived Postgres connections. This avoids the
+  # "MaxClients / connection refused" failure mode when the API scales out.
+  pgbouncer:
+    image: bitnami/pgbouncer:1.23.1
+    container_name: sparkloop-pgbouncer
+    restart: unless-stopped
+    environment:
+      PGBOUNCER_DATABASE: ${POSTGRES_DB:-sparkloop}
+      PGBOUNCER_USER: ${POSTGRES_USER:-sparkuser}
+      PGBOUNCER_PASSWORD: ${POSTGRES_PASSWORD:-sparkpassword123!}
+      PGBOUNCER_AUTH_TYPE: scram-sha-256
+      PGBOUNCER_AUTH_FILE: /etc/pgbouncer/userlist.txt
+      PGBOUNCER_LISTEN_ADDR: 0.0.0.0
+      PGBOUNCER_LISTEN_PORT: "6432"
+      PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_MAX_CLIENT_CONN: "2000"
+      PGBOUNCER_DEFAULT_POOL_SIZE: "40"
+      PGBOUNCER_MIN_POOL_SIZE: "10"
+      PGBOUNCER_RESERVE_POOL_SIZE: "5"
+      PGBOUNCER_SERVER_IDLE_TIMEOUT: "600"
+      PGBOUNCER_QUERY_TIMEOUT: "30"
+      PGBOUNCER_SERVER_TLS_SSLMODE: prefer
+    volumes:
+      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "6432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
   redis:
     image: redis:7-alpine
     container_name: sparkloop-redis

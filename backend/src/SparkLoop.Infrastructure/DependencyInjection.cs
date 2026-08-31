@@ -31,10 +31,20 @@ public static class DependencyInjection
 
             options.UseNpgsql(connectionString, npgsqlOptions =>
             {
-                npgsqlOptions.EnableRetryOnFailure(3);
+                // Keep retries low — 1 attempt avoids double-occupying pool slots during transient blips.
+                // For longer outages the request fails fast and the client retries, which is preferable
+                // to tying up connections while waiting.
+                npgsqlOptions.EnableRetryOnFailure(1);
                 npgsqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName);
                 npgsqlOptions.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery);
+                // Connection pool sizing — sized to match the expected per-replica concurrency.
+                // When PgBouncer is in front of Postgres the pool can be smaller because PgBouncer
+                // multiplexes many client connections onto a small set of server connections.
+                npgsqlOptions.MaxBatchSize(100);
             });
+
+            // Pool size & timeouts.
+            options.EnableSensitiveDataLogging(false);
         });
 
         services.AddScoped<IAppDbContext>(p => p.GetRequiredService<AppDbContext>());
@@ -158,6 +168,7 @@ public static class DependencyInjection
         // 6. Current User Context
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddSingleton<ICurrentEnvironment, CurrentEnvironment>();
 
         // 7. OAuth Provider Services
         services.Configure<OAuthSettings>(configuration.GetSection(OAuthSettings.SectionName));

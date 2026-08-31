@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using SparkLoop.Application.Common;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.MoodPodAggregate;
@@ -128,6 +129,8 @@ public class GetPodByIdQueryHandler : IRequestHandler<GetPodByIdQuery, MoodPodDt
             .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
             ?? throw new NotFoundException("MoodPod", request.PodId);
 
+        // For read access we intentionally treat an anonymous viewer as Guid.Empty —
+        // anyone can fetch a public pod's metadata without authentication.
         var currentUserId = _currentUserService.UserId ?? Guid.Empty;
         if (pod.IsPrivate && !pod.CanUserAccess(currentUserId, request.InviteCode))
         {
@@ -195,15 +198,18 @@ public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuer
     private readonly IAppDbContext _dbContext;
     private readonly ILiveKitService _liveKitService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
 
     public GetPodVoiceTokenQueryHandler(
         IAppDbContext dbContext,
         ILiveKitService liveKitService,
-        ICurrentUserService currentUserService)
+        ICurrentUserService currentUserService,
+        ICurrentEnvironment environment)
     {
         _dbContext = dbContext;
         _liveKitService = liveKitService;
         _currentUserService = currentUserService;
+        _environment = environment;
     }
 
     public async Task<LiveKitTokenDto> Handle(GetPodVoiceTokenQuery request, CancellationToken cancellationToken)
@@ -217,7 +223,7 @@ public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuer
             throw new DomainRuleException("This mood pod has expired or been closed.", "POD_CLOSED");
         }
 
-        var userId = _currentUserService.UserId ?? Guid.NewGuid();
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.AliceId, "join the voice stage");
         var username = _currentUserService.Username ?? "guest";
         var displayName = _currentUserService.DisplayName ?? username;
 

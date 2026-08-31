@@ -1,10 +1,20 @@
 using Microsoft.OpenApi.Models;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using SparkLoop.Api.Middlewares;
 using SparkLoop.Api.Persistence;
+using SparkLoop.Api.RateLimiting;
+using SparkLoop.Api.Security;
 using SparkLoop.Application;
 using SparkLoop.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// =========================================================================
+// 0. Refuse to start in Production when in-repo placeholder secrets are set.
+// =========================================================================
+SecretValidation.EnsureProductionSecretsAreConfigured(builder.Configuration, builder.Environment);
 
 // 1. Add Application & Infrastructure Services
 builder.Services.AddApplicationServices();
@@ -79,9 +89,32 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+// 5. Rate limiting — protects login, posts, reactions, media uploads and pod audio chunks.
+builder.Services.AddSparkLoopRateLimiting();
+
+// 6. OpenTelemetry — traces for every request + outbound HTTP, metrics scraped by Prometheus.
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(r => r
+        .AddService(serviceName: "sparkloop-api", serviceVersion: "1.0.0")
+        .AddAttributes(new KeyValuePair<string, object>[]
+        {
+            new("deployment.environment", builder.Environment.EnvironmentName)
+        }))
+    .WithTracing(t => t
+        .AddAspNetCoreInstrumentation(o =>
+        {
+            // Don't trace the metrics scrape itself, otherwise Prometheus pulls show as spans.
+            o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/metrics");
+        })
+        .AddHttpClientInstrumentation())
+    .WithMetrics(m => m
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddPrometheusExporter());
+
 var app = builder.Build();
 
-// 5. Configure Middleware Pipeline
+// 7. Configure Middleware Pipeline
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
 // Security Response Headers
@@ -91,8 +124,16 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
+    // HSTS in production — strict HTTPS for one year, subdomains included.
+    if (!app.Environment.IsDevelopment())
+    {
+        context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
+    }
     await next();
 });
+
+// Rate limiter must run early — before auth — so anonymous floods are blocked too.
+app.UseRateLimiter();
 
 if (app.Environment.IsDevelopment())
 {
@@ -108,6 +149,9 @@ app.UseMiddleware<RTLContextMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// Prometheus scrape endpoint (no auth — restrict at the network/edge layer).
+app.MapPrometheusScrapingEndpoint("/metrics");
+
 app.MapControllers();
 
 // Health Check Endpoint
@@ -115,6 +159,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "Healthy",
     service = "SparkLoop.Api",
+    environment = app.Environment.EnvironmentName,
     timestamp = DateTime.UtcNow
 }));
 

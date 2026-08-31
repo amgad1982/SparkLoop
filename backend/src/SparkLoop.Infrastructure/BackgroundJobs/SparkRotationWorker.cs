@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -27,12 +28,34 @@ public class SparkRotationWorker : BackgroundService
         _logger = logger;
     }
 
+    private readonly string _connectionString;
+
+    public SparkRotationWorker(IServiceProvider serviceProvider, ILogger<SparkRotationWorker> logger, IConfiguration configuration)
+    {
+        _serviceProvider = serviceProvider;
+        _logger = logger;
+        _connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? "Host=localhost;Port=5432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!";
+    }
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("SparkRotationWorker started.");
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Single-leader per tick: try to grab the Postgres advisory lock.
+            // 74211 = "Spark" hash; the value is arbitrary but stable.
+            await using var leaderLock = await PostgresAdvisoryLock.TryAcquireAsync(
+                _connectionString, key: 74211, stoppingToken);
+
+            if (leaderLock is null)
+            {
+                // Another replica owns this tick — skip silently.
+                await Task.Delay(TimeSpan.FromSeconds(60), stoppingToken);
+                continue;
+            }
+
             try
             {
                 await CheckAndRotateDailySparkAsync(stoppingToken);

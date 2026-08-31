@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../../../../data/models/feed_page.dart';
 import '../../../../data/models/post_models.dart';
 import '../../../../data/repositories/feed_repository.dart';
 import '../../../../data/services/centrifugo_service.dart';
@@ -15,6 +16,15 @@ class FeedViewModel extends ChangeNotifier {
 
   bool _isLoading = false;
   bool get isLoading => _isLoading;
+
+  bool _isLoadingMore = false;
+  bool get isLoadingMore => _isLoadingMore;
+
+  bool _hasMore = true;
+  bool get hasMore => _hasMore;
+
+  String? _nextCursorCreatedAtUtc;
+  String? _nextCursorId;
 
   String? _selectedHashtag;
   String? get selectedHashtag => _selectedHashtag;
@@ -86,14 +96,50 @@ class FeedViewModel extends ChangeNotifier {
 
   Future<void> fetchFeed() async {
     _isLoading = true;
+    _posts = [];
+    _nextCursorCreatedAtUtc = null;
+    _nextCursorId = null;
+    _hasMore = true;
     notifyListeners();
 
     try {
-      _posts = await _feedRepository.fetchFeed();
+      final FeedPageDto page = await _feedRepository.fetchFeed();
+      _posts = page.items;
+      _nextCursorCreatedAtUtc = page.nextCursorCreatedAtUtc?.toUtc().toIso8601String();
+      _nextCursorId = page.nextCursorId;
+      _hasMore = page.hasMore;
     } catch (e) {
       debugPrint('Error fetching feed: $e');
     } finally {
       _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  /// Fetch the next page of results using the cursor returned by the previous
+  /// call. No-op when a load is already in progress or there are no more pages.
+  Future<void> fetchMoreFeed() async {
+    if (_isLoadingMore || !_hasMore) return;
+    if (_nextCursorCreatedAtUtc == null || _nextCursorId == null) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final FeedPageDto page = await _feedRepository.fetchFeedAfter(
+        cursorCreatedAtUtc: DateTime.parse(_nextCursorCreatedAtUtc!).toUtc(),
+        cursorId: _nextCursorId!,
+      );
+      // Append only posts we haven't already seen (defensive dedupe).
+      final existingIds = _posts.map((p) => p.id).toSet();
+      _posts.addAll(page.items.where((p) => !existingIds.contains(p.id)));
+      _nextCursorCreatedAtUtc = page.nextCursorCreatedAtUtc?.toUtc().toIso8601String();
+      _nextCursorId = page.nextCursorId;
+      _hasMore = page.hasMore;
+    } catch (e) {
+      debugPrint('Error fetching more feed: $e');
+    } finally {
+      _isLoadingMore = false;
       notifyListeners();
     }
   }

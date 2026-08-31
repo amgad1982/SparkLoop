@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using SparkLoop.Application.Common;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.PostAggregate;
@@ -31,16 +32,18 @@ public class CreatePostCommandHandler : IRequestHandler<CreatePostCommand, PostD
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
 
-    public CreatePostCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public CreatePostCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService, ICurrentEnvironment environment)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _environment = environment;
     }
 
     public async Task<PostDto> Handle(CreatePostCommand request, CancellationToken cancellationToken)
     {
-        var userId = _currentUserService.UserId ?? Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.AliceId, "create a post");
         var username = _currentUserService.Username ?? "sparkcreator";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
@@ -109,11 +112,13 @@ public class ReactToPostCommandHandler : IRequestHandler<ReactToPostCommand, Pos
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
 
-    public ReactToPostCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public ReactToPostCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService, ICurrentEnvironment environment)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _environment = environment;
     }
 
     public async Task<PostDto> Handle(ReactToPostCommand request, CancellationToken cancellationToken)
@@ -123,7 +128,7 @@ public class ReactToPostCommandHandler : IRequestHandler<ReactToPostCommand, Pos
             .FirstOrDefaultAsync(p => p.Id == request.PostId, cancellationToken)
             ?? throw new NotFoundException("Post", request.PostId);
 
-        var userId = _currentUserService.UserId ?? Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.BobId, "react to a post");
         var username = _currentUserService.Username ?? "sparkguest";
 
         var reaction = post.ToggleOrAddReaction(userId, username, request.ReactionType, out var wasAdded, out var removedReaction);

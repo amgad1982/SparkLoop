@@ -1,6 +1,7 @@
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using SparkLoop.Application.Common;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.ChainAggregate;
@@ -33,16 +34,18 @@ public class CreateChainCommandHandler : IRequestHandler<CreateChainCommand, Cha
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
 
-    public CreateChainCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public CreateChainCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService, ICurrentEnvironment environment)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _environment = environment;
     }
 
     public async Task<ChainDto> Handle(CreateChainCommand request, CancellationToken cancellationToken)
     {
-        var userId = _currentUserService.UserId ?? Guid.NewGuid();
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.AliceId, "create a story chain");
         var username = _currentUserService.Username ?? "sparkcreator";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
@@ -161,11 +164,13 @@ public class SubmitChainStepCommandHandler : IRequestHandler<SubmitChainStepComm
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
 
-    public SubmitChainStepCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public SubmitChainStepCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService, ICurrentEnvironment environment)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _environment = environment;
     }
 
     public async Task<ChainDto> Handle(SubmitChainStepCommand request, CancellationToken cancellationToken)
@@ -175,7 +180,7 @@ public class SubmitChainStepCommandHandler : IRequestHandler<SubmitChainStepComm
             .FirstOrDefaultAsync(c => c.Id == request.ChainId, cancellationToken)
             ?? throw new NotFoundException("Chain", request.ChainId);
 
-        var userId = _currentUserService.UserId ?? Guid.NewGuid();
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.BobId, "submit a chain step");
         var username = _currentUserService.Username ?? "sparkguest";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;

@@ -299,4 +299,18 @@ public record LiveKitTokenDto(
     bool IsOnStage
 );
 
+/// <summary>
+/// Page of posts returned by <see cref="Features.Posts.GetFeedPostsQuery"/>.
+/// <see cref="NextCursorCreatedAtUtc"/> / <see cref="NextCursorId"/> are
+/// non-null when more results exist; clients should pass them back as the
+/// next cursor to perform an O(log n) keyset lookup.
+/// </summary>
+public record FeedPageDto(
+    IReadOnlyList<PostDto> Items,
+    int PageSize,
+    DateTime? NextCursorCreatedAtUtc,
+    Guid? NextCursorId,
+    bool HasMore
+);
+
 

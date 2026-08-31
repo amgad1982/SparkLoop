@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../models/auth_models.dart';
 import '../models/chain_models.dart';
+import '../models/feed_page.dart';
 import '../models/follow_models.dart';
 import '../models/pod_models.dart';
 import '../models/post_models.dart';
@@ -163,11 +164,40 @@ class ApiService {
   }
 
   // ================= Feed & Posts =================
-  Future<List<PostDto>> getFeed({int limit = 50}) async {
-    final res = await _dio.get('/posts', queryParameters: {'limit': limit});
-    return (res.data as List<dynamic>)
+  Future<FeedPageDto> getFeed({
+    int pageSize = 20,
+    int page = 1,
+    String? hashtag,
+    String? search,
+    DateTime? cursorCreatedAtUtc,
+    String? cursorId,
+  }) async {
+    final params = <String, dynamic>{
+      'pageSize': pageSize,
+      if (page > 1) 'page': page,
+      if (hashtag != null && hashtag.isNotEmpty) 'hashtag': hashtag,
+      if (search != null && search.isNotEmpty) 'search': search,
+      if (cursorCreatedAtUtc != null)
+        'cursorCreatedAtUtc': cursorCreatedAtUtc.toUtc().toIso8601String(),
+      if (cursorId != null) 'cursorId': cursorId,
+    };
+
+    final res = await _dio.get('/posts', queryParameters: params);
+    final body = res.data as Map<String, dynamic>;
+    final items = (body['items'] as List<dynamic>? ?? const [])
         .map((e) => PostDto.fromJson(e as Map<String, dynamic>))
         .toList();
+    return FeedPageDto(
+      items: items,
+      pageSize: (body['pageSize'] as num?)?.toInt() ?? pageSize,
+      nextCursorCreatedAtUtc: body['nextCursorCreatedAtUtc'] != null
+          ? DateTime.parse(body['nextCursorCreatedAtUtc'] as String).toUtc()
+          : null,
+      nextCursorId: body['nextCursorId'] != null
+          ? body['nextCursorId'] as String
+          : null,
+      hasMore: body['hasMore'] == true,
+    );
   }
 
   Future<PostDto> createPost({

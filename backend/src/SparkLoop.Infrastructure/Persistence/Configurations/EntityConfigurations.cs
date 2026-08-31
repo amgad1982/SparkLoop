@@ -178,6 +178,10 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
         builder.HasIndex(p => p.CreatedAtUtc);
+        // Composite keyset index: enables the cursor-paginated feed query to do an O(log n) seek
+        // instead of an OFFSET scan. The DESC ordering matches the ORDER BY used by the handler.
+        builder.HasIndex(p => new { p.CreatedAtUtc, p.Id }).IsDescending(false, true);
+        builder.HasIndex(p => new { p.AuthorId, p.CreatedAtUtc });
     }
 }
 

@@ -9,8 +9,39 @@ import '../view_models/feed_view_model.dart';
 import 'create_post_sheet.dart';
 import 'post_card_widget.dart';
 
-class FeedScreen extends StatelessWidget {
+class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
+
+  @override
+  State<FeedScreen> createState() => _FeedScreenState();
+}
+
+class _FeedScreenState extends State<FeedScreen> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    // Trigger the next-page load once the user is within 600px of the bottom.
+    final remaining = _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
+    if (remaining < 600) {
+      final feedVm = context.read<FeedViewModel>();
+      feedVm.fetchMoreFeed();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,9 +53,16 @@ class FeedScreen extends StatelessWidget {
       body: RefreshIndicator(
         onRefresh: () => feedVm.fetchFeed(),
         color: AppColors.primary,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-          slivers: [
+        notificationPredicate: (notification) => notification.depth == 0,
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            _onScroll();
+            return false;
+          },
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+            slivers: [
             // Create Post Trigger Card
             SliverToBoxAdapter(
               child: GlassContainer(
@@ -171,10 +209,26 @@ class FeedScreen extends StatelessWidget {
                 ),
               ),
 
+            // "Loading more" footer — only visible while paginating.
+            if (feedVm.isLoadingMore)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                ),
+              ),
+
             const SliverToBoxAdapter(
               child: SizedBox(height: 80),
             ),
           ],
+          ),
         ),
       ),
     );
