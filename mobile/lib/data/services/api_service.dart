@@ -8,7 +8,7 @@ import '../models/follow_models.dart';
 import '../models/pod_models.dart';
 import '../models/post_models.dart';
 import '../models/search_models.dart';
-import '../models/spark_models.dart';
+
 import 'storage_service.dart';
 
 class ApiService {
@@ -218,37 +218,6 @@ class ApiService {
     return PostDto.fromJson(res.data as Map<String, dynamic>);
   }
 
-  // ================= Daily Sparks =================
-  Future<SparkDto> getActiveSpark() async {
-    final res = await _dio.get('/sparks/active');
-    return SparkDto.fromJson(res.data as Map<String, dynamic>);
-  }
-
-  Future<SparkSubmissionDto> submitSparkEntry({
-    required String sparkId,
-    required String caption,
-    String? mediaUrl,
-  }) async {
-    final res = await _dio.post('/sparks/submit', data: {
-      'sparkId': sparkId,
-      'caption': caption,
-      'mediaUrl': mediaUrl,
-    });
-    return SparkSubmissionDto.fromJson(res.data as Map<String, dynamic>);
-  }
-
-  Future<SparkVoteDto> voteOnSparkSubmission(String submissionId) async {
-    final res = await _dio.post('/sparks/submissions/$submissionId/vote');
-    return SparkVoteDto.fromJson(res.data as Map<String, dynamic>);
-  }
-
-  Future<List<SparkDto>> getSparkHistory() async {
-    final res = await _dio.get('/sparks/history');
-    return (res.data as List<dynamic>)
-        .map((e) => SparkDto.fromJson(e as Map<String, dynamic>))
-        .toList();
-  }
-
   // ================= Story Chains =================
   Future<List<ChainDto>> getChains() async {
     final res = await _dio.get('/chains');
@@ -389,6 +358,27 @@ class ApiService {
       if (inviteCode != null && inviteCode.isNotEmpty) 'inviteCode': inviteCode,
     });
     return (res.data['token'] ?? res.data) as String;
+  }
+
+  /// Fetches the currently-playing background music for a pod. Returns null
+  /// when nothing is playing (HTTP 204 NoContent or a parse failure).
+  /// Used by joiners to hydrate the BG-music state when entering a pod that
+  /// already had DJ music playing before they joined.
+  Future<PodBgMusicStateDto?> getPodBgMusicState(String podId) async {
+    try {
+      final res = await _dio.get(
+        '/moodpods/$podId/bg-music-state',
+        options: Options(
+          // Don't throw on 204 — that's our "nothing playing" signal.
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+      if (res.statusCode == 204 || res.data == null) return null;
+      return PodBgMusicStateDto.fromJson(res.data as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('getPodBgMusicState error: $e');
+      return null;
+    }
   }
 
   Future<PodChatMessageDto> sendPodChatMessage(String podId, String content) async {

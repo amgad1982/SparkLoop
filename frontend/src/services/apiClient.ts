@@ -7,8 +7,6 @@ import {
   MoodPodDto,
   PodMessageDto,
   PostDto,
-  SparkDto,
-  SparkSubmissionDto,
   UserDto,
   UserProfileDto,
   HashtagDto,
@@ -290,31 +288,6 @@ export const api = {
     fetchWithAuth<UserFollowDto[]>(`/users/${encodeURIComponent(username)}/following`),
   getFollowStatus: (username: string) =>
     fetchWithAuth<FollowStatusDto>(`/users/${encodeURIComponent(username)}/follow-status`),
-
-  // Sparks
-  getActiveSpark: () => fetchWithAuth<SparkDto>('/sparks/active'),
-  submitSparkEntry: (
-    sparkIdOrData: string | { sparkId: string; mediaUrl?: string; caption: string },
-    caption?: string,
-    mediaUrl?: string
-  ) => {
-    const payload = typeof sparkIdOrData === 'object'
-      ? sparkIdOrData
-      : { sparkId: sparkIdOrData, caption: caption ?? '', mediaUrl };
-    return fetchWithAuth<SparkSubmissionDto>('/sparks/submit', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  },
-  voteSparkSubmission: (sparkId: string, submissionId: string) =>
-    fetchWithAuth<SparkSubmissionDto>(`/sparks/${sparkId}/submissions/${submissionId}/vote`, {
-      method: 'POST',
-    }),
-  resolveSparkWinner: (sparkId: string) =>
-    fetchWithAuth<SparkDto>(`/sparks/${sparkId}/resolve-winner`, {
-      method: 'POST',
-    }),
-  getSparkHistory: () => fetchWithAuth<SparkDto[]>('/sparks/history'),
 
   // Pass-the-Mic Chains
   getActiveChains: () => fetchWithAuth<ChainDto[]>('/chains'),

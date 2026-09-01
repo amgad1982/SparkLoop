@@ -17,18 +17,14 @@ import {
   Palette,
   Sliders,
   Check,
-  Flame,
   Layers,
   Eraser,
   Hash,
 } from 'lucide-react';
 import { api } from '../../services/apiClient';
-import { SparkDto } from '../../types/api';
 
 interface MemeCanvasEditorProps {
-  activeSpark?: SparkDto;
   onPublishPost?: (mediaUrl: string, caption: string) => void;
-  onPublishSpark?: (mediaUrl: string, caption: string) => void;
 }
 
 export interface TextLayer {
@@ -121,9 +117,7 @@ const ASPECT_RATIOS = [
 type StudioTab = 'text' | 'templates' | 'stickers' | 'draw' | 'filters';
 
 export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
-  activeSpark,
   onPublishPost,
-  onPublishSpark,
 }) => {
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
@@ -916,7 +910,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
     }
   };
 
-  const handlePublish = async (destination: 'feed' | 'spark') => {
+  const handlePublish = async () => {
     setIsUploading(true);
     setStatusMessage(null);
     try {
@@ -934,16 +928,9 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
 
       const finalCaption = caption.trim() || textLayers.map((l) => l.text).join(' - ');
 
-      if (destination === 'feed') {
-        await api.createPost(finalCaption, finalMediaUrl, 'MemeWebP', aspectRatio.width, aspectRatio.height);
-        setStatusMessage({ text: isArabic ? 'تم نشر الميم بنجاح في الموجز! 🎉' : 'Meme posted to feed successfully! 🎉' });
-        if (onPublishPost) onPublishPost(finalMediaUrl, finalCaption);
-      } else {
-        const targetSparkId = activeSpark?.id || (await api.getActiveSpark()).id;
-        await api.submitSparkEntry(targetSparkId, finalCaption, finalMediaUrl);
-        setStatusMessage({ text: isArabic ? 'تم إرسال الميم إلى تحدي اليوم! 🏆' : 'Submitted to Daily Spark challenge! 🏆' });
-        if (onPublishSpark) onPublishSpark(finalMediaUrl, finalCaption);
-      }
+      await api.createPost(finalCaption, finalMediaUrl, 'MemeWebP', aspectRatio.width, aspectRatio.height);
+      setStatusMessage({ text: isArabic ? 'تم نشر الميم بنجاح في الموجز! 🎉' : 'Meme posted to feed successfully! 🎉' });
+      if (onPublishPost) onPublishPost(finalMediaUrl, finalCaption);
     } catch (err: unknown) {
       console.error('Publish failed:', err);
       setStatusMessage({ text: isArabic ? 'فشل النشر. يرجى المحاولة مرة أخرى.' : 'Publish failed. Please try again.', isError: true });
@@ -1021,38 +1008,6 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
           </Tooltip>
         </div>
       </div>
-
-      {/* Active Spark Challenge Context Pill */}
-      {activeSpark && (
-        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <Flame className="w-4 h-4 text-amber-500 shrink-0 animate-pulse" />
-            <div className="truncate">
-              <span className="text-[10px] font-black text-amber-600 dark:text-amber-300 uppercase block">
-                {isArabic ? 'تحدي السبارك الحالي:' : 'Daily Spark Challenge:'}
-              </span>
-              <span className="text-xs font-bold text-slate-900 dark:text-white truncate block">
-                {activeSpark.title}
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setTextLayers((prev) => [
-                {
-                  ...prev[0],
-                  text: activeSpark.prompt,
-                },
-                ...prev.slice(1),
-              ]);
-            }}
-            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] rounded-xl shrink-0 transition-colors shadow-sm"
-          >
-            {isArabic ? 'استخدم نص التحدي' : 'Use Challenge Prompt'}
-          </button>
-        </div>
-      )}
 
       {/* 2. Interactive Canvas Stage */}
       <div className="glass-card p-5 sm:p-6 rounded-3xl border border-slate-200 dark:border-slate-800/80 space-y-5 shadow-sm">
@@ -1565,7 +1520,7 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
           <Tooltip content={isArabic ? 'نشر هذا الميم كمنشور جديد في الموجز العام' : 'Publish this meme artwork to global feed'} position="top">
             <button
               type="button"
-              onClick={() => handlePublish('feed')}
+              onClick={() => handlePublish()}
               disabled={isUploading}
               className="w-full py-3 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-700 disabled:opacity-50 text-slate-800 dark:text-slate-200 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
             >
@@ -1574,17 +1529,6 @@ export const MemeCanvasEditor: React.FC<MemeCanvasEditorProps> = ({
             </button>
           </Tooltip>
 
-          <Tooltip content={isArabic ? 'تقديم هذا الميم كمشاركة في تحدي السبارك اليومي' : 'Submit meme entry to active Daily Spark challenge'} position="top">
-            <button
-              type="button"
-              onClick={() => handlePublish('spark')}
-              disabled={isUploading}
-              className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 disabled:opacity-50 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
-            >
-              {isUploading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Flame className="w-4 h-4 text-amber-300 fill-amber-300" />}
-              <span>{isArabic ? 'مشاركة في تحدي اليوم 🏆' : 'Submit to Daily Spark 🏆'}</span>
-            </button>
-          </Tooltip>
         </div>
       </div>
     </div>

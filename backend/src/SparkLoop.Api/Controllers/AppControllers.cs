@@ -10,7 +10,6 @@ using SparkLoop.Application.Features.Hashtags;
 using SparkLoop.Application.Features.MoodPods;
 using SparkLoop.Application.Features.Posts;
 using SparkLoop.Application.Features.Search;
-using SparkLoop.Application.Features.Sparks;
 using SparkLoop.Application.Features.Users;
 using SparkLoop.Application.Interfaces;
 
@@ -385,60 +384,6 @@ public class UsersController : ControllerBase
 
 [ApiController]
 [Route("api/[controller]")]
-public class SparksController : ControllerBase
-{
-    private readonly IMediator _mediator;
-
-    public SparksController(IMediator mediator)
-    {
-        _mediator = mediator;
-    }
-
-    [AllowAnonymous]
-    [HttpGet("active")]
-    public async Task<ActionResult<SparkDto>> GetActiveSpark()
-    {
-        var result = await _mediator.Send(new GetActiveSparkQuery());
-        return Ok(result);
-    }
-
-    [Authorize]
-    [HttpPost("submit")]
-    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
-    public async Task<ActionResult<SparkSubmissionDto>> SubmitEntry([FromBody] SubmitSparkEntryCommand command)
-    {
-        var result = await _mediator.Send(command);
-        return Ok(result);
-    }
-
-    [Authorize]
-    [HttpPost("{sparkId:guid}/submissions/{submissionId:guid}/vote")]
-    [EnableRateLimiting(RateLimitingPolicies.Reactions)]
-    public async Task<ActionResult<SparkSubmissionDto>> Vote(Guid sparkId, Guid submissionId)
-    {
-        var result = await _mediator.Send(new VoteSparkSubmissionCommand(sparkId, submissionId));
-        return Ok(result);
-    }
-
-    [Authorize]
-    [HttpPost("{sparkId:guid}/resolve-winner")]
-    public async Task<ActionResult<SparkDto>> ResolveWinner(Guid sparkId)
-    {
-        var result = await _mediator.Send(new ResolveDailySparkWinnerCommand(sparkId));
-        return Ok(result);
-    }
-
-    [AllowAnonymous]
-    [HttpGet("history")]
-    public async Task<ActionResult<IReadOnlyList<SparkDto>>> GetHistory()
-    {
-        var result = await _mediator.Send(new GetSparkHistoryQuery());
-        return Ok(result);
-    }
-}
-
-[ApiController]
-[Route("api/[controller]")]
 public class ChainsController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -773,6 +718,21 @@ public class MoodPodsController : ControllerBase
             request.Duration,
             request.AudioBase64,
             request.ChunkIndex));
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Returns the currently-playing background music for a pod, if any.
+    /// Late joiners call this on entry to start the same ambient track the
+    /// host or DJ started before they joined. Returns 204 NoContent when
+    /// nothing is currently playing.
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("{id:guid}/bg-music-state")]
+    public async Task<ActionResult<PodBgMusicStateDto>> GetBgMusicState(Guid id)
+    {
+        var result = await _mediator.Send(new GetPodBgMusicStateQuery(id));
+        if (result == null) return NoContent();
         return Ok(result);
     }
 

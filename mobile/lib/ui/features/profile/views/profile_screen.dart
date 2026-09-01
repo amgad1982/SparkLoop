@@ -797,19 +797,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   ),
                 ],
               ),
-              Container(width: 1, height: 28, color: AppColors.borderDark),
-              Column(
-                children: [
-                  Text(
-                    '${p?.sparksWonCount ?? 0}',
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: AppColors.accentAmber),
-                  ),
-                  Text(
-                    isArabic ? 'فوز سبارك' : 'Sparks Won',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
-                  ),
-                ],
-              ),
             ],
           ),
         ),
@@ -1288,7 +1275,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               const Divider(height: 16),
               _buildPrivacySwitch(
                 title: isArabic ? 'إظهار إحصائيات النشاط' : 'Show Activity Stats',
-                subtitle: isArabic ? 'عرض نقاط XP والتفاعلات والمشاركات' : 'Display XP, reactions, and sparks won',
+                subtitle: isArabic ? 'عرض نقاط XP والتفاعلات والمشاركات' : 'Display XP, reactions, and posts',
                 value: _showActivityStats,
                 onChanged: (v) => setState(() => _showActivityStats = v),
               ),

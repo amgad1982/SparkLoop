@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SparkLoop.Domain.Aggregates.ChainAggregate;
 using SparkLoop.Domain.Aggregates.MoodPodAggregate;
 using SparkLoop.Domain.Aggregates.PostAggregate;
-using SparkLoop.Domain.Aggregates.SparkAggregate;
 using SparkLoop.Domain.Aggregates.UserAggregate;
 using SparkLoop.Domain.ValueObjects;
 
@@ -196,68 +195,6 @@ public class ReactionConfiguration : IEntityTypeConfiguration<Reaction>
         builder.Property(r => r.Type).HasMaxLength(30).IsRequired();
 
         builder.HasIndex(r => new { r.PostId, r.UserId }).IsUnique();
-    }
-}
-
-public class SparkConfiguration : IEntityTypeConfiguration<Spark>
-{
-    public void Configure(EntityTypeBuilder<Spark> builder)
-    {
-        builder.ToTable("sparks");
-        builder.HasKey(s => s.Id);
-
-        builder.Property(s => s.Title).HasMaxLength(200).IsRequired();
-        builder.Property(s => s.Prompt).HasMaxLength(1000).IsRequired();
-        builder.Property(s => s.Category).HasMaxLength(50).IsRequired();
-        builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(20).IsRequired();
-        builder.Property(s => s.WinnerUsername).HasMaxLength(100);
-
-        builder.HasMany(s => s.Submissions)
-            .WithOne()
-            .HasForeignKey(sub => sub.SparkId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        builder.Navigation(s => s.Submissions)
-            .UsePropertyAccessMode(PropertyAccessMode.Field);
-
-        builder.HasIndex(s => s.ActiveFromUtc);
-        builder.HasIndex(s => s.Status);
-    }
-}
-
-public class SparkSubmissionConfiguration : IEntityTypeConfiguration<SparkSubmission>
-{
-    public void Configure(EntityTypeBuilder<SparkSubmission> builder)
-    {
-        builder.ToTable("spark_submissions");
-        builder.HasKey(s => s.Id);
-
-        builder.Property(s => s.AuthorUsername).HasMaxLength(100).IsRequired();
-        builder.Property(s => s.AuthorDisplayName).HasMaxLength(100);
-        builder.Property(s => s.AuthorAvatarUrl).HasMaxLength(500);
-        builder.Property(s => s.MediaUrl).HasMaxLength(2000000);
-        builder.Property(s => s.Caption).HasMaxLength(300);
-
-        builder.HasMany(s => s.Votes)
-            .WithOne()
-            .HasForeignKey(v => v.SubmissionId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        builder.Navigation(s => s.Votes)
-            .UsePropertyAccessMode(PropertyAccessMode.Field);
-
-        builder.HasIndex(s => new { s.SparkId, s.VoteCount });
-    }
-}
-
-public class SparkVoteConfiguration : IEntityTypeConfiguration<SparkVote>
-{
-    public void Configure(EntityTypeBuilder<SparkVote> builder)
-    {
-        builder.ToTable("spark_votes");
-        builder.HasKey(v => v.Id);
-
-        builder.HasIndex(v => new { v.SubmissionId, v.UserId }).IsUnique();
     }
 }
 

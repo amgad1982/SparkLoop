@@ -3,7 +3,6 @@ import 'package:sparkloop_mobile/data/models/auth_models.dart';
 import 'package:sparkloop_mobile/data/models/pod_models.dart';
 import 'package:sparkloop_mobile/data/models/post_models.dart';
 import 'package:sparkloop_mobile/data/models/search_models.dart';
-import 'package:sparkloop_mobile/data/models/spark_models.dart';
 import 'package:sparkloop_mobile/data/services/api_service.dart';
 import 'package:sparkloop_mobile/data/services/livekit_service.dart';
 import 'package:sparkloop_mobile/data/services/sound_synth_service.dart';
@@ -51,32 +50,17 @@ void main() {
       expect(updated.reactionCount, 5);
     });
 
-    test('SparkDto voting calculation', () {
-      final spark = SparkDto(
-        id: 's-1',
-        title: 'Tech Struggles 2026',
-        description: 'Best meme about CI/CD pipelines',
-        totalVotes: 10,
-        totalSubmissions: 2,
-        expiresAtUtc: DateTime.now().toUtc().add(const Duration(hours: 12)),
-        createdAtUtc: DateTime.now().toUtc(),
-      );
-
-      expect(spark.totalVotes, 10);
-      expect(spark.isActive, isTrue);
-    });
-
     test('GlobalSearchResultDto JSON parsing and multi-category results', () {
       final json = {
-        'query': 'spark',
-        'totalCount': 5,
+        'query': 'meme',
+        'totalCount': 4,
         'posts': [
           {
             'id': 'p-10',
             'authorId': 'u-1',
             'authorUsername': 'alice',
             'authorDisplayName': 'Alice',
-            'content': 'Loving the daily spark challenges! #spark',
+            'content': 'Loving the meme challenges! #meme',
             'createdAtUtc': '2026-08-28T00:00:00Z',
           }
         ],
@@ -86,17 +70,6 @@ void main() {
             'username': 'bob',
             'displayName': 'Bob Master',
             'repScore': 150,
-          }
-        ],
-        'sparks': [
-          {
-            'id': 's-2',
-            'title': 'Daily Spark Mania',
-            'prompt': 'Create your best tech meme',
-            'category': 'Meme',
-            'activeFromUtc': '2026-08-28T00:00:00Z',
-            'activeUntilUtc': '2026-08-29T00:00:00Z',
-            'submissions': [],
           }
         ],
         'moodPods': [
@@ -113,18 +86,17 @@ void main() {
           }
         ],
         'hashtags': [
-          {'tag': 'spark', 'count': 5},
+          {'tag': 'meme', 'count': 5},
           {'tag': 'sparkloop', 'count': 2},
         ],
       };
 
       final result = GlobalSearchResultDto.fromJson(json);
-      expect(result.query, 'spark');
+      expect(result.query, 'meme');
       expect(result.posts.length, 1);
       expect(result.users.length, 1);
-      expect(result.sparks.length, 1);
       expect(result.pods.length, 1);
-      expect(result.hashtags, contains('spark'));
+      expect(result.hashtags, contains('meme'));
       expect(result.hashtags, contains('sparkloop'));
     });
 
@@ -244,26 +216,7 @@ void main() {
       expect(AppNetworkImage.isSvgUrl('https://example.com/pic.png'), isFalse);
     });
 
-    test('SparkSubmissionDto and PostDto media attachments with GIF URLs', () {
-      final subJson = {
-        'id': 'sub-99',
-        'sparkId': 'spark-1',
-        'userId': 'u-1',
-        'username': 'meme_king',
-        'displayName': 'Meme King',
-        'userAvatarUrl': 'https://api.dicebear.com/7.x/bottts/svg?seed=meme_king',
-        'caption': 'When the production build passes on the first try',
-        'mediaUrl': 'https://media.giphy.com/media/nrXif9YExO9EI/giphy.gif',
-        'votesCount': 42,
-        'hasVoted': true,
-        'createdAtUtc': '2026-08-30T10:00:00Z',
-      };
-
-      final sub = SparkSubmissionDto.fromJson(subJson);
-      expect(sub.id, 'sub-99');
-      expect(sub.mediaUrl, 'https://media.giphy.com/media/nrXif9YExO9EI/giphy.gif');
-      expect(AppNetworkImage.isGifUrl(sub.mediaUrl), isTrue);
-
+    test('PostDto media attachment with relative GIF URL resolves to absolute', () {
       final postJson = {
         'id': 'p-99',
         'authorId': 'u-1',

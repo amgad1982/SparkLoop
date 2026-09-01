@@ -1125,12 +1125,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
               <div className="text-xl font-black text-slate-900 dark:text-white">{profile.chainsCount}</div>
               <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">{isArabic ? 'سلاسل القصص' : 'Story Chains'}</div>
             </div>
-
-            <div className="glass-card rounded-2xl p-5 border border-slate-200 dark:border-slate-800 text-center space-y-1.5 shadow-sm">
-              <Trophy className="w-6 h-6 text-amber-500 mx-auto" />
-              <div className="text-xl font-black text-slate-900 dark:text-white">{profile.sparksWonCount}</div>
-              <div className="text-xs text-slate-600 dark:text-slate-400 font-medium">{isArabic ? 'تحديات السبارك' : 'Sparks Won'}</div>
-            </div>
           </div>
 
           {/* Badges Showcase */}

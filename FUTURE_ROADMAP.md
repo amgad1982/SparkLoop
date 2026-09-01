@@ -128,9 +128,9 @@ Replaces the ad-hoc `BackgroundService` workers with a proper job runner that gi
 Plan:
 
 1. Add `Hangfire.AspNetCore` plus `Hangfire.PostgreSql` packages.
-2. Register the existing `SparkRotationWorker` and `PodTtlCleanerWorker` logic as `RecurringJob`s.
+2. Register the existing `PodTtlCleanerWorker` logic as `RecurringJob`s. (The SparkRotationWorker was removed when the daily Sparks feature was retired — see `DbInitializer` for the DROP TABLE migration.)
 3. Expose the Hangfire dashboard behind `[Authorize(Roles = "Admin")]` (or `IConfiguration["Hangfire:AllowedUsers"]`).
-4. Migrate `PodTtlCleanerWorker` and `SparkRotationWorker` away from the manual loop; keep the Postgres advisory lock for cross-replica safety even though Hangfire has its own leader election.
+4. Migrate `PodTtlCleanerWorker` away from the manual loop; keep the Postgres advisory lock for cross-replica safety even though Hangfire has its own leader election.
 5. Move the outbox publisher (1.1) into Hangfire as well.
 
 Acceptance criteria:
@@ -437,9 +437,9 @@ Currently Google, Facebook, Twitter, and "custom" are stubbed. Add Apple Sign-In
 
 `GET /api/users/me/export` returns a ZIP of all the user posts and media. `DELETE /api/users/me` soft-deletes the user (cascade background job).
 
-### 6.7 Spark / Chain / Pod archive pages — P2, S
+### 6.7 Chain / Pod archive pages — P2, S
 
-Currently only the active spark is shown. Add `GET /api/sparks/history` (already exists as a query) and wire a "Past Sparks" UI page.
+Add archive / history pages for story chains and mood pods so users can browse past completed content.
 
 ### 6.8 Meme Canvas v2: collaborative editing — P2, XL
 
@@ -455,8 +455,7 @@ These are correctness and robustness fixes independent of scale.
 
 | # | Item | Priority | Effort | Notes |
 |---|------|----------|--------|-------|
-| 7.1 | Add idempotency keys for `CreatePostCommand`, `CreateChainCommand`, `CreateMoodPodCommand`, `SubmitSparkEntryCommand` so a network retry does not double-post | P1 | M | Add `Idempotency-Key` header handling. |
-| 7.2 | Validate `SubmitSparkEntryCommand` caption against the same 280-char limit as posts | P1 | S | Add FluentValidation rule. |
+| 7.1 | Add idempotency keys for `CreatePostCommand`, `CreateChainCommand`, `CreateMoodPodCommand` so a network retry does not double-post | P1 | M | Add `Idempotency-Key` header handling. |
 | 7.3 | Centralise "validate user is host or moderator" into a `MoodPodAuthorisationService` (today it is duplicated in 5 handlers) | P2 | S | |
 | 7.4 | Fix the chain-cache eviction storm: today every `ChainStepAddedEvent` invalidates `chains:active:anon`, which means everyone refetches the full list | P1 | S | Invalidate per-chain key only; leave the active list alone. |
 | 7.5 | Replace `string.Contains(...)` text search in `PostQueries` and `SearchQueries` with `EF.Functions.ILike` (Postgres) | P1 | S | Avoids plan-time `LOWER()` wrapping. |

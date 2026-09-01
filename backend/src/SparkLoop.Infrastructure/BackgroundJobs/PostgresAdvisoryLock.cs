@@ -6,11 +6,11 @@ namespace SparkLoop.Infrastructure.BackgroundJobs;
 /// Helpers for acquiring a PostgreSQL session-level advisory lock so that
 /// exactly one API replica runs a given background job at a time.
 ///
-/// Without this guard each replica would independently try to rotate the
-/// Daily Spark, deactivate expired Mood Pods, etc. — wasting DB writes and
-/// potentially emitting duplicate Centrifugo broadcasts. With this guard
-/// the lock is held for the duration of one tick of the worker's loop;
-/// other replicas immediately bail out and try again on the next tick.
+/// Without this guard each replica would independently try to deactivate
+/// expired Mood Pods etc. — wasting DB writes and potentially emitting
+/// duplicate Centrifugo broadcasts. With this guard the lock is held for
+/// the duration of one tick of the worker's loop; other replicas immediately
+/// bail out and try again on the next tick.
 ///
 /// The lock is acquired on a dedicated, short-lived Npgsql connection so
 /// the worker can run its own scoped DbContext inside the protected block
@@ -91,4 +91,3 @@ public sealed class LeaderLock : IAsyncDisposable
         }
     }
 }
-

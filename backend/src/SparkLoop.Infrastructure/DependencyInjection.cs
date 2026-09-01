@@ -176,7 +176,6 @@ public static class DependencyInjection
         services.AddScoped<IOAuthService, OAuthService>();
 
         // 8. Background Workers
-        services.AddHostedService<SparkRotationWorker>();
         services.AddHostedService<PodTtlCleanerWorker>();
 
         return services;

@@ -13,7 +13,6 @@ import '../features/profile/views/profile_screen.dart';
 import '../features/profile/views/settings_screen.dart';
 import '../features/search/views/search_screen.dart';
 import '../features/shell/mobile_app_shell.dart';
-import '../features/sparks/views/sparks_screen.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -21,7 +20,7 @@ final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/feed',
   routes: [
-    // 5-Tab Navigation Shell
+    // 4-Tab Navigation Shell
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return MobileAppShell(navigationShell: navigationShell);
@@ -37,17 +36,7 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
 
-        // 1. Sparks Branch
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/sparks',
-              builder: (context, state) => const SparksScreen(),
-            ),
-          ],
-        ),
-
-        // 2. Meme Lab / Canvas Studio Branch
+        // 1. Meme Lab / Canvas Studio Branch
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -57,7 +46,7 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
 
-        // 3. Chains Branch
+        // 2. Chains Branch
         StatefulShellBranch(
           routes: [
             GoRoute(
@@ -67,7 +56,7 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
 
-        // 4. Pods Branch
+        // 3. Pods Branch
         StatefulShellBranch(
           routes: [
             GoRoute(

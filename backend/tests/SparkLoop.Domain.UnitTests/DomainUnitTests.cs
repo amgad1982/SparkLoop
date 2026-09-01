@@ -1,6 +1,5 @@
 using FluentAssertions;
 using SparkLoop.Domain.Aggregates.ChainAggregate;
-using SparkLoop.Domain.Aggregates.SparkAggregate;
 using SparkLoop.Domain.Events;
 using SparkLoop.Domain.Exceptions;
 using SparkLoop.Domain.ValueObjects;
@@ -230,37 +229,7 @@ public class PostTextValueObjectTests
     }
 }
 
-public class SparkWinnerPolicyTests
-{
-    [Fact]
-    public void DetermineWinner_SelectsHighestVotedSubmission()
-    {
-        // Arrange
-        var sparkId = Guid.NewGuid();
-        var author1 = Guid.NewGuid();
-        var author2 = Guid.NewGuid();
 
-        var sub1 = new SparkSubmission(Guid.NewGuid(), sparkId, author1, "alice", "Alice", null, "https://media.com/1.jpg", "Meme 1");
-        sub1.AddVote(Guid.NewGuid());
-        sub1.AddVote(Guid.NewGuid()); // 2 votes
-
-        var sub2 = new SparkSubmission(Guid.NewGuid(), sparkId, author2, "bob", "Bob", null, "https://media.com/2.jpg", "Meme 2");
-        sub2.AddVote(Guid.NewGuid());
-        sub2.AddVote(Guid.NewGuid());
-        sub2.AddVote(Guid.NewGuid()); // 3 votes
-
-        var list = new List<SparkSubmission> { sub1, sub2 };
-
-        // Act
-        var winner = WinnerPolicy.DetermineWinner(list);
-
-        // Assert
-        winner.Should().NotBeNull();
-        winner!.Id.Should().Be(sub2.Id);
-        winner.AuthorId.Should().Be(author2);
-        winner.VoteCount.Should().Be(3);
-    }
-}
 
 public class UserPrivacyInvariantsTests
 {

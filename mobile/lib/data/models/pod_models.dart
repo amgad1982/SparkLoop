@@ -207,3 +207,57 @@ class MoodPodDto {
     );
   }
 }
+
+/// The currently-playing background music for a pod. Returned by
+/// `GET /api/pods/{id}/bg-music-state` so late joiners can hydrate the same
+/// ambient track the host or DJ started before they joined the room.
+class PodBgMusicStateDto {
+  final String podId;
+  final String action; // "play", "pause", "stop"
+  final String? trackTitle;
+  final String? trackUrl;
+  final String? presetId;
+  final double? currentTime;
+  final double? duration;
+  final String? djUserId;
+  final String? djUsername;
+  final String? djDisplayName;
+  final String? djAvatarUrl;
+  final DateTime updatedAtUtc;
+
+  const PodBgMusicStateDto({
+    required this.podId,
+    required this.action,
+    this.trackTitle,
+    this.trackUrl,
+    this.presetId,
+    this.currentTime,
+    this.duration,
+    this.djUserId,
+    this.djUsername,
+    this.djDisplayName,
+    this.djAvatarUrl,
+    required this.updatedAtUtc,
+  });
+
+  bool get isPlaying => action == 'play' && (trackTitle != null || trackUrl != null);
+
+  factory PodBgMusicStateDto.fromJson(Map<String, dynamic> json) {
+    return PodBgMusicStateDto(
+      podId: json['podId'] as String? ?? '',
+      action: json['action'] as String? ?? 'stop',
+      trackTitle: json['trackTitle'] as String?,
+      trackUrl: json['trackUrl'] as String?,
+      presetId: json['presetId'] as String?,
+      currentTime: (json['currentTime'] as num?)?.toDouble(),
+      duration: (json['duration'] as num?)?.toDouble(),
+      djUserId: json['djUserId'] as String?,
+      djUsername: json['djUsername'] as String?,
+      djDisplayName: json['djDisplayName'] as String?,
+      djAvatarUrl: json['djAvatarUrl'] as String?,
+      updatedAtUtc: json['updatedAtUtc'] != null
+          ? DateTime.parse(json['updatedAtUtc'] as String)
+          : DateTime.now().toUtc(),
+    );
+  }
+}

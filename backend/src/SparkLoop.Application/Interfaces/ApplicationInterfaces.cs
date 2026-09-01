@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using SparkLoop.Domain.Aggregates.ChainAggregate;
 using SparkLoop.Domain.Aggregates.MoodPodAggregate;
 using SparkLoop.Domain.Aggregates.PostAggregate;
-using SparkLoop.Domain.Aggregates.SparkAggregate;
 using SparkLoop.Domain.Aggregates.UserAggregate;
 
 namespace SparkLoop.Application.Interfaces;
@@ -13,9 +12,6 @@ public interface IAppDbContext
     DbSet<Badge> Badges { get; }
     DbSet<Post> Posts { get; }
     DbSet<Reaction> Reactions { get; }
-    DbSet<Spark> Sparks { get; }
-    DbSet<SparkSubmission> SparkSubmissions { get; }
-    DbSet<SparkVote> SparkVotes { get; }
     DbSet<Chain> Chains { get; }
     DbSet<ChainStep> ChainSteps { get; }
     DbSet<MoodPod> MoodPods { get; }

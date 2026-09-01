@@ -30,7 +30,7 @@ interface GlobalSearchModalProps {
   initialQuery?: string;
 }
 
-type SearchCategory = 'all' | 'posts' | 'users' | 'pods' | 'chains' | 'sparks' | 'hashtags';
+type SearchCategory = 'all' | 'posts' | 'users' | 'pods' | 'chains' | 'hashtags';
 
 const RECENT_SEARCHES_KEY = 'sparkloop_recent_searches';
 
@@ -175,7 +175,6 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     { id: 'users', labelEn: 'Creators', labelAr: 'المبدعين', icon: Users, count: results?.users.length },
     { id: 'pods', labelEn: 'Mood Pods', labelAr: 'غرف المزاج', icon: Radio, count: results?.moodPods.length },
     { id: 'chains', labelEn: 'Story Chains', labelAr: 'سلاسل المايك', icon: GitBranch, count: results?.chains.length },
-    { id: 'sparks', labelEn: 'Daily Sparks', labelAr: 'تحديات السبارك', icon: Flame, count: results?.sparks.length },
     { id: 'hashtags', labelEn: 'Hashtags', labelAr: 'الوسوم', icon: Hash, count: results?.hashtags.length },
   ];
 

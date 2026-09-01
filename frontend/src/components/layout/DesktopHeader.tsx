@@ -3,7 +3,6 @@ import { TabType } from './BottomNavBar';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { Tooltip } from '../ui/Tooltip';
 import {
-  Flame,
   GitBranch,
   MessageSquare,
   Moon,
@@ -12,7 +11,6 @@ import {
   Sparkles,
   Sun,
   User,
-  Zap,
   Search,
 } from 'lucide-react';
 
@@ -43,16 +41,6 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           icon: MessageSquare,
           accent: 'from-indigo-500 to-sky-500',
           badge: isArabic ? 'مباشر' : 'Live Stream',
-        };
-      case 'sparks':
-        return {
-          title: isArabic ? 'تحدي السبارك اليومي (24 ساعة)' : '24h Synchronized Daily Spark',
-          subtitle: isArabic
-            ? 'تحدي إبداعي يومي ينتهي باختيار فائز وتتويجه بلقب Champion'
-            : 'Global 24h challenge with automated winner crowning and badges',
-          icon: Flame,
-          accent: 'from-amber-500 to-rose-500',
-          badge: isArabic ? 'تحدي 24 ساعة' : '24h Challenge',
         };
       case 'chains':
         return {
@@ -186,13 +174,6 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
                 <span>{isArabic ? 'إنشاء ميم' : 'New Meme'}</span>
               </button>
             </Tooltip>
-          )}
-
-          {activeTab === 'sparks' && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs font-bold text-amber-600 dark:text-amber-300">
-              <Zap className="w-3.5 h-3.5" />
-              <span>{isArabic ? 'تحدي نشط' : 'Active Challenge'}</span>
-            </div>
           )}
 
           {activeTab === 'pods' && (

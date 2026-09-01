@@ -249,7 +249,6 @@ class UserProfileDto {
   final int postsCount;
   final int totalReactionsReceived;
   final int chainsCount;
-  final int sparksWonCount;
   final List<PostDto> recentPosts;
   final List<ChainDto> recentChains;
   final String preferredTheme;
@@ -280,7 +279,6 @@ class UserProfileDto {
     this.postsCount = 0,
     this.totalReactionsReceived = 0,
     this.chainsCount = 0,
-    this.sparksWonCount = 0,
     this.recentPosts = const [],
     this.recentChains = const [],
     this.preferredTheme = 'dark',
@@ -318,7 +316,6 @@ class UserProfileDto {
       postsCount: json['postsCount'] as int? ?? 0,
       totalReactionsReceived: json['totalReactionsReceived'] as int? ?? 0,
       chainsCount: json['chainsCount'] as int? ?? 0,
-      sparksWonCount: json['sparksWonCount'] as int? ?? 0,
       recentPosts: (json['recentPosts'] as List<dynamic>?)
               ?.map((e) => PostDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -357,7 +354,6 @@ class UserProfileDto {
     int? postsCount,
     int? totalReactionsReceived,
     int? chainsCount,
-    int? sparksWonCount,
     List<PostDto>? recentPosts,
     List<ChainDto>? recentChains,
     String? preferredTheme,
@@ -388,7 +384,6 @@ class UserProfileDto {
       postsCount: postsCount ?? this.postsCount,
       totalReactionsReceived: totalReactionsReceived ?? this.totalReactionsReceived,
       chainsCount: chainsCount ?? this.chainsCount,
-      sparksWonCount: sparksWonCount ?? this.sparksWonCount,
       recentPosts: recentPosts ?? this.recentPosts,
       recentChains: recentChains ?? this.recentChains,
       preferredTheme: preferredTheme ?? this.preferredTheme,

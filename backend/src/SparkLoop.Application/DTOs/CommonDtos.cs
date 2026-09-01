@@ -85,41 +85,6 @@ public record PostDto(
     DateTime CreatedAtUtc
 );
 
-public record SparkVoteDto(
-    Guid Id,
-    Guid UserId,
-    DateTime CreatedAtUtc
-);
-
-public record SparkSubmissionDto(
-    Guid Id,
-    Guid SparkId,
-    Guid AuthorId,
-    string AuthorUsername,
-    string AuthorDisplayName,
-    string? AuthorAvatarUrl,
-    string? MediaUrl,
-    string Caption,
-    int VoteCount,
-    bool HasVoted,
-    DateTime CreatedAtUtc
-);
-
-public record SparkDto(
-    Guid Id,
-    string Title,
-    string Prompt,
-    string Category,
-    DateTime ActiveFromUtc,
-    DateTime ActiveUntilUtc,
-    string Status,
-    TimeSpan TimeRemaining,
-    Guid? WinnerSubmissionId,
-    Guid? WinnerUserId,
-    string? WinnerUsername,
-    IReadOnlyList<SparkSubmissionDto> Submissions
-);
-
 public record ChainStepDto(
     Guid Id,
     Guid ChainId,
@@ -232,7 +197,6 @@ public record UserProfileDto(
     int PostsCount,
     int TotalReactionsReceived,
     int ChainsCount,
-    int SparksWonCount,
     IReadOnlyList<PostDto> RecentPosts,
     IReadOnlyList<ChainDto> RecentChains,
     string PreferredTheme = "dark",
@@ -287,7 +251,6 @@ public record GlobalSearchResultDto(
     IReadOnlyList<UserDto> Users,
     IReadOnlyList<MoodPodDto> MoodPods,
     IReadOnlyList<ChainDto> Chains,
-    IReadOnlyList<SparkDto> Sparks,
     IReadOnlyList<HashtagDto> Hashtags
 );
 

@@ -82,7 +82,6 @@ class _SearchScreenState extends State<SearchScreen> {
     final results = searchVm.results!;
     final hasNoResults = results.users.isEmpty &&
         results.posts.isEmpty &&
-        results.sparks.isEmpty &&
         results.chains.isEmpty &&
         results.pods.isEmpty;
 
@@ -171,42 +170,6 @@ class _SearchScreenState extends State<SearchScreen> {
                     targetUserId: u.id,
                     targetUsername: u.username,
                     size: FollowButtonSize.small,
-                  ),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: 16),
-        ],
-
-        // Sparks Challenges Section
-        if (results.sparks.isNotEmpty) ...[
-          Row(
-            children: [
-              const Icon(Icons.local_fire_department, size: 16, color: AppColors.accentAmber),
-              const SizedBox(width: 6),
-              Text(
-                isArabic ? 'تحديات السبارك' : 'Sparks Challenges',
-                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ...results.sparks.map((s) {
-            return GlassContainer(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              borderRadius: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(s.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  const SizedBox(height: 4),
-                  Text(
-                    s.description,
-                    style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
@@ -346,7 +309,7 @@ class _SearchScreenState extends State<SearchScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: ['#spark', '#meme', '#gaming', '#sparkloop', '#arabcreators', '#art', '#code']
+          children: ['#meme', '#gaming', '#sparkloop', '#arabcreators', '#art', '#code']
               .map((tag) {
             return ActionChip(
               label: Text(tag),

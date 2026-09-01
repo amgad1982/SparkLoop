@@ -7,7 +7,6 @@ import 'data/repositories/chain_repository.dart';
 import 'data/repositories/feed_repository.dart';
 import 'data/repositories/follow_repository.dart';
 import 'data/repositories/pod_repository.dart';
-import 'data/repositories/spark_repository.dart';
 import 'data/repositories/user_repository.dart';
 import 'data/services/api_service.dart';
 import 'data/services/centrifugo_service.dart';
@@ -23,7 +22,6 @@ import 'ui/features/meme_canvas/view_models/meme_canvas_view_model.dart';
 import 'ui/features/pods/view_models/pod_view_model.dart';
 import 'ui/features/profile/view_models/profile_view_model.dart';
 import 'ui/features/search/view_models/search_view_model.dart';
-import 'ui/features/sparks/view_models/spark_view_model.dart';
 import 'ui/features/theme/theme_view_model.dart';
 import 'ui/navigation/app_router.dart';
 
@@ -47,7 +45,6 @@ void main() async {
     storageService: storageService,
   );
   final feedRepository = FeedRepository(apiService: apiService);
-  final sparkRepository = SparkRepository(apiService: apiService);
   final chainRepository = ChainRepository(apiService: apiService);
   final podRepository = PodRepository(apiService: apiService);
   final userRepository = UserRepository(apiService: apiService);
@@ -65,7 +62,6 @@ void main() async {
         // Repositories
         Provider<AuthRepository>.value(value: authRepository),
         Provider<FeedRepository>.value(value: feedRepository),
-        Provider<SparkRepository>.value(value: sparkRepository),
         Provider<ChainRepository>.value(value: chainRepository),
         Provider<PodRepository>.value(value: podRepository),
         Provider<UserRepository>.value(value: userRepository),
@@ -86,13 +82,6 @@ void main() async {
         ),
         ChangeNotifierProvider<FeedViewModel>(
           create: (_) => FeedViewModel(
-            feedRepository: feedRepository,
-            centrifugoService: centrifugoService,
-          ),
-        ),
-        ChangeNotifierProvider<SparkViewModel>(
-          create: (_) => SparkViewModel(
-            sparkRepository: sparkRepository,
             feedRepository: feedRepository,
             centrifugoService: centrifugoService,
           ),

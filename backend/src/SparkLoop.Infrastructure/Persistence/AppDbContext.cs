@@ -4,7 +4,6 @@ using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.ChainAggregate;
 using SparkLoop.Domain.Aggregates.MoodPodAggregate;
 using SparkLoop.Domain.Aggregates.PostAggregate;
-using SparkLoop.Domain.Aggregates.SparkAggregate;
 using SparkLoop.Domain.Aggregates.UserAggregate;
 using SparkLoop.Domain.Common;
 
@@ -23,9 +22,6 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Badge> Badges => Set<Badge>();
     public DbSet<Post> Posts => Set<Post>();
     public DbSet<Reaction> Reactions => Set<Reaction>();
-    public DbSet<Spark> Sparks => Set<Spark>();
-    public DbSet<SparkSubmission> SparkSubmissions => Set<SparkSubmission>();
-    public DbSet<SparkVote> SparkVotes => Set<SparkVote>();
     public DbSet<Chain> Chains => Set<Chain>();
     public DbSet<ChainStep> ChainSteps => Set<ChainStep>();
     public DbSet<MoodPod> MoodPods => Set<MoodPod>();

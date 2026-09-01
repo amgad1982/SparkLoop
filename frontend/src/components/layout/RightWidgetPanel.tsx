@@ -1,24 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { TabType } from './BottomNavBar';
-import { SparkDto, MoodPodDto, UserDto, HashtagDto } from '../../types/api';
+import { MoodPodDto, UserDto, HashtagDto } from '../../types/api';
 import { api } from '../../services/apiClient';
 import { Tooltip } from '../ui/Tooltip';
 import { FollowButton } from '../ui/FollowButton';
 import {
-  Flame,
   Radio,
   Trophy,
   Users,
-  Clock,
-  Sparkles,
-  ChevronRight,
   TrendingUp,
   Hash,
+  Sparkles,
 } from 'lucide-react';
 
 interface RightWidgetPanelProps {
-  activeSpark?: SparkDto | null;
   pods?: MoodPodDto[];
   topCreators?: UserDto[];
   onNavigateTab: (tab: TabType) => void;
@@ -77,7 +73,6 @@ const DEFAULT_CREATORS: UserDto[] = [
 ];
 
 export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
-  activeSpark,
   pods = [],
   topCreators = [],
   onNavigateTab,
@@ -86,48 +81,6 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
   const [trendingTags, setTrendingTags] = useState<HashtagDto[]>([]);
-  const [countdown, setCountdown] = useState<string>('24:00:00');
-
-  useEffect(() => {
-    const updateCountdown = () => {
-      if (!activeSpark) {
-        setCountdown('24:00:00');
-        return;
-      }
-
-      if (activeSpark.status === 'Completed') {
-        setCountdown(isArabic ? 'انتهى التحدي' : 'Ended');
-        return;
-      }
-
-      if (activeSpark.activeUntilUtc) {
-        const target = new Date(activeSpark.activeUntilUtc).getTime();
-        if (!isNaN(target)) {
-          const diffMs = target - Date.now();
-          if (diffMs <= 0) {
-            setCountdown(isArabic ? 'انتهى التحدي' : '00:00:00');
-            return;
-          }
-          const totalSec = Math.floor(diffMs / 1000);
-          const hours = Math.floor(totalSec / 3600);
-          const minutes = Math.floor((totalSec % 3600) / 60);
-          const seconds = totalSec % 60;
-          setCountdown(
-            `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-          );
-          return;
-        }
-      }
-
-      if (activeSpark.timeRemaining) {
-        setCountdown(String(activeSpark.timeRemaining).split('.')[0]);
-      }
-    };
-
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [activeSpark?.activeUntilUtc, activeSpark?.status, activeSpark?.timeRemaining, isArabic]);
 
   useEffect(() => {
     api.getTrendingHashtags(5)
@@ -149,51 +102,6 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
 
   return (
     <aside className="hidden lg:flex flex-col gap-4 w-72 xl:w-80 h-full p-4 xl:p-5 pb-10 border-l rtl:border-l-0 rtl:border-r border-slate-200/80 dark:border-slate-800/80 bg-white/60 dark:bg-[#0b0f17]/95 overflow-y-auto overflow-x-hidden no-scrollbar shrink-0 select-none transition-colors duration-200">
-      {/* Widget 1: 24h Synchronized Daily Spark Challenge */}
-      <div className="glass-card rounded-3xl p-4 xl:p-5 border border-slate-200 dark:border-slate-800/80 shadow-md relative overflow-hidden group space-y-3 shrink-0 transition-colors">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-              <Flame className="w-4 h-4" />
-            </div>
-            <span className="text-xs font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">
-              {isArabic ? 'تحدي اليوم (24h)' : 'Daily Spark'}
-            </span>
-          </div>
-
-          <Tooltip content={isArabic ? 'الوقت المتبقي لانتهاء التحدي وتتويج البطل' : 'Time left before winner crowning'} position="left">
-            <span className="flex items-center gap-1 text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
-              <Clock className="w-3 h-3" />
-              {countdown}
-            </span>
-          </Tooltip>
-        </div>
-
-        <div className="space-y-2.5">
-          <h4 className="text-xs font-black text-slate-900 dark:text-slate-100 line-clamp-1">
-            {activeSpark?.title || (isArabic ? '🔥 تحدي الجمعة: ميمز المطورين 2026' : '🔥 Friday Meme Mania 2026')}
-          </h4>
-          <p className="text-[11px] font-medium text-slate-600 dark:text-slate-300 leading-snug line-clamp-2">
-            {activeSpark?.prompt || (isArabic ? 'صمم ميم يجسد أخطاء الإنتاج قبل عطلة نهاية الأسبوع!' : 'Craft or draw a meme showing how you handle production bugs at 5 PM on a Friday!')}
-          </p>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-800/60">
-            <span className="font-semibold">{activeSpark?.submissions?.length || 4} {isArabic ? 'مشاركات' : 'entries'}</span>
-            <Tooltip content={isArabic ? 'الانتقال لصفحة التحدي والتصويت أو المشاركة' : 'Go to Daily Spark page'} position="top">
-              <button
-                onClick={() => onNavigateTab('sparks')}
-                className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 flex items-center gap-1 group-hover:translate-x-0.5 rtl:group-hover:-translate-x-0.5 transition-transform"
-              >
-                <span>{isArabic ? 'شارك الآن' : 'Join Challenge'}</span>
-                <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />
-              </button>
-            </Tooltip>
-          </div>
-        </div>
-      </div>
-
       {/* Widget 2: Trending Hashtags */}
       <div className="glass-card rounded-3xl p-4 xl:p-5 border border-slate-200 dark:border-slate-800/80 shadow-md space-y-3 shrink-0 transition-colors">
         <div className="flex items-center justify-between">
@@ -229,7 +137,7 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 shrink-0">
-                  <Flame className="w-3 h-3 text-amber-500 dark:text-amber-400" />
+                  <TrendingUp className="w-3 h-3 text-amber-500 dark:text-amber-400" />
                   <span>{tag.count}</span>
                 </div>
               </button>

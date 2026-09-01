@@ -66,35 +66,6 @@ export interface PostDto {
   createdAtUtc: string;
 }
 
-export interface SparkSubmissionDto {
-  id: string;
-  sparkId: string;
-  authorId: string;
-  authorUsername: string;
-  authorDisplayName: string;
-  authorAvatarUrl?: string;
-  mediaUrl?: string;
-  caption: string;
-  voteCount: number;
-  hasVoted: boolean;
-  createdAtUtc: string;
-}
-
-export interface SparkDto {
-  id: string;
-  title: string;
-  prompt: string;
-  category: string;
-  activeFromUtc: string;
-  activeUntilUtc: string;
-  status: string;
-  timeRemaining: string;
-  winnerSubmissionId?: string;
-  winnerUserId?: string;
-  winnerUsername?: string;
-  submissions: SparkSubmissionDto[];
-}
-
 export interface ChainStepDto {
   id: string;
   chainId: string;
@@ -217,7 +188,6 @@ export interface UserProfileDto {
   postsCount: number;
   totalReactionsReceived: number;
   chainsCount: number;
-  sparksWonCount: number;
   recentPosts: PostDto[];
   recentChains: ChainDto[];
   preferredTheme?: 'dark' | 'light';
@@ -301,7 +271,6 @@ export interface GlobalSearchResultDto {
   users: UserDto[];
   moodPods: MoodPodDto[];
   chains: ChainDto[];
-  sparks: SparkDto[];
   hashtags: HashtagDto[];
 }
 

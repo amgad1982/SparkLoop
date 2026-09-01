@@ -2,6 +2,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using SparkLoop.Application.Behaviors;
+using SparkLoop.Application.Features.MoodPods;
 
 namespace SparkLoop.Application;
 
@@ -17,6 +18,11 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(typeof(DependencyInjection).Assembly);
+
+        // Single in-memory store for the latest BG-music state per pod.
+        // Used by SendPodBgMusicCommandHandler to persist the active track so
+        // late joiners can fetch it on entry; see PodBgMusicStateStore.cs.
+        services.AddSingleton<PodBgMusicStateStore>();
 
         return services;
     }

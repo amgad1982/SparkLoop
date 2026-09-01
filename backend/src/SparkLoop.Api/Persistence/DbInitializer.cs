@@ -5,7 +5,6 @@ using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.ChainAggregate;
 using SparkLoop.Domain.Aggregates.MoodPodAggregate;
 using SparkLoop.Domain.Aggregates.PostAggregate;
-using SparkLoop.Domain.Aggregates.SparkAggregate;
 using SparkLoop.Domain.Aggregates.UserAggregate;
 using SparkLoop.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -39,6 +38,18 @@ public static class DbInitializer
             {
                 await dbContext.Database.EnsureCreatedAsync();
             }
+
+            // ---------------------------------------------------------------------
+            // Cleanup of removed feature tables.
+            // The "Synchronized Daily Sparks" feature was retired; drop its tables
+            // here so production databases are not left with orphan data and EF
+            // Core schema drift is avoided. Idempotent — IF EXISTS guards the case
+            // where the tables were never created (fresh DBs).
+            // ---------------------------------------------------------------------
+            await dbContext.Database.ExecuteSqlRawAsync(
+                "DROP TABLE IF EXISTS \"spark_votes\" CASCADE; " +
+                "DROP TABLE IF EXISTS \"spark_submissions\" CASCADE; " +
+                "DROP TABLE IF EXISTS \"sparks\" CASCADE;");
 
             var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasherService>();
 
@@ -77,7 +88,6 @@ public static class DbInitializer
             var alice = User.Create(aliceId, "alice", "alice@sparkloop.app", "Alice Wonder 🎨", "https://api.dicebear.com/7.x/bottts/svg?seed=alice", null, "Digital artist, meme crafter & storyteller", null, "dark", "en", true);
             alice.SetPassword(passwordHasher.HashPassword(alice, "SparkLoop2026!"));
             alice.AddReputation(240);
-            alice.AwardBadge("Spark Champion", "Winner of the Daily Spark Challenge", "🏆");
             alice.AwardBadge("Top Contributor", "Authored over 20 story chain turns", "🌟");
 
             var bob = User.Create(bobId, "bob", "bob@sparkloop.app", "Bob The Bard 🎸", "https://api.dicebear.com/7.x/bottts/svg?seed=bob", null, "Musician, audio note enthusiast, story chain wizard", null, "dark", "en", true);
@@ -98,40 +108,7 @@ public static class DbInitializer
             dbContext.Users.AddRange(alice, bob, noor, tariq);
             await dbContext.SaveChangesAsync();
 
-            // 2. Seed Daily Spark
-            var sparkId = Guid.NewGuid();
-            var spark = Spark.Create(
-                sparkId,
-                "🔥 Friday Meme Mania: Developer Life in 2026",
-                "Craft or draw a meme showing how you handle production bugs at 5 PM on a Friday. Best meme wins the Spark Champion badge!",
-                "Meme Challenge",
-                DateTime.UtcNow,
-                TimeSpan.FromHours(24));
-
-            var sub1 = spark.SubmitEntry(
-                Guid.NewGuid(),
-                tariqId,
-                "tariq",
-                "طارق صانع الميمز ⚡",
-                "https://api.dicebear.com/7.x/bottts/svg?seed=tariq",
-                "https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80",
-                "When CI/CD turns red 2 minutes before the weekend: Deploy directly to prod and turn off notifications! 🚀");
-            sub1.AddVote(aliceId);
-            sub1.AddVote(bobId);
-
-            var sub2 = spark.SubmitEntry(
-                Guid.NewGuid(),
-                aliceId,
-                "alice",
-                "Alice Wonder 🎨",
-                "https://api.dicebear.com/7.x/bottts/svg?seed=alice",
-                "https://images.unsplash.com/photo-1534972195531-a756b1126f24?w=600&auto=format&fit=crop&q=80",
-                "My code when it works vs when the senior architect reviews it 😅");
-            sub2.AddVote(noorId);
-
-            dbContext.Sparks.Add(spark);
-
-            // 3. Seed Pass-the-Mic Chains
+            // 2. Seed Pass-the-Mic Chains
             var chain1Id = Guid.NewGuid();
             var chain1 = Chain.Create(
                 chain1Id,
@@ -216,7 +193,7 @@ public static class DbInitializer
                 "noor",
                 "نور العرّاف 🌟",
                 "https://api.dicebear.com/7.x/bottts/svg?seed=noor",
-                "أهلاً بكم في SparkLoop! شبكة تدوين وتفاعل ترفيهية متكاملة تجمع بين سلاسل القصص التفاعلية، وتحديات السبارك اليومية. شاركونا إبداعاتكم! #sparkloop #arabcreators ✨",
+                "أهلاً بكم في SparkLoop! شبكة تدوين وتفاعل ترفيهية متكاملة تجمع بين سلاسل القصص التفاعلية، وغرف المزاج اللحظية، واستوديو الميمز. شاركونا إبداعاتكم! #sparkloop #arabcreators ✨",
                 new MediaAttachment("https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800&auto=format&fit=crop&q=80", MediaType.Image, 800, 500)
             );
             post1.AddReaction(aliceId, "alice", "fire");
@@ -229,7 +206,7 @@ public static class DbInitializer
                 "alice",
                 "Alice Wonder 🎨",
                 "https://api.dicebear.com/7.x/bottts/svg?seed=alice",
-                "Just finished drawing a new meme template on the SparkLoop canvas editor! Super fluid touch gestures. Try passing the mic on our Neo-Cairo story chain! #meme #art #spark 🚀🎨",
+                "Just finished drawing a new meme template on the SparkLoop canvas editor! Super fluid touch gestures. Try passing the mic on our Neo-Cairo story chain! #meme #art 🚀🎨",
                 new MediaAttachment("https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=800&auto=format&fit=crop&q=80", MediaType.MemeWebP, 800, 600)
             );
             post2.AddReaction(noorId, "noor", "spark");
@@ -241,7 +218,7 @@ public static class DbInitializer
                 "tariq",
                 "طارق صانع الميمز ⚡",
                 "https://api.dicebear.com/7.x/bottts/svg?seed=tariq",
-                "تحدي اليوم مولع! صمموا أفضل ميم عن الجمعة وشاركوا في السبارك للفوز بالوسم الذهبي. #spark #meme #gaming 🔥",
+                "Friday is here! Time to design the weekend meme — share it on SparkLoop and climb the leaderboard. #meme #gaming 🔥",
                 new MediaAttachment("https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80", MediaType.Image, 800, 500)
             );
             post3.AddReaction(aliceId, "alice", "laugh");

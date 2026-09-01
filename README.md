@@ -1,6 +1,6 @@
 # SparkLoop (شبكة تدوين مصغر ترفيهية وتفاعلية) ✨
 
-SparkLoop is a production-grade social micro-blogging and interactive entertainment platform combining **Pass-the-Mic Story Chains**, **24h Synchronized Daily Sparks**, **Ephemeral Mood Pods**, and a **Touch-friendly Meme Canvas** with instant WebP export.
+SparkLoop is a production-grade social micro-blogging and interactive entertainment platform combining **Pass-the-Mic Story Chains**, **Ephemeral Mood Pods**, and a **Touch-friendly Meme Canvas** with instant WebP export.
 
 Built with **ASP.NET Core 10 (C# 14)** using **Domain-Driven Design (DDD)** and **CQRS (MediatR)**, **Centrifugo v5** for real-time WebSockets, **PostgreSQL 17**, **Redis 7**, **MinIO S3**, and a **React 19 / TypeScript / Vite** mobile-first frontend with full bidirectional **Arabic (RTL)** and **English (LTR)** support.
 
@@ -19,12 +19,7 @@ Built with **ASP.NET Core 10 (C# 14)** using **Domain-Driven Design (DDD)** and 
    - Optimistic concurrency control (`RowVersion`) prevents race conditions on step additions.
    - Real-time step broadcast and completion confetti celebrations over Centrifugo.
 
-3. **24h Synchronized Daily Sparks**:
-   - Global daily creative challenge rotated automatically every 24 hours UTC by a background worker.
-   - Real-time submission leaderboard and live upvote broadcasting.
-   - Automatic winner resolution awarding the "Spark Champion" badge.
-
-4. **24h Ephemeral Mood Pods**:
+3. **24h Ephemeral Mood Pods**:
    - Real-time chat rooms with hard 24-hour TTL and automated cleanup.
    - Real-time presence counter and animated floating emoji reaction fountain bursts.
 

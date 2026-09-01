@@ -59,12 +59,11 @@ mobile/lib/
 ## 3. Screen & Feature Specifications
 
 ### A. Adaptive Shell & Navigation
-- **5-Tab Bottom Navigation Bar**:
+- **4-Tab Bottom Navigation Bar**:
   1. 📰 **Feed**: Micro-posts, hashtags, media gallery.
-  2. 🔥 **Daily Sparks**: Active 24h challenge countdown with `24h` badge.
-  3. 🎨 **Meme Lab**: Elevated center floating gradient button for quick creative canvas access.
-  4. 🌿 **Story Chains**: Pass-the-mic turn-based co-creation.
-  5. 🎙️ **Mood Pods**: Real-time audio stages with pulsing `Live` badge.
+  2. 🎨 **Meme Lab**: Elevated center floating gradient button for quick creative canvas access.
+  3. 🌿 **Story Chains**: Pass-the-mic turn-based co-creation.
+  4. 🎙️ **Mood Pods**: Real-time audio stages with pulsing `Live` badge.
 - **Top App Bar**:
   - SparkLoop logo with real-time status pulse indicator.
   - Search trigger icon.
@@ -85,19 +84,13 @@ mobile/lib/
 - Globally synchronized `FollowButton` that updates across all posts by that author in real-time.
 - Create Post sheet with character countdown (<= 280 chars), hashtag autocomplete, and media upload.
 
-### D. Daily Sparks Challenge (`/sparks`)
-- Hero card for active 24h Daily Spark challenge with live countdown timer.
-- Voting engine with coalesced optimistic counts and real-time Centrifugo update sync.
-- Submissions carousel and grid sorted by votes.
-- Spark History archive with past daily themes and winner badges.
-
-### E. Pass-the-Mic Story Chains (`/chains`)
+### D. Pass-the-Mic Story Chains (`/chains`)
 - Active and completed story chains list.
 - Turn sequence timeline showing locked contributors and countdown timers.
 - "Pass the Mic" turn submission drawer with voice audio recording and text beat upload.
 - Create Chain modal with custom turn limit and timeout configuration.
 
-### F. Ephemeral Mood Pods & Live Voice Stage (`/pods`)
+### E. Ephemeral Mood Pods & Live Voice Stage (`/pods`)
 - 24h ephemeral rooms categorized by vibe (Party, Chill, Deep Talk, Meme Storm, Late Night).
 - **LiveKit SFU Voice Engine**:
   - WebRTC room connection with speaking indicators and audio wave visualizers.
@@ -106,7 +99,7 @@ mobile/lib/
   - Floating emoji burst particle animations.
   - In-pod live chat stream via Centrifugo.
 
-### G. Interactive Meme Studio / Canvas Editor (`/create`)
+### F. Interactive Meme Studio / Canvas Editor (`/create`)
 - Custom Flutter gesture-driven canvas:
   - Drag, pinch-to-zoom, and rotate text with Impact font and outline strokes.
   - Sticker / emoji layer placement.
@@ -114,7 +107,7 @@ mobile/lib/
   - Preloaded meme templates and custom gallery image picker.
 - Image export to WebP/PNG and 1-tap submission to Feed or Daily Spark challenge.
 
-### H. User Profile, XP Portfolio & Search
+### G. User Profile, XP Portfolio & Search
 - Profile header with Rep Score, XP level badge, bio, and social links.
 - Interactive Followers and Following list modals.
 - Unified multi-category search (All, Posts, Creators, Hashtags, Pods).

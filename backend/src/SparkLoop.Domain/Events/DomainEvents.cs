@@ -35,45 +35,6 @@ public sealed record ChainCompletedEvent(
 ) : BaseDomainEvent;
 
 // ==========================================
-// Spark Events
-// ==========================================
-public sealed record SparkCreatedEvent(
-    Guid SparkId,
-    string Title,
-    string Prompt,
-    string Category,
-    DateTime ActiveFromUtc,
-    DateTime ActiveUntilUtc
-) : BaseDomainEvent;
-
-public sealed record SparkSubmissionAddedEvent(
-    Guid SparkId,
-    Guid SubmissionId,
-    Guid AuthorId,
-    string AuthorUsername,
-    string? AuthorDisplayName,
-    string? AuthorAvatarUrl,
-    string? MediaUrl,
-    string Caption
-) : BaseDomainEvent;
-
-public sealed record SparkVoteCastEvent(
-    Guid SparkId,
-    Guid SubmissionId,
-    Guid VoterUserId,
-    int NewVoteCount
-) : BaseDomainEvent;
-
-public sealed record SparkWinnerSelectedEvent(
-    Guid SparkId,
-    Guid WinnerSubmissionId,
-    Guid WinnerUserId,
-    string WinnerUsername,
-    int WinningVoteCount,
-    string BadgeAwarded
-) : BaseDomainEvent;
-
-// ==========================================
 // Mood Pod Events
 // ==========================================
 public sealed record MoodPodCreatedEvent(

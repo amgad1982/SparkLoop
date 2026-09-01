@@ -50,33 +50,22 @@ class BottomNavBar extends StatelessWidget {
                 label: isArabic ? 'الرئيسية' : 'Feed',
               ),
 
-              // 2. Sparks (with 24h badge)
-              _buildNavItem(
-                context,
-                index: 1,
-                icon: Icons.local_fire_department_outlined,
-                activeIcon: Icons.local_fire_department,
-                label: isArabic ? 'التحدي' : 'Sparks',
-                badgeText: '24h',
-                badgeColor: AppColors.accentAmber,
-              ),
-
-              // 3. Center Meme Lab (Elevated Floating Action)
+              // 2. Center Meme Lab (Elevated Floating Action)
               _buildCenterMemeButton(context),
 
-              // 4. Chains
+              // 3. Chains
               _buildNavItem(
                 context,
-                index: 3,
+                index: 2,
                 icon: Icons.alt_route_outlined,
                 activeIcon: Icons.alt_route,
                 label: isArabic ? 'السلاسل' : 'Chains',
               ),
 
-              // 5. Pods (with Live pulsing badge)
+              // 4. Pods (with Live pulsing badge)
               _buildNavItem(
                 context,
-                index: 4,
+                index: 3,
                 icon: Icons.radio_outlined,
                 activeIcon: Icons.radio,
                 label: isArabic ? 'غرف المزاج' : 'Pods',
@@ -160,10 +149,10 @@ class BottomNavBar extends StatelessWidget {
 
   Widget _buildCenterMemeButton(BuildContext context) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final isActive = currentIndex == 2;
+    final isActive = currentIndex == 1;
 
     return GestureDetector(
-      onTap: () => onTap(2),
+      onTap: () => onTap(1),
       child: Transform.translate(
         offset: const Offset(0, -8),
         child: Column(

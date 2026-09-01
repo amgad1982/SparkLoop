@@ -7,7 +7,6 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/glass_container.dart';
 import '../../auth/view_models/auth_view_model.dart';
 import '../../feed/view_models/feed_view_model.dart';
-import '../../sparks/view_models/spark_view_model.dart';
 
 class MemeShareSheet extends StatefulWidget {
   const MemeShareSheet({
@@ -36,13 +35,11 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
   );
 
   bool _isPublishingFeed = false;
-  bool _isPublishingSpark = false;
   bool _isSaving = false;
 
   final List<String> _suggestedHashtags = [
     'SparkLoop',
     'MemeLab',
-    'DailySpark',
     'TechHumor',
     'Gaming',
     'Relatable',
@@ -104,38 +101,6 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
     }
   }
 
-  Future<void> _submitToDailySpark(BuildContext context) async {
-    setState(() => _isPublishingSpark = true);
-    final sparkVm = context.read<SparkViewModel>();
-
-    final success = await sparkVm.submitEntry(
-      caption: _captionController.text.trim(),
-      imageFile: widget.imageFile,
-    );
-
-    if (mounted) {
-      setState(() => _isPublishingSpark = false);
-    }
-    if (context.mounted) {
-      if (success) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Entry submitted to Daily Spark! 🔥'),
-            backgroundColor: AppColors.accentAmber,
-          ),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to submit entry to Daily Spark.'),
-            backgroundColor: AppColors.error,
-          ),
-        );
-      }
-    }
-  }
-
   Future<void> _saveToDevice(BuildContext context) async {
     setState(() => _isSaving = true);
     try {
@@ -172,11 +137,8 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
   @override
   Widget build(BuildContext context) {
     final authVm = context.watch<AuthViewModel>();
-    final sparkVm = context.watch<SparkViewModel>();
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    final activeSpark = sparkVm.activeSpark;
 
     return Container(
       constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.9),
@@ -227,7 +189,7 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
                           style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 17),
                         ),
                         Text(
-                          isArabic ? 'انشر عملك في الخلاصة العامة أو شارك في تحدي السبارك' : 'Publish to Feed, enter Spark contest, or save',
+                          isArabic ? 'انشر عملك في الخلاصة العامة أو احفظه في جهازك' : 'Publish to Feed or save to your device',
                           style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
                         ),
                       ],
@@ -323,33 +285,6 @@ class _MemeShareSheetState extends State<MemeShareSheet> {
                 ),
               ),
               const SizedBox(height: 10),
-
-              // Action 2: Submit to Daily Spark Challenge (if active)
-              if (activeSpark != null) ...[
-                SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: OutlinedButton.icon(
-                    onPressed: _isPublishingSpark ? null : () => _submitToDailySpark(context),
-                    icon: _isPublishingSpark
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.local_fire_department, color: AppColors.accentAmber, size: 18),
-                    label: Text(
-                      isArabic ? 'مشاركة في تحدي السبارك اليومي 🔥' : 'Enter "${activeSpark.title}" 🔥',
-                      style: const TextStyle(color: AppColors.accentAmber, fontWeight: FontWeight.bold, fontSize: 13),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.accentAmber),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-              ],
 
               // Action 3: Save to Device
               SizedBox(

@@ -9,9 +9,6 @@ namespace SparkLoop.Application.EventHandlers;
 /// Domain event handlers responsible for proactive, event-driven cache invalidation across FusionCache L1/L2 and Redis Backplane.
 /// </summary>
 public class CacheInvalidationDomainEventHandlers :
-    INotificationHandler<SparkSubmissionAddedEvent>,
-    INotificationHandler<SparkVoteCastEvent>,
-    INotificationHandler<SparkWinnerSelectedEvent>,
     INotificationHandler<ChainCreatedEvent>,
     INotificationHandler<ChainStepAddedEvent>,
     INotificationHandler<ChainCompletedEvent>,
@@ -29,28 +26,6 @@ public class CacheInvalidationDomainEventHandlers :
     {
         _cacheService = cacheService;
         _logger = logger;
-    }
-
-    public async Task Handle(SparkSubmissionAddedEvent notification, CancellationToken cancellationToken)
-    {
-        _logger.LogDebug("Invalidating active spark cache due to new submission {SubmissionId}", notification.SubmissionId);
-        await _cacheService.RemoveAsync("sparks:active:anon", cancellationToken);
-        await _cacheService.RemoveAsync($"sparks:active:user:{notification.AuthorId}", cancellationToken);
-    }
-
-    public async Task Handle(SparkVoteCastEvent notification, CancellationToken cancellationToken)
-    {
-        _logger.LogDebug("Invalidating active spark cache due to vote by {VoterUserId}", notification.VoterUserId);
-        await _cacheService.RemoveAsync("sparks:active:anon", cancellationToken);
-        await _cacheService.RemoveAsync($"sparks:active:user:{notification.VoterUserId}", cancellationToken);
-    }
-
-    public async Task Handle(SparkWinnerSelectedEvent notification, CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Invalidating active/history sparks and leaderboard cache for resolved spark {SparkId}", notification.SparkId);
-        await _cacheService.RemoveAsync("sparks:active:anon", cancellationToken);
-        await _cacheService.RemoveAsync("sparks:history:anon", cancellationToken);
-        await _cacheService.RemoveAsync("users:top-creators:limit:10", cancellationToken);
     }
 
     public async Task Handle(ChainCreatedEvent notification, CancellationToken cancellationToken)

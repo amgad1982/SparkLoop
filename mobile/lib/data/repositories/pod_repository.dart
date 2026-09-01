@@ -76,6 +76,9 @@ class PodRepository {
   Future<MoodPodDto> joinByCode(String inviteCode) =>
       _apiService.joinPodByCode(inviteCode);
 
+  Future<PodBgMusicStateDto?> getBgMusicState(String podId) =>
+      _apiService.getPodBgMusicState(podId);
+
   Future<String> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) =>
       _apiService.getLiveKitToken(podId, isOnStage: isOnStage, inviteCode: inviteCode);
 

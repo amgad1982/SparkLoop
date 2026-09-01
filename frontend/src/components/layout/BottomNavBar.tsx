@@ -1,9 +1,9 @@
 import React from 'react';
 import { useThemeStore } from '../../stores/useThemeStore';
-import { Flame, GitBranch, MessageSquare, Palette, Radio } from 'lucide-react';
+import { GitBranch, MessageSquare, Palette, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export type TabType = 'feed' | 'sparks' | 'chains' | 'pods' | 'create' | 'profile';
+export type TabType = 'feed' | 'chains' | 'pods' | 'create' | 'profile';
 
 interface BottomNavBarProps {
   activeTab: TabType;
@@ -14,29 +14,22 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeTab, onTabChan
   const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
 
-  const leftTabs = [
+  const leftTabs: { id: TabType; label: string; icon: typeof MessageSquare; badge?: string; badgeColor?: string }[] = [
     {
-      id: 'feed' as TabType,
+      id: 'feed',
       label: isArabic ? 'الرئيسية' : 'Feed',
       icon: MessageSquare,
     },
-    {
-      id: 'sparks' as TabType,
-      label: isArabic ? 'التحدي' : 'Sparks',
-      icon: Flame,
-      badge: '24h',
-      badgeColor: 'bg-amber-500 text-black',
-    },
   ];
 
-  const rightTabs = [
+  const rightTabs: { id: TabType; label: string; icon: typeof GitBranch; badge?: string; badgeColor?: string }[] = [
     {
-      id: 'chains' as TabType,
+      id: 'chains',
       label: isArabic ? 'السلاسل' : 'Chains',
       icon: GitBranch,
     },
     {
-      id: 'pods' as TabType,
+      id: 'pods',
       label: isArabic ? 'غرف المزاج' : 'Pods',
       icon: Radio,
       badge: 'Live',

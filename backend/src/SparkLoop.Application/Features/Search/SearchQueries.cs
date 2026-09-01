@@ -4,7 +4,6 @@ using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Features.Chains;
 using SparkLoop.Application.Features.MoodPods;
 using SparkLoop.Application.Features.Posts;
-using SparkLoop.Application.Features.Sparks;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.UserAggregate;
 
@@ -39,7 +38,6 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
         var users = new List<UserDto>();
         var pods = new List<MoodPodDto>();
         var chains = new List<ChainDto>();
-        var sparks = new List<SparkDto>();
         var hashtags = new List<HashtagDto>();
 
         if (string.IsNullOrWhiteSpace(rawQuery))
@@ -52,7 +50,6 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
                 Users: users,
                 MoodPods: pods,
                 Chains: chains,
-                Sparks: sparks,
                 Hashtags: hashtags
             );
         }
@@ -193,24 +190,7 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
             chains = chainEntities.Select(c => CreateChainCommandHandler.MapToDto(c, currentUserId)).ToList();
         }
 
-        // 5. Search Sparks
-        if (filterType == null || filterType == "all" || filterType == "sparks")
-        {
-            var sparkEntities = await _dbContext.Sparks
-                .Include(s => s.Submissions)
-                    .ThenInclude(sub => sub.Votes)
-                .Where(s =>
-                    s.Title.ToLower().Contains(cleanTag) ||
-                    s.Prompt.ToLower().Contains(cleanTag) ||
-                    s.Category.ToLower().Contains(cleanTag))
-                .OrderByDescending(s => s.ActiveFromUtc)
-                .Take(limit)
-                .ToListAsync(cancellationToken);
-
-            sparks = sparkEntities.Select(s => SparkQueries.MapToDto(s, currentUserId)).ToList();
-        }
-
-        // 6. Search / Extract Hashtags
+        // 5. Search / Extract Hashtags
         if (filterType == null || filterType == "all" || filterType == "hashtags")
         {
             var allPosts = await _dbContext.Posts
@@ -239,7 +219,7 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
                 .ToList();
         }
 
-        var totalCount = posts.Count + users.Count + pods.Count + chains.Count + sparks.Count + hashtags.Count;
+        var totalCount = posts.Count + users.Count + pods.Count + chains.Count + hashtags.Count;
 
         return new GlobalSearchResultDto(
             Query: rawQuery,
@@ -249,7 +229,6 @@ public class GlobalSearchQueryHandler : IRequestHandler<GlobalSearchQuery, Globa
             Users: users,
             MoodPods: pods,
             Chains: chains,
-            Sparks: sparks,
             Hashtags: hashtags
         );
     }

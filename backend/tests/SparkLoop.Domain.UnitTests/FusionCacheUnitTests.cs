@@ -125,34 +125,35 @@ public class FusionCacheUnitTests
     }
 
     [Fact]
-    public async Task CacheInvalidationHandlers_EvictActiveKeysOnDomainEvents()
+    public async Task CacheInvalidationHandlers_EvictActiveChainKeysOnChainStepAddedEvent()
     {
         // Arrange
         var handler = new CacheInvalidationDomainEventHandlers(_cacheService, NullLogger<CacheInvalidationDomainEventHandlers>.Instance);
-        var sparkId = Guid.NewGuid();
+        var chainId = Guid.NewGuid();
         var authorId = Guid.NewGuid();
 
-        // Populate active spark cache
-        await _cacheService.SetAsync("sparks:active:anon", "ActiveSparkDto", TimeSpan.FromMinutes(5));
-        await _cacheService.SetAsync($"sparks:active:user:{authorId}", "UserActiveSparkDto", TimeSpan.FromMinutes(5));
+        // Populate active chain cache
+        await _cacheService.SetAsync("chains:active:anon", "ActiveChainDto", TimeSpan.FromMinutes(5));
+        await _cacheService.SetAsync($"chains:id:{chainId}:user:{authorId}", "UserChainDto", TimeSpan.FromMinutes(5));
 
         // Act - Fire domain event
-        var submissionEvent = new SparkSubmissionAddedEvent(
-            sparkId,
+        var stepEvent = new ChainStepAddedEvent(
+            chainId,
             Guid.NewGuid(),
+            1,
             authorId,
             "alex",
-            "Alex Designer",
-            "avatar.png",
-            "meme.jpg",
-            "Friday Bug"
+            "Round 1 contribution",
+            null,
+            null,
+            10
         );
 
-        await handler.Handle(submissionEvent, CancellationToken.None);
+        await handler.Handle(stepEvent, CancellationToken.None);
 
         // Assert - Both keys should be invalidated
-        var anonCached = await _cacheService.GetAsync<string>("sparks:active:anon");
-        var userCached = await _cacheService.GetAsync<string>($"sparks:active:user:{authorId}");
+        var anonCached = await _cacheService.GetAsync<string>("chains:active:anon");
+        var userCached = await _cacheService.GetAsync<string>($"chains:id:{chainId}:user:{authorId}");
 
         anonCached.Should().BeNull();
         userCached.Should().BeNull();

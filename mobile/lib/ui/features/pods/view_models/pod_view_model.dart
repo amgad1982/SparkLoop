@@ -6,6 +6,20 @@ import '../../../../data/repositories/user_repository.dart';
 import '../../../../data/services/centrifugo_service.dart';
 import '../../../../data/services/livekit_service.dart';
 
+/// Outcome of a [PodViewModel.toggleMic] call so the UI can react (snackbar,
+/// re-enable toggle button, etc.).
+enum MicToggleResult {
+  /// Mic state was successfully toggled.
+  ok,
+
+  /// OS refused the microphone permission (RECORD_AUDIO on Android,
+  /// NSMicrophoneUsageDescription on iOS). The mic stays muted.
+  permissionDenied,
+
+  /// The local user is not a speaker in this pod — toggling has no effect.
+  notSpeaker,
+}
+
 class PodViewModel extends ChangeNotifier {
   final PodRepository _podRepository;
   final UserRepository _userRepository;
@@ -57,7 +71,7 @@ class PodViewModel extends ChangeNotifier {
     _centrifugoService.events.listen(_handleCentrifugoEvent);
   }
 
-  void _handleCentrifugoEvent(CentrifugoEvent event) {
+  void _handleCentrifugoEvent(CentrifugoEvent event) async {
     if (_activePod != null && event.channel == 'pod:${_activePod!.id}') {
       final type = event.data['type'] as String?;
       final signalType = (event.data['signalType'] ?? type) as String?;
@@ -143,15 +157,31 @@ class PodViewModel extends ChangeNotifier {
         final isSpk = (payload['isSpeaking'] ?? event.data['isSpeaking'] as bool?) ?? false;
         final isOnStage = (payload['isOnStage'] ?? event.data['isOnStage'] as bool?) ?? true;
 
-        if (uId != null && isOnStage) {
-          _liveKitService.addOrUpdateSpeaker(LiveKitSpeaker(
-            userId: uId,
-            username: uName,
-            displayName: dName,
-            avatarUrl: avUrl,
-            isSpeaking: isSpk,
-            isMuted: isMt,
-          ));
+        if (uId != null) {
+          // Track everyone (speakers and audience alike) in the participants
+          // registry so the moderator UI can render a complete list.
+          _liveKitService.upsertParticipant(
+            LiveKitSpeaker(
+              userId: uId,
+              username: uName,
+              displayName: dName,
+              avatarUrl: avUrl,
+              isSpeaking: isSpk,
+              isMuted: isMt,
+            ),
+            isOnStage: isOnStage,
+          );
+
+          if (isOnStage) {
+            _liveKitService.addOrUpdateSpeaker(LiveKitSpeaker(
+              userId: uId,
+              username: uName,
+              displayName: dName,
+              avatarUrl: avUrl,
+              isSpeaking: isSpk,
+              isMuted: isMt,
+            ));
+          }
         }
 
         // If another user joined, respond with our presence so they know we are in the room
@@ -179,8 +209,14 @@ class PodViewModel extends ChangeNotifier {
         final uName = (payload['username'] ?? event.data['username'] ?? event.data['senderUsername']) as String?;
         if (uId != null && uId.isNotEmpty) {
           _liveKitService.removeSpeaker(uId, uName);
+          _liveKitService.removeParticipant(uId);
         } else if (uName != null && uName.isNotEmpty) {
           _liveKitService.removeSpeaker('', uName);
+          // Best-effort username-based cleanup of the participant map.
+          _liveKitService.participants
+              .where((p) => p.username.toLowerCase() == uName.toLowerCase())
+              .toList()
+              .forEach((p) => _liveKitService.removeParticipant(p.userId));
         }
       }
       // 8. Hand Raise Queue
@@ -210,6 +246,9 @@ class PodViewModel extends ChangeNotifier {
 
         final isFromSelf = (senderId != null && senderId == _localUserId) ||
             (senderUsername != null && senderUsername.toLowerCase() == _localUsername?.toLowerCase());
+
+        debugPrint('Voice stream: inbound chunk from $senderUsername ($senderId), '
+            'isFromSelf=$isFromSelf, len=${audioBase64?.length ?? 0}');
 
         if (!isFromSelf && audioBase64 != null && audioBase64.isNotEmpty && senderId != null) {
           _liveKitService.playRemoteAudioChunk(senderId, audioBase64);
@@ -276,6 +315,22 @@ class PodViewModel extends ChangeNotifier {
             moderatorUserIds: _activePod!.moderatorUserIds.where((id) => id != targetUserId).toList(),
           );
           notifyListeners();
+        } else if (action == 'kick' &&
+            targetUserId != null &&
+            targetUserId == _localUserId &&
+            _activePod != null) {
+          // We were kicked by a moderator — drop out of the room and surface
+          // a notification. The host's UI stays as-is; only the affected
+          // user leaves.
+          debugPrint('Received kick from moderator for pod ${_activePod!.id}');
+          await leaveActivePod();
+        } else if (action == 'remote_mute' && targetUserId != null && _activePod != null) {
+          // Update the affected speaker's status so the moderator sees
+          // immediate feedback. Real audio muting on the target device
+          // requires a per-user audio session that we don't wire here;
+          // for now we just reflect the intent in the UI.
+          _liveKitService.setSpeakerStatus(targetUserId, isMuted: true);
+          notifyListeners();
         }
       }
       // 11. Pod Lifecycle Closure
@@ -319,7 +374,17 @@ class PodViewModel extends ChangeNotifier {
       _activePod = await _podRepository.getMoodPodById(podId, inviteCode: inviteCode);
       _isHost = _activePod?.hostUserId == currentUserId;
       _isModerator = _isHost || (_activePod?.moderatorUserIds.contains(currentUserId) ?? false);
-      _chatMessages.clear();
+
+      // Seed the in-memory chat with the last 50 messages returned by the
+      // backend so a late joiner can see what's been said before they arrived.
+      // We preserve any pending optimistic messages we sent (id starts with
+      // "opt_"); the Centrifugo handler will dedup them against the server-
+      // confirmed copy via the (userId, content) match when it arrives.
+      final pendingOptimistic = _chatMessages.where((m) => m.id.startsWith('opt_')).toList();
+      _chatMessages
+        ..clear()
+        ..addAll(_activePod?.recentMessages ?? const <PodChatMessageDto>[])
+        ..addAll(pendingOptimistic);
       _handRaisedUsers.clear();
 
       _centrifugoService.subscribe('pod:$podId');
@@ -369,6 +434,13 @@ class PodViewModel extends ChangeNotifier {
         },
       );
 
+      // Hydrate BG-music state so a late joiner hears whatever was already
+      // playing when they arrived. Without this, the only audio source
+      // would be real-time chunks *after* the joiner subscribes — anything
+      // emitted before they connected is lost. The endpoint returns 204
+      // when nothing is currently playing.
+      await _hydrateBgMusicState(podId);
+
       return true;
     } catch (e) {
       debugPrint('Error joining mood pod: $e');
@@ -376,6 +448,52 @@ class PodViewModel extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Fetches the active BG-music state from the backend and applies it to the
+  /// local LiveKitService so the joiner immediately hears the same track.
+  /// Safe to call when nothing is playing (no-op).
+  Future<void> _hydrateBgMusicState(String podId) async {
+    try {
+      final state = await _podRepository.getBgMusicState(podId);
+      if (state == null || !state.isPlaying) return;
+
+      debugPrint('Hydrating BG music state for pod $podId: ${state.trackTitle}');
+
+      _liveKitService.setBgMusicTitle(state.trackTitle ?? 'Ambient Session');
+
+      // Try to match by presetId first, then by title. This mirrors the
+      // realtime Centrifugo handler so behaviour is consistent.
+      PresetVibe? matchedPreset;
+      if (state.presetId != null && state.presetId!.isNotEmpty) {
+        matchedPreset =
+            presetVibes.where((p) => p.id == state.presetId).firstOrNull;
+      }
+      matchedPreset ??= presetVibes
+          .where((p) =>
+              p.title == state.trackTitle ||
+              (state.trackTitle?.contains(p.title) ?? false))
+          .firstOrNull;
+
+      if (matchedPreset != null) {
+        await _liveKitService.playPresetTrack(
+          matchedPreset,
+          djUserId: state.djUserId ?? 'remote-dj',
+          djUsername: state.djUsername ?? state.djDisplayName ?? 'DJ',
+          djAvatarUrl: state.djAvatarUrl,
+        );
+      } else if (state.trackUrl != null && state.trackUrl!.isNotEmpty) {
+        await _liveKitService.playRemoteTrack(
+          state.trackUrl!,
+          state.trackTitle ?? 'Ambient Session',
+          djUserId: state.djUserId ?? 'remote-dj',
+          djUsername: state.djUsername ?? state.djDisplayName ?? 'DJ',
+          djAvatarUrl: state.djAvatarUrl,
+        );
+      }
+    } catch (e) {
+      debugPrint('Hydrating BG music state failed: $e');
     }
   }
   Future<MoodPodDto?> joinByCode(
@@ -419,7 +537,35 @@ class PodViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleMic({required String currentUserId}) async {
+  /// Toggles the local microphone. Returns a small status enum so the UI can
+  /// surface a snackbar explaining what happened (e.g. when the OS denies the
+  /// permission request).
+  Future<MicToggleResult> toggleMic({required String currentUserId}) async {
+    final wasMuted = _liveKitService.isMicMuted;
+
+    // Refuse early when the local user is not a speaker in this pod — toggling
+    // would be a no-op and we don't want to bother the user with a permission
+    // dialog or a misleading "unmuted" icon.
+    if (wasMuted && !_liveKitService.isSpeaker) {
+      return MicToggleResult.notSpeaker;
+    }
+
+    // If the user is trying to *unmute*, first make sure the OS has granted
+    // RECORD_AUDIO / NSMicrophoneUsageDescription. Without this explicit
+    // request the OS dialog never appears on Android 6+ and the mic
+    // silently stays off.
+    if (wasMuted) {
+      final granted = await _liveKitService.requestMicPermission();
+      if (!granted) {
+        // Make sure the internal state stays consistent (we never unmute
+        // when permission is denied).
+        if (!_liveKitService.isMicMuted) {
+          _liveKitService.toggleMute(currentUserId);
+        }
+        return MicToggleResult.permissionDenied;
+      }
+    }
+
     _liveKitService.toggleMute(currentUserId);
     final isMuted = _liveKitService.isMicMuted;
     final isSpeaking = !isMuted;
@@ -439,6 +585,7 @@ class PodViewModel extends ChangeNotifier {
         debugPrint('Error syncing speaking status: $e');
       }
     }
+    return MicToggleResult.ok;
   }
 
   Future<void> sendChatMessage(

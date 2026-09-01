@@ -4,7 +4,6 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { Tooltip } from '../ui/Tooltip';
 import {
-  Flame,
   GitBranch,
   Languages,
   LogIn,
@@ -40,13 +39,6 @@ export const DesktopSidebar: React.FC<DesktopSidebarProps> = ({
       label: isArabic ? 'الرئيسية' : 'Feed',
       icon: MessageSquare,
       desc: isArabic ? 'موجز التدوينات والميمز' : 'Micro-posts & Media',
-    },
-    {
-      id: 'sparks' as TabType,
-      label: isArabic ? 'تحدي اليوم' : 'Daily Sparks',
-      icon: Flame,
-      badge: '24h',
-      desc: isArabic ? 'تحدي إبداعي متزامن' : '24h Global Challenge',
     },
     {
       id: 'chains' as TabType,

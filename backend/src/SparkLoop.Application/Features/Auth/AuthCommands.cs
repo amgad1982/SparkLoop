@@ -1208,8 +1208,6 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
         var userChainsCount = 0;
         var recentChainDtos = new List<ChainDto>();
 
-        var sparksWon = 0;
-
         if (canViewFullProfile)
         {
             var userPosts = await _dbContext.Posts
@@ -1273,9 +1271,6 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
                     s.CreatedAtUtc
                 )).ToList()
             )).ToList();
-
-            sparksWon = await _dbContext.Sparks
-                .CountAsync(s => s.WinnerUserId == user.Id, cancellationToken);
         }
 
         var showBadges = isSelf || user.ShowBadges;
@@ -1305,7 +1300,6 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
         var effectivePostsCount = showStats ? postsCount : 0;
         var effectiveReactionsCount = showStats ? totalReactions : 0;
         var effectiveChainsCount = showStats ? userChainsCount : 0;
-        var effectiveSparksWon = showStats ? sparksWon : 0;
 
         var showBio = isSelf || user.ShowBio;
         var effectiveBio = showBio ? user.Bio : null;
@@ -1361,7 +1355,6 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
             effectivePostsCount,
             effectiveReactionsCount,
             effectiveChainsCount,
-            effectiveSparksWon,
             recentPostDtos,
             recentChainDtos,
             user.PreferredTheme,

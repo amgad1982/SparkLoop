@@ -5,14 +5,13 @@ import { DesktopSidebar } from './DesktopSidebar';
 import { RightWidgetPanel } from './RightWidgetPanel';
 import { BottomNavBar, TabType } from './BottomNavBar';
 import { RTLProvider } from './RTLProvider';
-import { SparkDto, MoodPodDto, UserDto } from '../../types/api';
+import { MoodPodDto, UserDto } from '../../types/api';
 import { api } from '../../services/apiClient';
 
 interface MobileAppShellProps {
   activeTab: TabType;
   onTabChange: (tab: TabType) => void;
   isConnected?: boolean;
-  activeSpark?: SparkDto | null;
   pods?: MoodPodDto[];
   onOpenSearch?: () => void;
   onSelectHashtag?: (tag: string) => void;
@@ -23,7 +22,6 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
   activeTab,
   onTabChange,
   isConnected = true,
-  activeSpark,
   pods = [],
   onOpenSearch,
   onSelectHashtag,
@@ -77,7 +75,6 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
 
           {/* 3. Right Sticky Widget Panel (Desktop >= 1280px) */}
           <RightWidgetPanel
-            activeSpark={activeSpark}
             pods={pods}
             topCreators={topCreators}
             onNavigateTab={onTabChange}

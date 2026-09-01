@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import '../../../../data/models/pod_models.dart';
 import '../../../../data/services/livekit_service.dart';
@@ -27,6 +28,30 @@ const List<Map<String, String>> soundboardEffects = [
   {'id': 'gasp', 'name': 'Audience Gasp', 'emoji': '😱', 'arName': 'شهقة ذهول'},
 ];
 
+/// Custom painter that draws the small triangular tail that makes a bubble
+/// look like WhatsApp. [mirror] flips horizontally for the self side.
+class _BubbleTailPainter extends CustomPainter {
+  _BubbleTailPainter({required this.color, required this.mirror});
+
+  final Color color;
+  final bool mirror;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = color;
+    final path = Path()
+      ..moveTo(mirror ? 0 : size.width, 0)
+      ..lineTo(mirror ? size.width : 0, size.height * 0.4)
+      ..lineTo(mirror ? size.width : 0, size.height)
+      ..close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BubbleTailPainter oldDelegate) =>
+      oldDelegate.color != color || oldDelegate.mirror != mirror;
+}
+
 class PodRoomScreen extends StatefulWidget {
   const PodRoomScreen({super.key, required this.podId});
 
@@ -40,6 +65,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Timer? _countdownTimer;
+  bool _showAllSpeakers = false;
 
   @override
   void initState() {
@@ -347,31 +373,35 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             ],
           ),
           actions: [
-            // DJ Background Music Booth Trigger
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(6),
-              constraints: const BoxConstraints(),
-              icon: Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: liveKit.isBgMusicActive
-                      ? const Color(0xFFD946EF).withValues(alpha: 0.25)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                  border: liveKit.isBgMusicActive
-                      ? Border.all(color: const Color(0xFFD946EF))
-                      : null,
+            // DJ Background Music Booth Trigger (host/moderator only).
+            // Non-mods can still hear whatever the host/DJ plays via the
+            // Centrifugo broadcast, but they can't open the picker or hijack
+            // the queue themselves.
+            if (podVm.isHost || podVm.isModerator)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
+                icon: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: liveKit.isBgMusicActive
+                        ? const Color(0xFFD946EF).withValues(alpha: 0.25)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(10),
+                    border: liveKit.isBgMusicActive
+                        ? Border.all(color: const Color(0xFFD946EF))
+                        : null,
+                  ),
+                  child: Icon(
+                    Icons.album,
+                    color: liveKit.isBgMusicActive ? const Color(0xFFD946EF) : Colors.white70,
+                    size: 20,
+                  ),
                 ),
-                child: Icon(
-                  Icons.album,
-                  color: liveKit.isBgMusicActive ? const Color(0xFFD946EF) : Colors.white70,
-                  size: 20,
-                ),
+                tooltip: isArabic ? 'كابينة الـ DJ وموسيقى الخلفية' : 'DJ Background Music',
+                onPressed: () => PodBgMusicModal.show(context),
               ),
-              tooltip: isArabic ? 'كابينة الـ DJ وموسيقى الخلفية' : 'DJ Background Music',
-              onPressed: () => PodBgMusicModal.show(context),
-            ),
             if (podVm.handRaisedUsers.isNotEmpty)
               IconButton(
                 visualDensity: VisualDensity.compact,
@@ -383,13 +413,15 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                 ),
                 onPressed: () => _showHandRaiseQueue(context),
               ),
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              padding: const EdgeInsets.all(6),
-              constraints: const BoxConstraints(),
-              icon: const Icon(Icons.tune, color: AppColors.accentEmerald),
-              onPressed: () => PodModerationSheet.show(context),
-            ),
+            if (podVm.isHost || podVm.isModerator)
+              IconButton(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.all(6),
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.tune, color: AppColors.accentEmerald),
+                tooltip: isArabic ? 'إدارة الحجرة' : 'Moderate Pod',
+                onPressed: () => PodModerationSheet.show(context),
+              ),
             IconButton(
               visualDensity: VisualDensity.compact,
               padding: const EdgeInsets.all(6),
@@ -461,18 +493,18 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                       ),
                     ),
 
-                  // 1. Stage Area (Speakers)
+                  // 1. Stage Area (Speakers) — compact, expandable
                   Expanded(
-                    flex: 5,
+                    flex: 2,
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       child: _buildStageGrid(context, pod, liveKit, isArabic),
                     ),
                   ),
 
-                  // 2. Chat / Event Stream
+                  // 2. Chat / Event Stream — taller, WhatsApp-style bubbles
                   Expanded(
-                    flex: 4,
+                    flex: 7,
                     child: Container(
                       margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                       child: _buildChatSection(context, podVm, isArabic),
@@ -523,173 +555,253 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     final speakers = liveKit.speakers;
 
     return GlassContainer(
-      padding: const EdgeInsets.all(14),
-      borderRadius: 24,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      borderRadius: 18,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Compact header row with title, count, and expand button
           Row(
             children: [
-              const Icon(Icons.mic, size: 14, color: AppColors.accentEmerald),
-              const SizedBox(width: 6),
+              const Icon(Icons.mic, size: 13, color: AppColors.accentEmerald),
+              const SizedBox(width: 5),
               Text(
-                isArabic ? 'منصة المتحدثين (${speakers.length})' : 'Speakers Stage (${speakers.length})',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                isArabic ? 'المتحدثون (${speakers.length})' : 'Speakers (${speakers.length})',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
               ),
               const Spacer(),
               if (pod.isPrivate)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  margin: const EdgeInsets.only(right: 4),
                   decoration: BoxDecoration(
                     color: AppColors.primary.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(5),
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.lock, size: 10, color: AppColors.primaryLight),
-                      const SizedBox(width: 3),
+                      const Icon(Icons.lock, size: 9, color: AppColors.primaryLight),
+                      const SizedBox(width: 2),
                       Text(
                         pod.inviteCode.isNotEmpty ? pod.inviteCode : 'PRIVATE',
-                        style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
+                        style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
                       ),
                     ],
                   ),
                 ),
+              InkWell(
+                borderRadius: BorderRadius.circular(6),
+                onTap: speakers.isEmpty ? null : () => setState(() => _showAllSpeakers = !_showAllSpeakers),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: speakers.isEmpty
+                        ? Colors.transparent
+                        : AppColors.accentEmerald.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _showAllSpeakers ? Icons.close_fullscreen : Icons.open_in_full,
+                        size: 10,
+                        color: speakers.isEmpty ? Colors.grey : AppColors.accentEmerald,
+                      ),
+                      const SizedBox(width: 3),
+                      Text(
+                        _showAllSpeakers
+                            ? (isArabic ? 'إخفاء' : 'Hide')
+                            : (isArabic ? 'الكل' : 'All'),
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: speakers.isEmpty ? Colors.grey : AppColors.accentEmerald,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
+          // Compact speaker strip — small avatars; toggles to a wrap-grid when "All" is pressed.
           Expanded(
             child: speakers.isEmpty
                 ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.mic_none, size: 32, color: Colors.grey.withValues(alpha: 0.4)),
-                        const SizedBox(height: 6),
-                        Text(
-                          isArabic ? 'لا يوجد متحدثون على المنصة حالياً' : 'No speakers on stage currently',
-                          style: TextStyle(fontSize: 11.5, color: Colors.grey.withValues(alpha: 0.6)),
-                        ),
-                      ],
+                    child: Text(
+                      isArabic ? 'لا يوجد متحدثون' : 'No speakers yet',
+                      style: TextStyle(fontSize: 10.5, color: Colors.grey.withValues(alpha: 0.6)),
                     ),
                   )
-                : GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 0.88,
-                    ),
-                    itemCount: speakers.length,
-                    itemBuilder: (context, index) {
-                      final speaker = speakers[index];
-                      final isHostUser = (speaker.userId.isNotEmpty && speaker.userId == pod.hostUserId) ||
-                          (speaker.username.isNotEmpty && speaker.username.toLowerCase() == pod.hostUsername.toLowerCase());
-
-                      final authVm = context.read<AuthViewModel>();
-                      final isSelf = (speaker.userId.isNotEmpty &&
-                              (speaker.userId == authVm.currentUser?.id || speaker.userId == authVm.currentPersona.id)) ||
-                          (speaker.username.isNotEmpty &&
-                              (speaker.username.toLowerCase() == authVm.currentUser?.username.toLowerCase() ||
-                               speaker.username.toLowerCase() == authVm.currentPersona.username.toLowerCase()));
-
-                      final resolvedAvatar = isSelf
-                          ? (authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl)
-                          : (speaker.avatarUrl?.isNotEmpty == true
-                              ? speaker.avatarUrl
-                              : (isHostUser ? pod.hostAvatarUrl : null));
-
-                      return _buildSpeakerAvatar(
-                        username: speaker.username,
-                        displayName: speaker.displayName,
-                        avatarUrl: resolvedAvatar,
-                        isHost: isHostUser,
-                        isMuted: speaker.isMuted,
-                        isSpeaking: speaker.isSpeaking,
-                      );
-                    },
-                  ),
+                : (_showAllSpeakers
+                    ? SingleChildScrollView(
+                        child: Wrap(
+                          spacing: 10,
+                          runSpacing: 6,
+                          alignment: WrapAlignment.start,
+                          children: speakers.map((speaker) {
+                            return _buildSpeakerListItem(
+                              context: context,
+                              speaker: speaker,
+                              pod: pod,
+                            );
+                          }).toList(),
+                        ),
+                      )
+                    : ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: speakers.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final speaker = speakers[index];
+                          return _buildSpeakerListItem(
+                            context: context,
+                            speaker: speaker,
+                            pod: pod,
+                          );
+                        },
+                      )),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSpeakerAvatar({
-    required String username,
-    required String displayName,
-    String? avatarUrl,
-    required bool isHost,
-    required bool isMuted,
-    required bool isSpeaking,
+  /// Builds one compact speaker tile used in both the horizontal strip (collapsed) and
+/// the wrap-grid (expanded). Computes host/self/avatar from the speaker + pod.
+  Widget _buildSpeakerListItem({
+    required BuildContext context,
+    required LiveKitSpeaker speaker,
+    required MoodPodDto pod,
   }) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.all(3),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSpeaking ? AppColors.accentEmerald : Colors.transparent,
-                  width: 2.5,
-                ),
-              ),
-              child: AvatarBadge(
-                avatarUrl: avatarUrl,
-                username: username,
-                size: 48,
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              right: 0,
-              child: Container(
-                width: 18,
-                height: 18,
+    final isHostUser = (speaker.userId.isNotEmpty && speaker.userId == pod.hostUserId) ||
+        (speaker.username.isNotEmpty && speaker.username.toLowerCase() == pod.hostUsername.toLowerCase());
+
+    final authVm = context.read<AuthViewModel>();
+    final isSelf = (speaker.userId.isNotEmpty &&
+            (speaker.userId == authVm.currentUser?.id || speaker.userId == authVm.currentPersona.id)) ||
+        (speaker.username.isNotEmpty &&
+            (speaker.username.toLowerCase() == authVm.currentUser?.username.toLowerCase() ||
+             speaker.username.toLowerCase() == authVm.currentPersona.username.toLowerCase()));
+
+    final resolvedAvatar = isSelf
+        ? (authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl)
+        : (speaker.avatarUrl?.isNotEmpty == true
+            ? speaker.avatarUrl
+            : (isHostUser ? pod.hostAvatarUrl : null));
+
+    return SizedBox(
+      width: 52,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(2),
                 decoration: BoxDecoration(
-                  color: isMuted ? AppColors.error : AppColors.accentEmerald,
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black, width: 1.5),
-                ),
-                child: Icon(
-                  isMuted ? Icons.mic_off : Icons.mic,
-                  size: 10,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-            if (isHost)
-              Positioned(
-                top: -4,
-                left: -4,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: AppColors.accentAmber,
-                    shape: BoxShape.circle,
+                  border: Border.all(
+                    color: speaker.isSpeaking ? AppColors.accentEmerald : Colors.transparent,
+                    width: 2,
                   ),
-                  child: const Icon(Icons.star, size: 10, color: Colors.black),
+                ),
+                child: AvatarBadge(
+                  avatarUrl: resolvedAvatar,
+                  username: speaker.username,
+                  size: 30,
                 ),
               ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        Text(
-          displayName,
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+              Positioned(
+                bottom: -1,
+                right: -1,
+                child: Container(
+                  width: 13,
+                  height: 13,
+                  decoration: BoxDecoration(
+                    color: speaker.isMuted ? AppColors.error : AppColors.accentEmerald,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 1.2),
+                  ),
+                  child: Icon(
+                    speaker.isMuted ? Icons.mic_off : Icons.mic,
+                    size: 7,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              if (isHostUser)
+                Positioned(
+                  top: -3,
+                  left: -3,
+                  child: Container(
+                    padding: const EdgeInsets.all(1.5),
+                    decoration: const BoxDecoration(
+                      color: AppColors.accentAmber,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.star, size: 8, color: Colors.black),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            speaker.displayName.isNotEmpty ? speaker.displayName : speaker.username,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 9,
+              color: isSelf ? AppColors.primaryLight : Colors.white,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildChatSection(BuildContext context, PodViewModel podVm, bool isArabic) {
+    final authVm = context.read<AuthViewModel>();
+    final currentUserId = authVm.currentUser?.id ?? authVm.currentPersona.id;
+    final messages = podVm.chatMessages;
+
+    // Build a flat list of widgets interleaving "day separator" pills with the
+    // chat bubbles, so a user sees WhatsApp-style "Today" / "Yesterday"
+    // markers whenever the chat crosses midnight.
+    final List<Widget> items = [];
+    DateTime? lastDay;
+    for (var i = 0; i < messages.length; i++) {
+      final msg = messages[i];
+      final localCreated = msg.createdAtUtc.toLocal();
+      final dayKey = DateTime(localCreated.year, localCreated.month, localCreated.day);
+      if (lastDay == null || _isDifferentLocalDay(lastDay, dayKey)) {
+        items.add(_buildDaySeparator(context, msg.createdAtUtc, isArabic));
+        lastDay = dayKey;
+      }
+
+      final isSelf = msg.userId == currentUserId ||
+          (msg.userId.isNotEmpty && msg.userId == authVm.currentPersona.id);
+      final prev = i > 0 ? messages[i - 1] : null;
+      final showHeader = prev == null ||
+          prev.userId != msg.userId ||
+          prev.displayName != msg.displayName;
+
+      items.add(_buildChatBubble(
+        context: context,
+        msg: msg,
+        isSelf: isSelf,
+        showHeader: showHeader,
+        isArabic: isArabic,
+      ));
+    }
+
     return GlassContainer(
       padding: const EdgeInsets.all(10),
       borderRadius: 20,
@@ -697,28 +809,10 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         children: [
           Expanded(
             child: ListView.builder(
-              reverse: true,
-              itemCount: podVm.chatMessages.length,
-              itemBuilder: (context, index) {
-                final msg = podVm.chatMessages[podVm.chatMessages.length - 1 - index];
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 2.5),
-                  child: RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: '${msg.displayName}: ',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppColors.primaryLight),
-                        ),
-                        TextSpan(
-                          text: msg.content,
-                          style: const TextStyle(fontSize: 11.5, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+              reverse: false,
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemCount: items.length,
+              itemBuilder: (context, index) => items[index],
             ),
           ),
           const SizedBox(height: 6),
@@ -749,6 +843,242 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         ],
       ),
     );
+  }
+
+  /// Builds one WhatsApp-style chat bubble. Self messages align right with a
+  /// WhatsApp-accurate indigo-blue fill; incoming messages align left with a
+  /// neutral surface fill. Consecutive messages from the same sender omit the
+  /// avatar + name row. Includes a small tail, inline time + status row, and
+  /// muted sender color — all matching the WhatsApp visual language.
+  Widget _buildChatBubble({
+    required BuildContext context,
+    required PodChatMessageDto msg,
+    required bool isSelf,
+    required bool showHeader,
+    required bool isArabic,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final timeText = _formatBubbleTime(msg.createdAtUtc);
+    final isPending = msg.id.startsWith('opt_');
+
+    // WhatsApp-accurate palette.
+    final Color bubbleColor = isSelf
+        ? const Color(0xFF1F4F8A)
+        : (isDark ? const Color(0xFF262D31) : const Color(0xFFFFFFFF));
+    final Color textColor = isSelf
+        ? Colors.white
+        : (isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21));
+    final Color metaColor = isSelf
+        ? Colors.white.withValues(alpha: 0.72)
+        : (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781));
+    final Color nameColor = isDark ? const Color(0xFF25D366) : const Color(0xFF1F4F8A);
+    final Color borderColor = isSelf
+        ? Colors.transparent
+        : (isDark ? Colors.transparent : const Color(0xFFE9EDEF));
+
+    final align = (isSelf == isArabic)
+        ? Alignment.centerLeft
+        : Alignment.centerRight;
+    final bubbleMaxWidth = MediaQuery.of(context).size.width * 0.75;
+
+    final avatar = showHeader
+        ? Padding(
+            padding: const EdgeInsets.only(top: 2, right: 6),
+            child: AvatarBadge(avatarUrl: msg.avatarUrl, username: msg.username, size: 28),
+          )
+        : const SizedBox(width: 34);
+    final avatarPlaceholder = const SizedBox(width: 34);
+
+    final senderHeader = showHeader
+        ? Padding(
+            padding: const EdgeInsets.only(left: 2, bottom: 2),
+            child: Text(
+              msg.displayName.isNotEmpty ? msg.displayName : msg.username,
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 11, color: nameColor),
+            ),
+          )
+        : const SizedBox.shrink();
+
+    final tail = Positioned(
+      bottom: 0,
+      left: isSelf ? null : -6,
+      right: isSelf ? -6 : null,
+      child: IgnorePointer(
+        child: CustomPaint(
+          size: const Size(8, 10),
+          painter: _BubbleTailPainter(color: bubbleColor, mirror: isSelf),
+        ),
+      ),
+    );
+
+    final bubble = Container(
+      constraints: BoxConstraints(maxWidth: bubbleMaxWidth, minWidth: 0),
+      margin: EdgeInsets.only(top: showHeader ? 4 : 1, bottom: 1),
+      decoration: BoxDecoration(
+        color: bubbleColor,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(8),
+          topRight: const Radius.circular(8),
+          bottomLeft: Radius.circular(isSelf ? 8 : 2),
+          bottomRight: Radius.circular(isSelf ? 2 : 8),
+        ),
+        border: isSelf ? null : Border.all(color: borderColor, width: isDark ? 0 : 1),
+        boxShadow: isSelf
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.06),
+                  blurRadius: 1,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+      ),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(10, 5, 10, 5),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  msg.content,
+                  style: TextStyle(fontSize: 14, height: 1.25, color: textColor),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (isPending) ...[
+                      SizedBox(
+                        width: 9,
+                        height: 9,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 1.4,
+                          valueColor: AlwaysStoppedAnimation<Color>(metaColor),
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                    ] else if (isSelf) ...[
+                      Icon(Icons.done, size: 13, color: metaColor),
+                      const SizedBox(width: 1),
+                      Icon(Icons.done, size: 13, color: metaColor),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      timeText,
+                      style: TextStyle(fontSize: 10.5, color: metaColor, height: 1),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          tail,
+        ],
+      ),
+    );
+
+    final rowContent = Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        if (!isSelf) ...[avatar, const SizedBox(width: 2)],
+        ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: isSelf ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              if (!isSelf) senderHeader,
+              bubble,
+            ],
+          ),
+        ),
+        if (isSelf) ...[const SizedBox(width: 2), avatarPlaceholder],
+      ],
+    );
+
+    return Align(
+      alignment: align,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        child: rowContent,
+      ),
+    );
+  }
+
+  /// Formats the message timestamp as HH:mm in local time.
+  String _formatBubbleTime(DateTime utc) {
+    final local = utc.toLocal();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
+  }
+
+
+  /// WhatsApp-style day separator pill ("Today", "Yesterday", "12 Aug 2026").
+  /// Build above the first message of each day in the chat list.
+  Widget _buildDaySeparator(BuildContext context, DateTime utc, bool isArabic) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final local = utc.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final msgDay = DateTime(local.year, local.month, local.day);
+    final diff = today.difference(msgDay).inDays;
+
+    final String label;
+    if (diff == 0) {
+      label = isArabic ? 'اليوم' : 'Today';
+    } else if (diff == 1) {
+      label = isArabic ? 'أمس' : 'Yesterday';
+    } else {
+      label = isArabic
+          ? '${local.day}/${local.month}/${local.year}'
+          : '${local.day} ${_monthShortEn(local.month)} ${local.year}';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: isDark
+                ? const Color(0xFF1F2C33)
+                : const Color(0xFFE9EDF0),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: isDark ? const Color(0xFFB5BAC0) : const Color(0xFF54656F),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  static const List<String> _enMonths = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+
+  String _monthShortEn(int month) {
+    if (month < 1 || month > 12) return '';
+    return _enMonths[month - 1];
+  }
+
+  /// Returns true if [a] and [b] fall on different calendar days in local time.
+  /// Used to decide when to insert a day separator between messages.
+  bool _isDifferentLocalDay(DateTime a, DateTime b) {
+    final la = a.toLocal();
+    final lb = b.toLocal();
+    return la.year != lb.year || la.month != lb.month || la.day != lb.day;
   }
 
   Widget _buildSoundEffectsBar(BuildContext context, PodViewModel podVm) {
@@ -805,7 +1135,43 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         children: [
           // Mic Mute Toggle
           IconButton.filled(
-            onPressed: () => podVm.toggleMic(currentUserId: currentUserId),
+            onPressed: () async {
+              final result = await podVm.toggleMic(currentUserId: currentUserId);
+              if (!context.mounted) return;
+              switch (result) {
+                case MicToggleResult.permissionDenied:
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: AppColors.error,
+                      duration: const Duration(seconds: 6),
+                      content: Text(
+                        isArabic
+                            ? 'يجب السماح بالميكروفون للتحدث في الغرفة'
+                            : 'Microphone permission is required to speak in this pod. Please enable it from system settings.',
+                      ),
+                      action: SnackBarAction(
+                        label: isArabic ? 'الإعدادات' : 'Settings',
+                        textColor: Colors.white,
+                        onPressed: () => openAppSettings(),
+                      ),
+                    ),
+                  );
+                  break;
+                case MicToggleResult.notSpeaker:
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        isArabic
+                            ? 'اطلب الإذن من المنصة للصعود إلى المنصة'
+                            : 'Ask the host to put you on stage before unmuting.',
+                      ),
+                    ),
+                  );
+                  break;
+                case MicToggleResult.ok:
+                  break;
+              }
+            },
             icon: Icon(liveKit.isMuted ? Icons.mic_off : Icons.mic, size: 18),
             style: IconButton.styleFrom(
               backgroundColor: liveKit.isMuted ? AppColors.surfaceDarkElevated : AppColors.accentEmerald,

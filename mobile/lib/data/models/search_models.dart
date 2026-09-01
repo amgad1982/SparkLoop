@@ -2,7 +2,6 @@ import 'auth_models.dart';
 import 'chain_models.dart';
 import 'pod_models.dart';
 import 'post_models.dart';
-import 'spark_models.dart';
 
 class GlobalSearchResultDto {
   final String query;
@@ -11,7 +10,6 @@ class GlobalSearchResultDto {
   final List<UserDto> users;
   final List<String> hashtags;
   final List<MoodPodDto> pods;
-  final List<SparkDto> sparks;
   final List<ChainDto> chains;
 
   const GlobalSearchResultDto({
@@ -21,7 +19,6 @@ class GlobalSearchResultDto {
     this.users = const [],
     this.hashtags = const [],
     this.pods = const [],
-    this.sparks = const [],
     this.chains = const [],
   });
 
@@ -44,10 +41,6 @@ class GlobalSearchResultDto {
           [],
       pods: (json['moodPods'] as List<dynamic>? ?? json['pods'] as List<dynamic>?)
               ?.map((e) => MoodPodDto.fromJson(e as Map<String, dynamic>))
-              .toList() ??
-          [],
-      sparks: (json['sparks'] as List<dynamic>?)
-              ?.map((e) => SparkDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       chains: (json['chains'] as List<dynamic>?)

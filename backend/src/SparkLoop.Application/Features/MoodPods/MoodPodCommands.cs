@@ -405,17 +405,20 @@ public class SendPodBgMusicCommandHandler : IRequestHandler<SendPodBgMusicComman
     private readonly ICurrentUserService _currentUserService;
     private readonly ICurrentEnvironment _environment;
     private readonly IAppDbContext _dbContext;
+    private readonly PodBgMusicStateStore _stateStore;
 
     public SendPodBgMusicCommandHandler(
         ICentrifugoService centrifugoService,
         ICurrentUserService currentUserService,
         ICurrentEnvironment environment,
-        IAppDbContext dbContext)
+        IAppDbContext dbContext,
+        PodBgMusicStateStore stateStore)
     {
         _centrifugoService = centrifugoService;
         _currentUserService = currentUserService;
         _environment = environment;
         _dbContext = dbContext;
+        _stateStore = stateStore;
     }
 
     public async Task<bool> Handle(SendPodBgMusicCommand request, CancellationToken cancellationToken)
@@ -455,7 +458,51 @@ public class SendPodBgMusicCommandHandler : IRequestHandler<SendPodBgMusicComman
         };
 
         await _centrifugoService.PublishAsync(channel, bgMusicEvent, cancellationToken);
+
+        // Persist the latest state so users who join *after* this event was
+        // broadcast can still hydrate from /api/pods/{id}/bg-music-state and
+        // start playing the same ambient track. Without this, late joiners
+        // stay silent until the DJ presses something again.
+        var actionLower = (request.Action ?? string.Empty).Trim().ToLowerInvariant();
+        if (actionLower == "play" && !string.IsNullOrWhiteSpace(request.TrackTitle))
+        {
+            _stateStore.Set(request.PodId, new PodBgMusicStateDto(
+                PodId: request.PodId,
+                Action: "play",
+                TrackTitle: request.TrackTitle,
+                TrackUrl: request.TrackUrl,
+                PresetId: request.PresetId,
+                CurrentTime: request.CurrentTime,
+                Duration: request.Duration,
+                DjUserId: userId,
+                DjUsername: username,
+                DjDisplayName: displayName,
+                DjAvatarUrl: avatarUrl,
+                UpdatedAtUtc: DateTime.UtcNow));
+        }
+        else if (actionLower == "stop" || actionLower == "pause")
+        {
+            _stateStore.Clear(request.PodId, actionLower);
+        }
+
         return true;
+    }
+}
+
+public record GetPodBgMusicStateQuery(Guid PodId) : IRequest<PodBgMusicStateDto?>;
+
+public class GetPodBgMusicStateQueryHandler : IRequestHandler<GetPodBgMusicStateQuery, PodBgMusicStateDto?>
+{
+    private readonly PodBgMusicStateStore _stateStore;
+
+    public GetPodBgMusicStateQueryHandler(PodBgMusicStateStore stateStore)
+    {
+        _stateStore = stateStore;
+    }
+
+    public Task<PodBgMusicStateDto?> Handle(GetPodBgMusicStateQuery request, CancellationToken cancellationToken)
+    {
+        return Task.FromResult(_stateStore.Get(request.PodId));
     }
 }
 
