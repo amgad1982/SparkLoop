@@ -110,9 +110,12 @@ ingress:
    - Ensure the request body size allows at least **15 MB** for meme image and audio uploads (Cloudflare Free tier default is 100 MB).
 3. **Disable Rocket Loader for API & WebSockets**:
    - Navigate to **Speed** $\rightarrow$ **Optimization** $\rightarrow$ Ensure Rocket Loader is **Disabled** or excluded for `sloopapi.mydev-lab.com` and `sloopws.mydev-lab.com`.
-4. **WebRTC Media (LiveKit Voice Streaming)**:
-   - Cloudflare HTTP Tunnels route TCP/HTTP/WS traffic. Standard WebRTC voice audio packets use **UDP**.
-   - In your host/router firewall, forward **UDP ports `50000-50050`** to your host server.
+4. **WebRTC Media & TURN (LiveKit Voice Streaming)**:
+   - Cloudflare HTTP Tunnels route TCP/HTTP/WS traffic (used for LiveKit signaling on `slooplive.mydev-lab.com` port 7880). Standard WebRTC voice audio packets use **direct UDP**.
+   - In your host/router firewall, forward:
+     - **UDP port `7882`**: LiveKit single-port WebRTC media multiplexer.
+     - **TCP port `7881`**: WebRTC TCP fallback (for strict networks where UDP is blocked).
+     - **UDP/TCP port `3478`**: Built-in STUN/TURN server for NAT traversal.
 
 ---
 

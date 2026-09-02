@@ -3,9 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:record/record.dart';
 
 import 'sound_synth_service.dart';
 
@@ -84,7 +83,16 @@ class LiveKitService extends ChangeNotifier {
   }
 
   static String resolveWsUrl({String? customHost}) {
-    if (customHost != null && customHost.isNotEmpty) return customHost;
+    if (customHost != null && customHost.isNotEmpty) {
+      if (!kIsWeb && Platform.isAndroid) {
+        return customHost
+            .replaceAll('ws://localhost:', 'ws://10.0.2.2:')
+            .replaceAll('ws://127.0.0.1:', 'ws://10.0.2.2:')
+            .replaceAll('http://localhost:', 'http://10.0.2.2:')
+            .replaceAll('http://127.0.0.1:', 'http://10.0.2.2:');
+      }
+      return customHost;
+    }
     return defaultWsUrl;
   }
 
@@ -93,9 +101,6 @@ class LiveKitService extends ChangeNotifier {
 
   AudioPlayer? _sfxPlayer;
   AudioPlayer get sfxPlayer => _sfxPlayer ??= _createSfxPlayer();
-
-  AudioPlayer? _voicePlayer;
-  AudioPlayer get voicePlayer => _voicePlayer ??= _createVoicePlayer();
 
   AudioPlayer _createAudioPlayer() {
     final player = AudioPlayer();
@@ -133,19 +138,18 @@ class LiveKitService extends ChangeNotifier {
     return player;
   }
 
-  AudioPlayer _createVoicePlayer() {
-    final player = AudioPlayer();
-    try {
-      player.setReleaseMode(ReleaseMode.stop);
-    } catch (_) {}
-    return player;
-  }
+  // LiveKit Room & Native WebRTC Engine
+  Room? _room;
+  Room? get room => _room;
+  EventsListener<RoomEvent>? _roomListener;
 
   bool _isInRoom = false;
   bool get isInRoom => _isInRoom;
 
   String? _currentRoomId;
   String? get currentRoomId => _currentRoomId;
+
+  String? _localUserId;
 
   bool _isMicMuted = true;
   bool get isMicMuted => _isMicMuted;
@@ -190,33 +194,8 @@ class LiveKitService extends ChangeNotifier {
   bool _isBgMusicMuted = false;
   bool get isBgMusicMuted => _isBgMusicMuted;
 
-  Timer? _speakingSimTimer;
-
-  // Lightweight registry of every user we know is currently in the pod,
-  // regardless of whether they're on stage or just listening. Populated from
-  // STAGE_JOIN / STAGE_PRESENCE / STAGE_LEAVE signals and used by the
-  // moderator UI to render the full participants list (not just speakers).
   final Map<String, LiveKitSpeaker> _participants = {};
   List<LiveKitSpeaker> get participants => _participants.values.toList();
-
-  void upsertParticipant(LiveKitSpeaker speaker, {bool isOnStage = true}) {
-    _participants[speaker.userId] = speaker.copyWith(
-      // The "isMuted" field is overloaded here as "is on stage" so the
-      // moderator list can be sorted/styled correctly. Real mute status is
-      // tracked separately per-speaker.
-      isMuted: speaker.isMuted,
-    );
-    if (isOnStage) {
-      // Also keep the dedicated speakers map up to date.
-      addOrUpdateSpeaker(speaker);
-    }
-    notifyListeners();
-  }
-
-  void removeParticipant(String userId) {
-    _participants.remove(userId);
-    notifyListeners();
-  }
 
   LiveKitService({AudioPlayer? audioPlayer, AudioPlayer? sfxPlayer}) {
     if (audioPlayer != null) {
@@ -230,6 +209,258 @@ class LiveKitService extends ChangeNotifier {
     }
   }
 
+  void upsertParticipant(LiveKitSpeaker speaker, {bool isOnStage = true}) {
+    _participants[speaker.userId] = speaker.copyWith(
+      isMuted: speaker.isMuted,
+    );
+    if (isOnStage) {
+      addOrUpdateSpeaker(speaker);
+    }
+    notifyListeners();
+  }
+
+  void removeParticipant(String userId) {
+    _participants.remove(userId);
+    notifyListeners();
+  }
+
+  void addOrUpdateSpeaker(LiveKitSpeaker speaker) {
+    _speakers[speaker.userId] = speaker;
+    notifyListeners();
+  }
+
+  void removeSpeaker(String userId, [String? username]) {
+    if (userId.isNotEmpty) {
+      _speakers.remove(userId);
+    }
+    if (username != null && username.isNotEmpty) {
+      _speakers.removeWhere((k, v) => v.username.toLowerCase() == username.toLowerCase());
+    }
+    notifyListeners();
+  }
+
+  void setSpeakerStatus(String userId, {bool? isSpeaking, bool? isMuted}) {
+    if (_speakers.containsKey(userId)) {
+      _speakers[userId] = _speakers[userId]!.copyWith(
+        isSpeaking: isSpeaking,
+        isMuted: isMuted,
+      );
+      notifyListeners();
+    }
+  }
+
+  /// Connects to a LiveKit voice room using real WebRTC audio streaming.
+  /// Automatically uses LiveKit built-in STUN/TURN for NAT traversal.
+  Future<void> connectToRoom({
+    required String podId,
+    required String token,
+    required String wsUrl,
+    required String currentUserId,
+    required String currentUsername,
+    required String currentDisplayName,
+    String? currentAvatarUrl,
+    bool asSpeaker = false,
+  }) async {
+    leaveRoom();
+
+    _currentRoomId = podId;
+    _localUserId = currentUserId;
+    _isSpeaker = asSpeaker;
+    _isMicMuted = !asSpeaker;
+    _isInRoom = true;
+
+    // Register local user in participants
+    final localSpeaker = LiveKitSpeaker(
+      userId: currentUserId,
+      username: currentUsername,
+      displayName: currentDisplayName,
+      avatarUrl: currentAvatarUrl,
+      isSpeaking: false,
+      isMuted: _isMicMuted,
+    );
+    upsertParticipant(localSpeaker, isOnStage: asSpeaker);
+
+    try {
+      final room = Room(
+        roomOptions: const RoomOptions(
+          adaptiveStream: true,
+          dynacast: true,
+          defaultAudioPublishOptions: AudioPublishOptions(
+            dtx: true,
+          ),
+        ),
+      );
+
+      _room = room;
+      _roomListener = room.createListener();
+
+      _roomListener!
+        ..on<ActiveSpeakersChangedEvent>((event) {
+          final activeIds = event.speakers.map((s) => s.identity).toSet();
+          for (final id in _speakers.keys) {
+            final isNowSpeaking = activeIds.contains(id);
+            if (_speakers[id]?.isSpeaking != isNowSpeaking) {
+              _speakers[id] = _speakers[id]!.copyWith(isSpeaking: isNowSpeaking);
+            }
+          }
+          notifyListeners();
+        })
+        ..on<TrackSubscribedEvent>((event) {
+          _syncParticipantFromLiveKit(event.participant);
+          notifyListeners();
+        })
+        ..on<TrackUnsubscribedEvent>((event) {
+          notifyListeners();
+        })
+        ..on<ParticipantConnectedEvent>((event) {
+          _syncParticipantFromLiveKit(event.participant);
+          notifyListeners();
+        })
+        ..on<ParticipantDisconnectedEvent>((event) {
+          removeParticipant(event.participant.identity);
+          removeSpeaker(event.participant.identity);
+          notifyListeners();
+        })
+        ..on<RoomDisconnectedEvent>((event) {
+          _isInRoom = false;
+          notifyListeners();
+        });
+
+      final effectiveWsUrl = resolveWsUrl(customHost: wsUrl);
+      debugPrint('Connecting to LiveKit: $effectiveWsUrl for pod $podId');
+      await room.connect(effectiveWsUrl, token);
+
+      // Sync existing remote participants
+      for (final participant in room.remoteParticipants.values) {
+        _syncParticipantFromLiveKit(participant);
+      }
+
+      // If user is on stage, acquire mic
+      if (asSpeaker && !_isMicMuted) {
+        final granted = await requestMicPermission();
+        if (granted) {
+          await room.localParticipant?.setMicrophoneEnabled(true);
+        } else {
+          _isMicMuted = true;
+        }
+      }
+    } catch (e) {
+      debugPrint('LiveKit connection error: $e');
+    }
+
+    notifyListeners();
+  }
+
+  void _syncParticipantFromLiveKit(Participant participant) {
+    String username = participant.name.isNotEmpty ? participant.name : participant.identity;
+    String displayName = participant.name.isNotEmpty ? participant.name : username;
+    String? avatarUrl;
+    bool isOnStage = participant.audioTrackPublications.isNotEmpty;
+
+    if (participant.metadata != null && participant.metadata!.isNotEmpty) {
+      try {
+        final meta = jsonDecode(participant.metadata!);
+        if (meta is Map<String, dynamic>) {
+          username = meta['username'] as String? ?? username;
+          displayName = meta['displayName'] as String? ?? displayName;
+          avatarUrl = meta['avatarUrl'] as String? ?? avatarUrl;
+          if (meta.containsKey('isOnStage')) {
+            isOnStage = meta['isOnStage'] == true || isOnStage;
+          }
+        }
+      } catch (_) {}
+    }
+
+    final speaker = LiveKitSpeaker(
+      userId: participant.identity,
+      username: username,
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+      isSpeaking: participant.isSpeaking,
+      isMuted: !participant.isSpeaking,
+    );
+
+    upsertParticipant(speaker, isOnStage: isOnStage);
+  }
+
+  Future<void> toggleMute([String? currentUserId]) async {
+    _isMicMuted = !_isMicMuted;
+    final targetId = currentUserId ?? _localUserId;
+    if (targetId != null && _speakers.containsKey(targetId)) {
+      _speakers[targetId] = _speakers[targetId]!.copyWith(
+        isMuted: _isMicMuted,
+        isSpeaking: !_isMicMuted,
+      );
+    }
+
+    if (_room?.localParticipant != null) {
+      if (!_isMicMuted) {
+        final granted = await requestMicPermission();
+        if (granted) {
+          await _room!.localParticipant?.setMicrophoneEnabled(true);
+        } else {
+          _isMicMuted = true;
+        }
+      } else {
+        await _room!.localParticipant?.setMicrophoneEnabled(false);
+      }
+    }
+    notifyListeners();
+  }
+
+  Future<bool> requestMicPermission() async {
+    if (kIsWeb) return false;
+
+    try {
+      final status = await Permission.microphone.status;
+      if (status.isGranted) return true;
+
+      final result = await Permission.microphone.request();
+      return result.isGranted;
+    } catch (e) {
+      debugPrint('Error requesting mic permission: $e');
+      return false;
+    }
+  }
+
+  void leaveRoom() {
+    _isInRoom = false;
+    _currentRoomId = null;
+    _localUserId = null;
+    _speakers.clear();
+    _participants.clear();
+    _isMicMuted = true;
+    _isSpeaker = false;
+    _isBgMusicActive = false;
+    _isBgMusicPlaying = false;
+    _djUserId = null;
+    _djUsername = null;
+    _djAvatarUrl = null;
+    notifyListeners();
+
+    unawaited(_disconnectRoom());
+  }
+
+  Future<void> _disconnectRoom() async {
+    try {
+      await _roomListener?.dispose();
+      _roomListener = null;
+      await _room?.disconnect();
+      await _room?.dispose();
+      _room = null;
+    } catch (_) {}
+
+    try {
+      _audioPlayer?.stop();
+    } catch (_) {}
+  }
+
+  // Deprecated fallback for backward compatibility
+  void playRemoteAudioChunk(String senderId, String base64Data) {
+    // No-op: LiveKit WebRTC handles real-time audio streams directly
+  }
+
+  // Sound Effects & DJ Background Music
   Future<void> playSoundEffect(String effectName) async {
     try {
       final wavBytes = SoundSynthService.getSoundEffectWav(effectName);
@@ -263,6 +494,35 @@ class LiveKitService extends ChangeNotifier {
       } catch (_) {}
     }
     notifyListeners();
+  }
+
+  void setBgMusicTitle(String title) {
+    _bgMusicTitle = title;
+    notifyListeners();
+  }
+
+  Future<void> playRemoteTrack(
+    String url,
+    String title, {
+    required String djUserId,
+    required String djUsername,
+    String? djAvatarUrl,
+  }) async {
+    try {
+      _isBgMusicActive = true;
+      _isBgMusicPlaying = true;
+      _djUserId = djUserId;
+      _djUsername = djUsername;
+      _djAvatarUrl = djAvatarUrl;
+      _bgMusicTitle = title;
+
+      await audioPlayer.stop();
+      await audioPlayer.play(UrlSource(url));
+      await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error playing remote DJ track: $e');
+    }
   }
 
   Future<void> playPresetTrack(
@@ -308,38 +568,22 @@ class LiveKitService extends ChangeNotifier {
       final file = File(filePath);
       if (await file.exists()) {
         final bytes = await file.readAsBytes();
-        String ext = 'mp3';
         String mime = 'audio/mpeg';
 
         if (bytes.length >= 4) {
           if (bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46) {
-            ext = 'wav';
             mime = 'audio/wav';
           } else if (bytes.length >= 8 && bytes[4] == 0x66 && bytes[5] == 0x74 && bytes[6] == 0x79 && bytes[7] == 0x70) {
-            ext = 'm4a';
-            mime = 'audio/aac';
-          } else if (filePath.toLowerCase().endsWith('.wav')) {
-            ext = 'wav';
-            mime = 'audio/wav';
-          } else if (filePath.toLowerCase().endsWith('.m4a') || filePath.toLowerCase().endsWith('.aac')) {
-            ext = 'm4a';
             mime = 'audio/aac';
           }
         }
 
-        final tempDir = Directory.systemTemp;
-        final safeFile = File('${tempDir.path}/pod_track_${DateTime.now().millisecondsSinceEpoch}.$ext');
-        await safeFile.writeAsBytes(bytes);
-
-        await audioPlayer.play(DeviceFileSource(safeFile.path, mimeType: mime));
-      } else {
-        await audioPlayer.play(DeviceFileSource(filePath));
+        await audioPlayer.play(BytesSource(bytes, mimeType: mime));
+        await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
+        notifyListeners();
       }
-
-      await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
-      notifyListeners();
     } catch (e) {
-      debugPrint('Error playing local audio track: $e');
+      debugPrint('Error playing local audio file: $e');
     }
   }
 
@@ -349,18 +593,17 @@ class LiveKitService extends ChangeNotifier {
       _isBgMusicPlaying = false;
       notifyListeners();
     } catch (e) {
-      debugPrint('Error pausing DJ track: $e');
+      debugPrint('Error pausing background music: $e');
     }
   }
 
   Future<void> resumeBgMusic() async {
     try {
       await audioPlayer.resume();
-      await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
       _isBgMusicPlaying = true;
       notifyListeners();
     } catch (e) {
-      debugPrint('Error resuming DJ track: $e');
+      debugPrint('Error resuming background music: $e');
     }
   }
 
@@ -374,349 +617,35 @@ class LiveKitService extends ChangeNotifier {
       _djAvatarUrl = null;
       notifyListeners();
     } catch (e) {
-      debugPrint('Error stopping DJ track: $e');
+      debugPrint('Error stopping background music: $e');
     }
   }
 
   void setBgMusicVolume(double volume) {
     _bgMusicVolume = volume.clamp(0.0, 1.0);
-    _isBgMusicMuted = false;
-    try {
-      audioPlayer.setVolume(_bgMusicVolume);
-    } catch (e) {
-      debugPrint('Error setting audio player volume: $e');
+    if (_isBgMusicActive && !_isBgMusicMuted) {
+      try {
+        audioPlayer.setVolume(_bgMusicVolume);
+      } catch (_) {}
     }
     notifyListeners();
   }
 
   void toggleBgMusicMute() {
     _isBgMusicMuted = !_isBgMusicMuted;
-    try {
-      audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
-    } catch (_) {}
-    notifyListeners();
-  }
-
-  void setBgMusicTitle(String title) {
-    _bgMusicTitle = title;
-    notifyListeners();
-  }
-
-  void toggleBgMusic() {
-    if (_isBgMusicPlaying) {
-      pauseBgMusic();
-    } else {
-      resumeBgMusic();
-    }
-  }
-
-  String? _localUserId;
-  String? get localUserId => _localUserId;
-
-  Future<void> playRemoteTrack(
-    String url,
-    String title, {
-    required String djUserId,
-    required String djUsername,
-    String? djAvatarUrl,
-  }) async {
-    try {
-      _isBgMusicActive = true;
-      _isBgMusicPlaying = true;
-      _djUserId = djUserId;
-      _djUsername = djUsername;
-      _djAvatarUrl = djAvatarUrl;
-      _bgMusicTitle = title;
-
-      await audioPlayer.stop();
-      await audioPlayer.play(UrlSource(url));
-      await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error playing remote DJ track: $e');
-    }
-  }
-
-  final AudioRecorder _recorder = AudioRecorder();
-  void Function(String base64, int chunkIndex, int durationMs)? onAudioChunkReady;
-  bool _isRecordingVoice = false;
-  int _chunkCounter = 0;
-
-  final List<Uint8List> _audioQueue = [];
-  bool _isPlayingVoiceQueue = false;
-
-  Future<void> connectToRoom({
-    required String podId,
-    required String token,
-    required String wsUrl,
-    required String currentUserId,
-    required String currentUsername,
-    required String currentDisplayName,
-    String? currentAvatarUrl,
-    bool asSpeaker = false,
-  }) async {
-    _currentRoomId = podId;
-    _localUserId = currentUserId;
-    _isSpeaker = asSpeaker;
-    _isMicMuted = !asSpeaker;
-    _isInRoom = true;
-    _chunkCounter = 0;
-
-    // Add self to room speakers if speaker role
-    if (asSpeaker) {
-      _speakers[currentUserId] = LiveKitSpeaker(
-        userId: currentUserId,
-        username: currentUsername,
-        displayName: currentDisplayName,
-        avatarUrl: currentAvatarUrl,
-        isSpeaking: false,
-        isMuted: _isMicMuted,
-      );
-
-      if (!_isMicMuted) {
-        _startVoiceStreamingLoop();
-      }
-    }
-
-    notifyListeners();
-  }
-
-  void addOrUpdateSpeaker(LiveKitSpeaker speaker) {
-    _speakers[speaker.userId] = speaker;
-    notifyListeners();
-  }
-
-  void removeSpeaker(String userId, [String? username]) {
-    if (userId.isNotEmpty) {
-      _speakers.remove(userId);
-    }
-    if (username != null && username.isNotEmpty) {
-      _speakers.removeWhere((k, v) => v.username.toLowerCase() == username.toLowerCase());
-    }
-    notifyListeners();
-  }
-
-  void setSpeakerStatus(String userId, {bool? isSpeaking, bool? isMuted}) {
-    if (_speakers.containsKey(userId)) {
-      _speakers[userId] = _speakers[userId]!.copyWith(
-        isSpeaking: isSpeaking,
-        isMuted: isMuted,
-      );
-      notifyListeners();
-    }
-  }
-
-  void toggleMute([String? currentUserId]) {
-    _isMicMuted = !_isMicMuted;
-    final targetId = currentUserId ?? _localUserId;
-    if (targetId != null && _speakers.containsKey(targetId)) {
-      _speakers[targetId] = _speakers[targetId]!.copyWith(
-        isMuted: _isMicMuted,
-        isSpeaking: !_isMicMuted,
-      );
-    }
-    if (!_isMicMuted && _isSpeaker && _isInRoom) {
-      _startVoiceStreamingLoop();
-    } else {
-      _stopVoiceStreamingLoop();
-    }
-    notifyListeners();
-  }
-
-  Future<void> _startVoiceStreamingLoop() async {
-    if (_isRecordingVoice || _isMicMuted || !_isInRoom || !_isSpeaker) return;
-    _isRecordingVoice = true;
-
-    try {
-      // requestMicPermission() opens the system runtime permission dialog on
-      // Android 6+ (API 23+) where RECORD_AUDIO is a dangerous permission.
-      // The record package's hasPermission() is read-only and never triggers
-      // the prompt, which is why we layer permission_handler on top.
-      final granted = await requestMicPermission();
-      if (!granted) {
-        _isRecordingVoice = false;
-        notifyListeners();
-        return;
-      }
-
-      while (!_isMicMuted && _isInRoom && _isSpeaker && _isRecordingVoice) {
-        final tempDir = await getTemporaryDirectory();
-        final chunkPath = '${tempDir.path}/mic_${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-        await _recorder.start(
-          const RecordConfig(
-            encoder: AudioEncoder.aacLc,
-            sampleRate: 24000,
-            bitRate: 32000,
-            numChannels: 1,
-          ),
-          path: chunkPath,
-        );
-
-        await Future.delayed(const Duration(milliseconds: 1200));
-
-        if (!_isRecordingVoice || _isMicMuted || !_isInRoom) {
-          try {
-            await _recorder.stop();
-          } catch (_) {}
-          break;
-        }
-
-        final recordedPath = await _recorder.stop();
-        if (recordedPath != null) {
-          final file = File(recordedPath);
-          if (await file.exists()) {
-            final bytes = await file.readAsBytes();
-            if (bytes.isNotEmpty) {
-              final b64 = base64Encode(bytes);
-              debugPrint('Voice stream: captured chunk #$_chunkCounter ($bytes bytes)');
-              onAudioChunkReady?.call(b64, _chunkCounter++, 1200);
-            } else {
-              debugPrint('Voice stream: chunk file was empty (mic may be muted)');
-            }
-            try {
-              await file.delete();
-            } catch (_) {}
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('Voice streaming recording error: $e');
-    } finally {
-      _isRecordingVoice = false;
-    }
-  }
-
-  Future<void> _stopVoiceStreamingLoop() async {
-    _isRecordingVoice = false;
-    try {
-      if (await _recorder.isRecording()) {
-        await _recorder.stop();
-      }
-    } catch (_) {}
-  }
-
-  /// Requests the platform's microphone permission (RECORD_AUDIO on Android,
-  /// NSMicrophoneUsageDescription on iOS) and returns true once granted.
-  ///
-  /// Why this exists:
-  /// - `record: ^7.x`'s `AudioRecorder.hasPermission()` is a *read-only*
-  ///   check — it reports the current grant but never opens the OS prompt.
-  /// - On Android 6+ (API 23+) `RECORD_AUDIO` is a runtime dangerous
-  ///   permission; without an explicit request the first unmute silently
-  ///   fails because the dialog never appears.
-  /// - On iOS the Info.plist `NSMicrophoneUsageDescription` still has to be
-  ///   present (already added) but iOS auto-prompts on first AVCaptureSession
-  ///   use; we still funnel through permission_handler for consistency.
-  Future<bool> requestMicPermission() async {
-    // Web: navigator.mediaDevices.getUserMedia() — not supported here, fail loud.
-    if (kIsWeb) return false;
-
-    try {
-      // On Android 12+ the `microphone` permission is a normal runtime
-      // permission; on Android <12 permission_handler transparently maps it
-      // to the legacy RECORD_AUDIO dangerous permission.
-      final status = await Permission.microphone.status;
-      if (status.isGranted) return true;
-
-      final result = await Permission.microphone.request();
-      return result.isGranted;
-    } catch (e) {
-      debugPrint('Error requesting mic permission: $e');
-      return false;
-    }
-  }
-
-  Future<void> playRemoteAudioChunk(String senderId, String base64Data) async {
-    try {
-      final bytes = base64Decode(base64Data);
-      if (bytes.isEmpty) return;
-
-      debugPrint('Voice stream: received chunk from $senderId (${bytes.length} bytes)');
-
-      // Highlight sender as actively speaking in UI
-      setSpeakerStatus(senderId, isSpeaking: true);
-
-      _audioQueue.add(bytes);
-      if (!_isPlayingVoiceQueue) {
-        _processVoiceQueue();
-      }
-
-      // Reset speaking aura after chunk ends
-      Future.delayed(const Duration(milliseconds: 1400), () {
-        if (!_isPlayingVoiceQueue) {
-          setSpeakerStatus(senderId, isSpeaking: false);
-        }
-      });
-    } catch (e) {
-      debugPrint('Error handling remote audio chunk: $e');
-    }
-  }
-
-  Future<void> _processVoiceQueue() async {
-    if (_isPlayingVoiceQueue || _audioQueue.isEmpty) return;
-    _isPlayingVoiceQueue = true;
-
-    while (_audioQueue.isNotEmpty && _isInRoom) {
-      final chunk = _audioQueue.removeAt(0);
+    if (_isBgMusicActive) {
       try {
-        final tempDir = await getTemporaryDirectory();
-        final tempFile = File('${tempDir.path}/remote_${DateTime.now().millisecondsSinceEpoch}.m4a');
-        await tempFile.writeAsBytes(chunk);
-
-        await voicePlayer.stop();
-        await voicePlayer.setVolume(_isAudioMuted ? 0.0 : _roomVolume);
-        await voicePlayer.play(DeviceFileSource(tempFile.path, mimeType: 'audio/aac'));
-
-        await voicePlayer.onPlayerComplete.first.timeout(
-          const Duration(milliseconds: 1500),
-          onTimeout: () => null,
-        );
-
-        try {
-          await tempFile.delete();
-        } catch (_) {}
-      } catch (e) {
-        debugPrint('Error playing voice chunk: $e');
-      }
+        audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
+      } catch (_) {}
     }
-
-    _isPlayingVoiceQueue = false;
-  }
-
-  void leaveRoom() {
-    _stopVoiceStreamingLoop();
-    _speakingSimTimer?.cancel();
-    try {
-      _audioPlayer?.stop();
-      _voicePlayer?.stop();
-    } catch (_) {}
-    _audioQueue.clear();
-    _isPlayingVoiceQueue = false;
-    _isInRoom = false;
-    _currentRoomId = null;
-    _localUserId = null;
-    _speakers.clear();
-    _participants.clear();
-    _isMicMuted = true;
-    _isSpeaker = false;
-    _isBgMusicActive = false;
-    _isBgMusicPlaying = false;
-    _djUserId = null;
-    _djUsername = null;
-    _djAvatarUrl = null;
-    onAudioChunkReady = null;
     notifyListeners();
   }
 
   @override
   void dispose() {
-    _stopVoiceStreamingLoop();
-    _speakingSimTimer?.cancel();
+    leaveRoom();
     try {
-      _recorder.dispose();
       _audioPlayer?.dispose();
-      _voicePlayer?.dispose();
       _sfxPlayer?.dispose();
     } catch (_) {}
     super.dispose();

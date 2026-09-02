@@ -1,5 +1,8 @@
 {
   "admin": true,
+  "engine": "redis",
+  "redis_address": "sparkloop-redis:6379",
+  "redis_db": 2,
   "token_hmac_secret_key": "sparkloop_centrifugo_secret_jwt_key_2026_super_secure",
   "admin_password": "sparkloop_admin_password_123",
   "admin_secret": "sparkloop_admin_secret_key_2026_super_secure",
@@ -18,7 +21,7 @@
     "http://*.mydev-lab.com"
   ],
   "allow_anonymous_connect_with_empty_token": true,
-  "allow_subscribe_for_client": true,
+  "allow_subscribe_for_client": false,
   "client_presence": true,
   "namespaces": [
     {
@@ -41,24 +44,25 @@
       "name": "pod",
       "presence": true,
       "join_leave": true,
-      "history_size": 200,
-      "history_ttl": "24h",
+      "history_size": 100,
+      "history_ttl": "6h",
       "allow_subscribe_for_client": true,
       "allow_publish_for_client": false
     },
     {
       "name": "feed",
       "presence": true,
-      "history_size": 100,
-      "history_ttl": "24h",
+      "history_size": 50,
+      "history_ttl": "12h",
       "allow_subscribe_for_client": true,
       "allow_publish_for_client": false
     },
     {
       "name": "user",
       "presence": false,
-      "history_size": 50,
+      "history_size": 20,
       "history_ttl": "24h",
+      "allow_user_limited_channels": true,
       "allow_subscribe_for_client": true,
       "allow_publish_for_client": false
     }

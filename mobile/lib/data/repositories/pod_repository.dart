@@ -79,7 +79,7 @@ class PodRepository {
   Future<PodBgMusicStateDto?> getBgMusicState(String podId) =>
       _apiService.getPodBgMusicState(podId);
 
-  Future<String> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) =>
+  Future<({String token, String? serverUrl})> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) =>
       _apiService.getLiveKitToken(podId, isOnStage: isOnStage, inviteCode: inviteCode);
 
   Future<PodChatMessageDto> sendMessage(String podId, String content) =>

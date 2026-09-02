@@ -46,6 +46,9 @@ services:
     command: centrifugo -c /centrifugo/config.json
     ports:
       - "8000:8000"
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
       interval: 5s
@@ -75,13 +78,21 @@ services:
     image: livekit/livekit-server:latest
     container_name: sparkloop-livekit
     restart: unless-stopped
-    command: --dev --bind 0.0.0.0 --port 7880
+    volumes:
+      - ./livekit.yaml:/livekit.yaml:ro
+    command: --config /livekit.yaml
     ports:
       - "7880:7880"
       - "7881:7881/tcp"
-      - "50000-50050:50000-50050/udp"
+      - "7882:7882/udp"
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+      - "5349:5349/tcp"
     environment:
       LIVEKIT_KEYS: "sparkloop_livekit_key: sparkloop_livekit_secret_2026_super_secure_32chars"
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:7880/"]
       interval: 5s

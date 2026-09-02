@@ -169,39 +169,40 @@ public record SendPodSpeakingStatusCommand(
 
 public class SendPodSpeakingStatusCommandHandler : IRequestHandler<SendPodSpeakingStatusCommand, bool>
 {
-    private readonly IAppDbContext _dbContext;
+    private readonly ICentrifugoService _centrifugoService;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICurrentEnvironment _environment;
 
-    public SendPodSpeakingStatusCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService, ICurrentEnvironment environment)
+    public SendPodSpeakingStatusCommandHandler(ICentrifugoService centrifugoService, ICurrentUserService currentUserService, ICurrentEnvironment environment)
     {
-        _dbContext = dbContext;
+        _centrifugoService = centrifugoService;
         _currentUserService = currentUserService;
         _environment = environment;
     }
 
     public async Task<bool> Handle(SendPodSpeakingStatusCommand request, CancellationToken cancellationToken)
     {
-        var pod = await _dbContext.MoodPods
-            .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
-            ?? throw new NotFoundException("MoodPod", request.PodId);
-
-        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.BobId, "broadcast speaking status");
+        var resolvedUserId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.BobId, "broadcast speaking status");
+        var userId = resolvedUserId.ToString();
         var username = _currentUserService.Username ?? "sparkguest";
         var displayName = _currentUserService.DisplayName ?? username;
         var avatarUrl = _currentUserService.AvatarUrl;
 
-        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-        if (user is not null)
+        var channel = $"pod:{request.PodId}";
+        var payload = new
         {
-            username = user.Username.Value;
-            displayName = user.DisplayName ?? username;
-            avatarUrl = user.AvatarUrl ?? avatarUrl;
-        }
+            type = "SPEAKING_STATUS",
+            podId = request.PodId,
+            userId = userId,
+            username = username,
+            displayName = displayName,
+            avatarUrl = avatarUrl,
+            isSpeaking = request.IsSpeaking,
+            isMuted = request.IsMuted,
+            timestamp = DateTime.UtcNow
+        };
 
-        pod.BroadcastSpeakingStatus(userId, username, displayName, avatarUrl, request.IsSpeaking, request.IsMuted);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
+        await _centrifugoService.PublishAsync(channel, payload, cancellationToken);
         return true;
     }
 }

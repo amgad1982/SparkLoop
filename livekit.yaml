@@ -1,0 +1,45 @@
+# ==============================================================================
+# LiveKit Server Configuration (SparkLoop Production & Development)
+# ==============================================================================
+
+port: 7880
+bind_addresses:
+  - "0.0.0.0"
+
+rtc:
+  # Single UDP port multiplexing (all WebRTC media flows through 7882)
+  udp_port: 7882
+  # TCP fallback port when UDP is blocked by strict firewalls
+  tcp_port: 7881
+  # Automatically resolve public IP for ICE candidates
+  use_external_ip: true
+
+# Redis integration for multi-node room distribution and cluster state
+redis:
+  address: "sparkloop-redis:6379"
+  username: ""
+  password: ""
+  db: 1
+
+# High-Performance Embedded STUN / TURN Server
+turn:
+  enabled: true
+  domain: "slooplive.mydev-lab.com"
+  udp_port: 3478
+  tls_port: 5349
+  external_tls: false
+
+# API Authentication Keys
+keys:
+  sparkloop_livekit_key: "sparkloop_livekit_secret_2026_super_secure_32chars"
+
+# Room and Participant Lifecycle Webhook Dispatcher
+webhook:
+  api_key: "sparkloop_livekit_key"
+  urls:
+    - "http://sparkloop-backend:5000/api/livekit/webhook"
+
+logging:
+  json: false
+  level: info
+

@@ -54,6 +54,7 @@ dependencies:
   flutter_svg: ^2.0.17
   file_picker: ^12.1.2
   permission_handler: ^11.3.1
+  livekit_client: ^2.4.0
 
 dev_dependencies:
   flutter_test:

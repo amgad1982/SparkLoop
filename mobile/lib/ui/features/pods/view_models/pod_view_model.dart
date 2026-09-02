@@ -238,21 +238,9 @@ class PodViewModel extends ChangeNotifier {
           notifyListeners();
         }
       }
-      // 9. Real-time Audio Chunks from Speakers
+      // 9. Real-time Audio Chunks from Speakers (Deprecated in favor of LiveKit WebRTC)
       else if (type == 'AUDIO_CHUNK') {
-        final senderId = (event.data['senderId'] ?? event.data['userId']) as String?;
-        final senderUsername = (event.data['senderUsername'] ?? event.data['username']) as String?;
-        final audioBase64 = event.data['audioBase64'] as String?;
-
-        final isFromSelf = (senderId != null && senderId == _localUserId) ||
-            (senderUsername != null && senderUsername.toLowerCase() == _localUsername?.toLowerCase());
-
-        debugPrint('Voice stream: inbound chunk from $senderUsername ($senderId), '
-            'isFromSelf=$isFromSelf, len=${audioBase64?.length ?? 0}');
-
-        if (!isFromSelf && audioBase64 != null && audioBase64.isNotEmpty && senderId != null) {
-          _liveKitService.playRemoteAudioChunk(senderId, audioBase64);
-        }
+        // Ignored: LiveKit WebRTC handles native real-time audio
       }
       // 10. DJ Background Music State Synchronization
       else if (type == 'BG_MUSIC_STATE' || signalType == 'POD_BG_MUSIC' || signalType == 'BG_MUSIC_PLAY') {
@@ -391,27 +379,18 @@ class PodViewModel extends ChangeNotifier {
 
       final isSpeakerRole = _isHost || (_activePod?.allowOpenMic == true);
 
-      final token = await _podRepository.getLiveKitToken(
+      final tokenResult = await _podRepository.getLiveKitToken(
         podId,
         isOnStage: isSpeakerRole,
         inviteCode: inviteCode,
       );
 
-      _liveKitService.onAudioChunkReady = (base64, chunkIndex, durationMs) {
-        if (_activePod != null) {
-          _podRepository.sendAudioChunk(
-            _activePod!.id,
-            audioBase64: base64,
-            chunkIndex: chunkIndex,
-            durationMs: durationMs,
-          );
-        }
-      };
+      final liveKitWsUrl = LiveKitService.resolveWsUrl(customHost: tokenResult.serverUrl);
 
       await _liveKitService.connectToRoom(
         podId: podId,
-        token: token,
-        wsUrl: LiveKitService.resolveWsUrl(),
+        token: tokenResult.token,
+        wsUrl: liveKitWsUrl,
         currentUserId: currentUserId,
         currentUsername: currentUsername,
         currentDisplayName: currentDisplayName,

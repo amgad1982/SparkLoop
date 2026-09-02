@@ -352,12 +352,15 @@ class ApiService {
     return MoodPodDto.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<String> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) async {
+  Future<({String token, String? serverUrl})> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) async {
     final res = await _dio.get('/moodpods/$podId/livekit-token', queryParameters: {
       'isOnStage': isOnStage,
       if (inviteCode != null && inviteCode.isNotEmpty) 'inviteCode': inviteCode,
     });
-    return (res.data['token'] ?? res.data) as String;
+    final data = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
+    final token = (data['token'] ?? res.data) as String;
+    final serverUrl = data['serverUrl'] as String?;
+    return (token: token, serverUrl: serverUrl);
   }
 
   /// Fetches the currently-playing background music for a pod. Returns null
