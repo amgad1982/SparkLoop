@@ -1,0 +1,17 @@
+# ==============================================================================
+# Coturn TURN/STUN Server Docker Compose for Oracle Cloud (ARM64)
+# Server IP: 92.4.162.183
+# ==============================================================================
+
+services:
+  coturn:
+    image: coturn/coturn:latest
+    container_name: sparkloop-coturn
+    restart: always
+    # network_mode: host is essential for high-performance WebRTC UDP relaying
+    # Avoids docker-proxy overhead and NAT latency for thousands of UDP packets
+    network_mode: host
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+
