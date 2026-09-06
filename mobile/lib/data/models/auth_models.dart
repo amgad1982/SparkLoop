@@ -79,6 +79,80 @@ class DeviceSessionDto {
   }
 }
 
+class UserSettingsDto {
+  final String preferredTheme;
+  final String preferredLanguage;
+  final bool notifyStageInvites;
+  final bool notifyChainTurns;
+  final bool notifyFollows;
+  final bool hapticFeedback;
+  final double voiceRoomVolume;
+  final double bgMusicVolume;
+  final bool joinMicMuted;
+
+  const UserSettingsDto({
+    this.preferredTheme = 'dark',
+    this.preferredLanguage = 'en',
+    this.notifyStageInvites = true,
+    this.notifyChainTurns = true,
+    this.notifyFollows = true,
+    this.hapticFeedback = true,
+    this.voiceRoomVolume = 1.0,
+    this.bgMusicVolume = 0.8,
+    this.joinMicMuted = true,
+  });
+
+  factory UserSettingsDto.fromJson(Map<String, dynamic> json) {
+    return UserSettingsDto(
+      preferredTheme: json['preferredTheme'] as String? ?? 'dark',
+      preferredLanguage: json['preferredLanguage'] as String? ?? 'en',
+      notifyStageInvites: json['notifyStageInvites'] as bool? ?? true,
+      notifyChainTurns: json['notifyChainTurns'] as bool? ?? true,
+      notifyFollows: json['notifyFollows'] as bool? ?? true,
+      hapticFeedback: json['hapticFeedback'] as bool? ?? true,
+      voiceRoomVolume: (json['voiceRoomVolume'] as num?)?.toDouble() ?? 1.0,
+      bgMusicVolume: (json['bgMusicVolume'] as num?)?.toDouble() ?? 0.8,
+      joinMicMuted: json['joinMicMuted'] as bool? ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'preferredTheme': preferredTheme,
+        'preferredLanguage': preferredLanguage,
+        'notifyStageInvites': notifyStageInvites,
+        'notifyChainTurns': notifyChainTurns,
+        'notifyFollows': notifyFollows,
+        'hapticFeedback': hapticFeedback,
+        'voiceRoomVolume': voiceRoomVolume,
+        'bgMusicVolume': bgMusicVolume,
+        'joinMicMuted': joinMicMuted,
+      };
+
+  UserSettingsDto copyWith({
+    String? preferredTheme,
+    String? preferredLanguage,
+    bool? notifyStageInvites,
+    bool? notifyChainTurns,
+    bool? notifyFollows,
+    bool? hapticFeedback,
+    double? voiceRoomVolume,
+    double? bgMusicVolume,
+    bool? joinMicMuted,
+  }) {
+    return UserSettingsDto(
+      preferredTheme: preferredTheme ?? this.preferredTheme,
+      preferredLanguage: preferredLanguage ?? this.preferredLanguage,
+      notifyStageInvites: notifyStageInvites ?? this.notifyStageInvites,
+      notifyChainTurns: notifyChainTurns ?? this.notifyChainTurns,
+      notifyFollows: notifyFollows ?? this.notifyFollows,
+      hapticFeedback: hapticFeedback ?? this.hapticFeedback,
+      voiceRoomVolume: voiceRoomVolume ?? this.voiceRoomVolume,
+      bgMusicVolume: bgMusicVolume ?? this.bgMusicVolume,
+      joinMicMuted: joinMicMuted ?? this.joinMicMuted,
+    );
+  }
+}
+
 class UserDto {
   final String id;
   final String email;
@@ -97,6 +171,13 @@ class UserDto {
   final bool showActivityStats;
   final String preferredTheme;
   final String preferredLanguage;
+  final bool notifyStageInvites;
+  final bool notifyChainTurns;
+  final bool notifyFollows;
+  final bool hapticFeedback;
+  final double voiceRoomVolume;
+  final double bgMusicVolume;
+  final bool joinMicMuted;
   final int followersCount;
   final int followingCount;
   final int repScore;
@@ -121,6 +202,13 @@ class UserDto {
     this.showActivityStats = true,
     this.preferredTheme = 'dark',
     this.preferredLanguage = 'en',
+    this.notifyStageInvites = true,
+    this.notifyChainTurns = true,
+    this.notifyFollows = true,
+    this.hapticFeedback = true,
+    this.voiceRoomVolume = 1.0,
+    this.bgMusicVolume = 0.8,
+    this.joinMicMuted = true,
     this.followersCount = 0,
     this.followingCount = 0,
     this.repScore = 0,
@@ -147,6 +235,13 @@ class UserDto {
       showActivityStats: json['showActivityStats'] as bool? ?? true,
       preferredTheme: json['preferredTheme'] as String? ?? 'dark',
       preferredLanguage: json['preferredLanguage'] as String? ?? 'en',
+      notifyStageInvites: json['notifyStageInvites'] as bool? ?? true,
+      notifyChainTurns: json['notifyChainTurns'] as bool? ?? true,
+      notifyFollows: json['notifyFollows'] as bool? ?? true,
+      hapticFeedback: json['hapticFeedback'] as bool? ?? true,
+      voiceRoomVolume: (json['voiceRoomVolume'] as num?)?.toDouble() ?? 1.0,
+      bgMusicVolume: (json['bgMusicVolume'] as num?)?.toDouble() ?? 0.8,
+      joinMicMuted: json['joinMicMuted'] as bool? ?? true,
       followersCount: json['followersCount'] as int? ?? 0,
       followingCount: json['followingCount'] as int? ?? 0,
       repScore: json['repScore'] as int? ?? 0,
@@ -178,6 +273,13 @@ class UserDto {
     bool? showActivityStats,
     String? preferredTheme,
     String? preferredLanguage,
+    bool? notifyStageInvites,
+    bool? notifyChainTurns,
+    bool? notifyFollows,
+    bool? hapticFeedback,
+    double? voiceRoomVolume,
+    double? bgMusicVolume,
+    bool? joinMicMuted,
     int? followersCount,
     int? followingCount,
     int? repScore,
@@ -202,6 +304,13 @@ class UserDto {
       showActivityStats: showActivityStats ?? this.showActivityStats,
       preferredTheme: preferredTheme ?? this.preferredTheme,
       preferredLanguage: preferredLanguage ?? this.preferredLanguage,
+      notifyStageInvites: notifyStageInvites ?? this.notifyStageInvites,
+      notifyChainTurns: notifyChainTurns ?? this.notifyChainTurns,
+      notifyFollows: notifyFollows ?? this.notifyFollows,
+      hapticFeedback: hapticFeedback ?? this.hapticFeedback,
+      voiceRoomVolume: voiceRoomVolume ?? this.voiceRoomVolume,
+      bgMusicVolume: bgMusicVolume ?? this.bgMusicVolume,
+      joinMicMuted: joinMicMuted ?? this.joinMicMuted,
       followersCount: followersCount ?? this.followersCount,
       followingCount: followingCount ?? this.followingCount,
       repScore: repScore ?? this.repScore,
@@ -228,6 +337,13 @@ class UserDto {
         'showActivityStats': showActivityStats,
         'preferredTheme': preferredTheme,
         'preferredLanguage': preferredLanguage,
+        'notifyStageInvites': notifyStageInvites,
+        'notifyChainTurns': notifyChainTurns,
+        'notifyFollows': notifyFollows,
+        'hapticFeedback': hapticFeedback,
+        'voiceRoomVolume': voiceRoomVolume,
+        'bgMusicVolume': bgMusicVolume,
+        'joinMicMuted': joinMicMuted,
         'followersCount': followersCount,
         'followingCount': followingCount,
         'repScore': repScore,

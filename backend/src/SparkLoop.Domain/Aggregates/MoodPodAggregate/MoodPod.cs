@@ -69,6 +69,11 @@ public class MoodPod : AggregateRoot<Guid>
     public bool AllowParticipantsChangeTheme { get; private set; } = false;
     public bool AllowParticipantsPlayBgMusic { get; private set; } = true;
     public bool AllowOpenMic { get; private set; } = true;
+    public bool IsDjMode { get; private set; } = false;
+    public bool FollowersOnly { get; private set; } = false;
+    public string? CurrentDjTrackTitle { get; private set; }
+    public string? CurrentDjTrackUrl { get; private set; }
+    public Guid? ActiveDjUserId { get; private set; }
     public Guid HostUserId { get; private set; }
     public string HostUsername { get; private set; } = string.Empty;
     public string? HostDisplayName { get; private set; }
@@ -99,7 +104,9 @@ public class MoodPod : AggregateRoot<Guid>
         bool allowParticipantsChangeTheme = false,
         bool allowParticipantsPlayBgMusic = true,
         bool allowOpenMic = true,
-        TimeSpan? customTtl = null)
+        TimeSpan? customTtl = null,
+        bool isDjMode = false,
+        bool followersOnly = false)
     {
         if (string.IsNullOrWhiteSpace(title))
             throw new DomainRuleException("Mood pod title cannot be empty.", "EMPTY_POD_TITLE");
@@ -121,6 +128,8 @@ public class MoodPod : AggregateRoot<Guid>
             AllowParticipantsChangeTheme = allowParticipantsChangeTheme,
             AllowParticipantsPlayBgMusic = allowParticipantsPlayBgMusic,
             AllowOpenMic = allowOpenMic,
+            IsDjMode = isDjMode,
+            FollowersOnly = followersOnly,
             HostUserId = hostUserId,
             HostUsername = hostUsername,
             HostDisplayName = hostDisplayName ?? hostUsername,
@@ -222,10 +231,27 @@ public class MoodPod : AggregateRoot<Guid>
             InviteCode));
     }
 
-    public bool CanUserAccess(Guid userId, string? inviteCodeProvided = null)
+    public void SetDjTrack(Guid djUserId, string? trackTitle, string? trackUrl)
     {
-        if (!IsPrivate) return true;
+        CheckActive();
+        ActiveDjUserId = djUserId;
+        CurrentDjTrackTitle = trackTitle;
+        CurrentDjTrackUrl = trackUrl;
+    }
+
+    public bool CanUserAccess(Guid userId, bool isFollower = false, string? inviteCodeProvided = null)
+    {
         if (HostUserId == userId || _moderatorUserIds.Contains(userId) || _invitedUserIds.Contains(userId)) return true;
+        if (FollowersOnly && !isFollower)
+        {
+            if (!string.IsNullOrWhiteSpace(inviteCodeProvided) &&
+                string.Equals(InviteCode.Trim(), inviteCodeProvided.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+            return false;
+        }
+        if (!IsPrivate) return true;
         if (!string.IsNullOrWhiteSpace(inviteCodeProvided) &&
             string.Equals(InviteCode.Trim(), inviteCodeProvided.Trim(), StringComparison.OrdinalIgnoreCase))
         {

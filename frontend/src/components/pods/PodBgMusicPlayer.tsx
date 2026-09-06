@@ -21,25 +21,31 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Royalty-free online ambient tracks for instant 1-click testing
+// Royalty-free offline ambient tracks served directly from backend wwwroot
 export const PRESET_VIBES = [
   {
     id: 'lofi',
-    title: '🌆 Sunset Lo-Fi Chill',
-    titleAr: '🌆 موسيقى لو-فاي هادئة',
-    url: 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3',
+    title: '🌆 Lofi Ambient Chords',
+    titleAr: '🌆 تناغم هادئ (لو-فاي)',
+    url: '/audio/presets/lofi.wav',
   },
   {
     id: 'synth',
-    title: '⚡ Cyberpunk Synthwave Pulse',
-    titleAr: '⚡ نبضات سايبر بانك نيون',
-    url: 'https://cdn.pixabay.com/download/audio/2022/03/15/audio_c8bbf853e8.mp3?filename=synthwave-80s-110045.mp3',
+    title: '⚡ Synthwave Resonance',
+    titleAr: '⚡ صدى سنثويف',
+    url: '/audio/presets/synth.wav',
   },
   {
     id: 'rain',
-    title: '🌧️ Cozy Rainy Night Cafe',
-    titleAr: '🌧️ مقهى ليلة ممطرة',
-    url: 'https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3?filename=rain-and-nostalgia-version-60s-10820.mp3',
+    title: '🌧️ Midnight Rain & Sub',
+    titleAr: '🌧️ مطر منتصف الليل',
+    url: '/audio/presets/rain.wav',
+  },
+  {
+    id: 'cafe',
+    title: '☕ Cosmic Cafe Warmth',
+    titleAr: '☕ مقهى كوني دافئ',
+    url: '/audio/presets/cafe.wav',
   },
 ];
 

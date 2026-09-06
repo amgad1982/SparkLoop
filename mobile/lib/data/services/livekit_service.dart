@@ -6,6 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:livekit_client/livekit_client.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../models/pod_models.dart';
+import 'api_service.dart';
 import 'sound_synth_service.dart';
 
 class LiveKitSpeaker {
@@ -56,19 +58,25 @@ const List<PresetVibe> presetVibes = [
     id: 'lofi',
     title: '🌆 Sunset Lo-Fi Chill',
     titleAr: '🌆 موسيقى لو-فاي هادئة',
-    url: 'https://raw.githubusercontent.com/rafaelreis-hotmart/Audio-Sample-files/master/sample.mp3',
+    url: '/audio/presets/lofi.wav',
   ),
   PresetVibe(
     id: 'synth',
     title: '⚡ Cyberpunk Synthwave Pulse',
     titleAr: '⚡ نبضات سايبر بانك نيون',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3',
+    url: '/audio/presets/synth.wav',
   ),
   PresetVibe(
     id: 'rain',
     title: '🌧️ Cozy Rainy Night Cafe',
     titleAr: '🌧️ مقهى ليلة ممطرة',
-    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
+    url: '/audio/presets/rain.wav',
+  ),
+  PresetVibe(
+    id: 'cafe',
+    title: '☕ Cozy Coffeehouse Ambience',
+    titleAr: '☕ أجواء مقهى دافئ',
+    url: '/audio/presets/cafe.wav',
   ),
 ];
 
@@ -260,6 +268,7 @@ class LiveKitService extends ChangeNotifier {
     required String currentDisplayName,
     String? currentAvatarUrl,
     bool asSpeaker = false,
+    List<IceServerDto>? iceServers,
   }) async {
     leaveRoom();
 
@@ -328,7 +337,41 @@ class LiveKitService extends ChangeNotifier {
 
       final effectiveWsUrl = resolveWsUrl(customHost: wsUrl);
       debugPrint('Connecting to LiveKit: $effectiveWsUrl for pod $podId');
-      await room.connect(effectiveWsUrl, token);
+
+      final rtcIceServers = (iceServers != null && iceServers.isNotEmpty)
+          ? iceServers
+              .map((s) => RTCIceServer(
+                    urls: s.urls,
+                    username: s.username,
+                    credential: s.credential,
+                  ))
+              .toList()
+          : const [
+              RTCIceServer(
+                urls: [
+                  'stun:92.4.162.183:3478',
+                  'stun:stun.l.google.com:19302',
+                ],
+              ),
+              RTCIceServer(
+                urls: [
+                  'turn:92.4.162.183:3478?transport=udp',
+                  'turn:92.4.162.183:3478?transport=tcp',
+                ],
+                username: 'sparkloop',
+                credential: 'SparkLoopTurnSecret2026Secure!',
+              ),
+            ];
+
+      await room.connect(
+        effectiveWsUrl,
+        token,
+        connectOptions: ConnectOptions(
+          rtcConfiguration: RTCConfiguration(
+            iceServers: rtcIceServers,
+          ),
+        ),
+      );
 
       // Sync existing remote participants
       for (final participant in room.remoteParticipants.values) {
@@ -517,7 +560,8 @@ class LiveKitService extends ChangeNotifier {
       _bgMusicTitle = title;
 
       await audioPlayer.stop();
-      await audioPlayer.play(UrlSource(url));
+      final effectiveUrl = ApiService.getMediaUrl(url);
+      await audioPlayer.play(UrlSource(effectiveUrl));
       await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
       notifyListeners();
     } catch (e) {
@@ -540,7 +584,8 @@ class LiveKitService extends ChangeNotifier {
       _bgMusicTitle = vibe.title;
 
       await audioPlayer.stop();
-      await audioPlayer.play(UrlSource(vibe.url));
+      final effectiveUrl = ApiService.getMediaUrl(vibe.url);
+      await audioPlayer.play(UrlSource(effectiveUrl));
       await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
       notifyListeners();
     } catch (e) {

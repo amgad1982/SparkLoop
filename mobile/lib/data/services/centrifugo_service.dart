@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'api_service.dart';
+import 'notification_service.dart';
 
 class CentrifugoEvent {
   final String channel;
@@ -177,7 +178,7 @@ class CentrifugoService extends ChangeNotifier {
                 ? pub['data'] as Map<String, dynamic>
                 : {'raw': pub['data']};
 
-            _eventController.add(CentrifugoEvent(channel: channel, data: data));
+            _dispatch(channel, data);
           } else if (msg.containsKey('push')) {
             final push = msg['push'] as Map<String, dynamic>;
             final channel = push['channel'] as String? ?? '';
@@ -186,14 +187,14 @@ class CentrifugoService extends ChangeNotifier {
                 ? pub['data'] as Map<String, dynamic>
                 : {'raw': pub['data']};
 
-            _eventController.add(CentrifugoEvent(channel: channel, data: data));
+            _dispatch(channel, data);
           } else if (msg.containsKey('channel') && msg.containsKey('data')) {
             final channel = msg['channel'] as String? ?? '';
             final data = msg['data'] is Map<String, dynamic>
                 ? msg['data'] as Map<String, dynamic>
                 : {'raw': msg['data']};
 
-            _eventController.add(CentrifugoEvent(channel: channel, data: data));
+            _dispatch(channel, data);
           } else if (msg.containsKey('result') && msg['result'] is Map<String, dynamic>) {
             final res = msg['result'] as Map<String, dynamic>;
             if (res.containsKey('pub') || res.containsKey('data')) {
@@ -203,7 +204,7 @@ class CentrifugoService extends ChangeNotifier {
                   ? pub['data'] as Map<String, dynamic>
                   : (res['data'] is Map<String, dynamic> ? res['data'] as Map<String, dynamic> : {'raw': pub['data'] ?? res['data']});
               if (channel.isNotEmpty) {
-                _eventController.add(CentrifugoEvent(channel: channel, data: data));
+                _dispatch(channel, data);
               }
             }
           }
@@ -213,6 +214,45 @@ class CentrifugoService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('Error parsing Centrifugo message: $e');
+    }
+  }
+
+  void _dispatch(String channel, Map<String, dynamic> data) {
+    final event = CentrifugoEvent(channel: channel, data: data);
+    _eventController.add(event);
+    _checkNotification(event);
+  }
+
+  void _checkNotification(CentrifugoEvent event) {
+    try {
+      final type = event.data['type'] as String?;
+      if (type == 'DJ_STREAM_STARTED') {
+        final djName = event.data['djDisplayName'] as String? ??
+            event.data['djUsername'] as String? ??
+            'A creator';
+        final trackTitle = event.data['trackTitle'] as String? ??
+            event.data['title'] as String? ??
+            'Live DJ Set';
+        NotificationService.instance.showNotification(
+          id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: '🎧 $djName is now Live!',
+          body: 'Streaming "$trackTitle". Tap to listen live.',
+          payload: jsonEncode(event.data),
+        );
+      } else if (type == 'POD_INVITATION') {
+        final inviter = event.data['inviterDisplayName'] as String? ??
+            event.data['inviterUsername'] as String? ??
+            'A friend';
+        final podTitle = event.data['podTitle'] as String? ?? 'a MoodPod';
+        NotificationService.instance.showNotification(
+          id: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          title: '🎉 MoodPod Invite from $inviter',
+          body: 'Join "$podTitle" now!',
+          payload: jsonEncode(event.data),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error triggering notification: $e');
     }
   }
 

@@ -80,6 +80,13 @@ public class User : AggregateRoot<Guid>
     public bool ShowFollowersCount { get; private set; } = true;
     public bool ShowBadges { get; private set; } = true;
     public bool ShowActivityStats { get; private set; } = true;
+    public bool NotifyStageInvites { get; private set; } = true;
+    public bool NotifyChainTurns { get; private set; } = true;
+    public bool NotifyFollows { get; private set; } = true;
+    public bool HapticFeedback { get; private set; } = true;
+    public double VoiceRoomVolume { get; private set; } = 1.0;
+    public double BgMusicVolume { get; private set; } = 0.5;
+    public bool JoinMicMuted { get; private set; } = true;
     public IReadOnlyCollection<Badge> Badges => _badges.AsReadOnly();
     public IReadOnlyCollection<UserSocialAccount> SocialAccounts => _socialAccounts.AsReadOnly();
 
@@ -285,5 +292,36 @@ public class User : AggregateRoot<Guid>
         ShowFollowersCount = showFollowersCount;
         ShowBadges = showBadges;
         ShowActivityStats = showActivityStats;
+    }
+
+    public void UpdateUserSettings(
+        string? preferredTheme = null,
+        string? preferredLanguage = null,
+        bool? notifyStageInvites = null,
+        bool? notifyChainTurns = null,
+        bool? notifyFollows = null,
+        bool? hapticFeedback = null,
+        double? voiceRoomVolume = null,
+        double? bgMusicVolume = null,
+        bool? joinMicMuted = null)
+    {
+        if (!string.IsNullOrWhiteSpace(preferredTheme))
+            PreferredTheme = preferredTheme.Trim().ToLowerInvariant();
+        if (!string.IsNullOrWhiteSpace(preferredLanguage))
+            PreferredLanguage = preferredLanguage.Trim().ToLowerInvariant();
+        if (notifyStageInvites.HasValue)
+            NotifyStageInvites = notifyStageInvites.Value;
+        if (notifyChainTurns.HasValue)
+            NotifyChainTurns = notifyChainTurns.Value;
+        if (notifyFollows.HasValue)
+            NotifyFollows = notifyFollows.Value;
+        if (hapticFeedback.HasValue)
+            HapticFeedback = hapticFeedback.Value;
+        if (voiceRoomVolume.HasValue)
+            VoiceRoomVolume = Math.Clamp(voiceRoomVolume.Value, 0.0, 1.0);
+        if (bgMusicVolume.HasValue)
+            BgMusicVolume = Math.Clamp(bgMusicVolume.Value, 0.0, 1.0);
+        if (joinMicMuted.HasValue)
+            JoinMicMuted = joinMicMuted.Value;
     }
 }

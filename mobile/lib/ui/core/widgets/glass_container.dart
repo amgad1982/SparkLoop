@@ -38,22 +38,29 @@ class GlassContainer extends StatelessWidget {
             ? AppColors.surfaceDark.withValues(alpha: 0.85)
             : Colors.white.withValues(alpha: 0.9));
 
+    final content = Container(
+      padding: padding,
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(borderRadius),
+        border: Border.all(color: borderColor, width: borderWidth),
+      ),
+      child: Material(
+        type: MaterialType.transparency,
+        child: child,
+      ),
+    );
+
     return Container(
       margin: margin,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-          child: Container(
-            padding: padding,
-            decoration: BoxDecoration(
-              color: bgColor,
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(color: borderColor, width: borderWidth),
-            ),
-            child: child,
-          ),
-        ),
+        child: blur > 0
+            ? BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                child: content,
+              )
+            : content,
       ),
     );
   }

@@ -96,6 +96,11 @@ class MoodPodDto {
   final bool allowParticipantsChangeTheme;
   final bool allowParticipantsPlayBgMusic;
   final bool allowOpenMic;
+  final bool isDjMode;
+  final bool followersOnly;
+  final String? currentDjTrackTitle;
+  final String? currentDjTrackUrl;
+  final String? activeDjUserId;
   final List<String> moderatorUserIds;
   final int activeParticipantCount;
   final bool isActive;
@@ -123,6 +128,11 @@ class MoodPodDto {
     this.allowParticipantsChangeTheme = false,
     this.allowParticipantsPlayBgMusic = true,
     this.allowOpenMic = true,
+    this.isDjMode = false,
+    this.followersOnly = false,
+    this.currentDjTrackTitle,
+    this.currentDjTrackUrl,
+    this.activeDjUserId,
     this.moderatorUserIds = const [],
     this.activeParticipantCount = 1,
     this.isActive = true,
@@ -147,6 +157,11 @@ class MoodPodDto {
       allowParticipantsChangeTheme: json['allowParticipantsChangeTheme'] as bool? ?? false,
       allowParticipantsPlayBgMusic: json['allowParticipantsPlayBgMusic'] as bool? ?? true,
       allowOpenMic: json['allowOpenMic'] as bool? ?? true,
+      isDjMode: json['isDjMode'] as bool? ?? false,
+      followersOnly: json['followersOnly'] as bool? ?? false,
+      currentDjTrackTitle: json['currentDjTrackTitle'] as String?,
+      currentDjTrackUrl: json['currentDjTrackUrl'] as String?,
+      activeDjUserId: json['activeDjUserId'] as String?,
       moderatorUserIds: (json['moderatorUserIds'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
@@ -177,6 +192,11 @@ class MoodPodDto {
     bool? allowParticipantsChangeTheme,
     bool? allowParticipantsPlayBgMusic,
     bool? allowOpenMic,
+    bool? isDjMode,
+    bool? followersOnly,
+    String? currentDjTrackTitle,
+    String? currentDjTrackUrl,
+    String? activeDjUserId,
     List<String>? moderatorUserIds,
     int? activeParticipantCount,
     bool? isActive,
@@ -198,6 +218,11 @@ class MoodPodDto {
       allowParticipantsChangeTheme: allowParticipantsChangeTheme ?? this.allowParticipantsChangeTheme,
       allowParticipantsPlayBgMusic: allowParticipantsPlayBgMusic ?? this.allowParticipantsPlayBgMusic,
       allowOpenMic: allowOpenMic ?? this.allowOpenMic,
+      isDjMode: isDjMode ?? this.isDjMode,
+      followersOnly: followersOnly ?? this.followersOnly,
+      currentDjTrackTitle: currentDjTrackTitle ?? this.currentDjTrackTitle,
+      currentDjTrackUrl: currentDjTrackUrl ?? this.currentDjTrackUrl,
+      activeDjUserId: activeDjUserId ?? this.activeDjUserId,
       moderatorUserIds: moderatorUserIds ?? this.moderatorUserIds,
       activeParticipantCount: activeParticipantCount ?? this.activeParticipantCount,
       isActive: isActive ?? this.isActive,
@@ -258,6 +283,89 @@ class PodBgMusicStateDto {
       updatedAtUtc: json['updatedAtUtc'] != null
           ? DateTime.parse(json['updatedAtUtc'] as String)
           : DateTime.now().toUtc(),
+    );
+  }
+}
+
+class IceServerDto {
+  final List<String> urls;
+  final String? username;
+  final String? credential;
+
+  const IceServerDto({
+    required this.urls,
+    this.username,
+    this.credential,
+  });
+
+  factory IceServerDto.fromJson(Map<String, dynamic> json) {
+    return IceServerDto(
+      urls: (json['urls'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      username: json['username'] as String?,
+      credential: json['credential'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'urls': urls,
+    if (username != null) 'username': username,
+    if (credential != null) 'credential': credential,
+  };
+}
+
+class LiveKitTokenDto {
+  final String token;
+  final String serverUrl;
+  final String roomName;
+  final String identity;
+  final bool isOnStage;
+  final List<IceServerDto>? iceServers;
+
+  const LiveKitTokenDto({
+    required this.token,
+    required this.serverUrl,
+    required this.roomName,
+    required this.identity,
+    this.isOnStage = false,
+    this.iceServers,
+  });
+
+  factory LiveKitTokenDto.fromJson(Map<String, dynamic> json) {
+    return LiveKitTokenDto(
+      token: json['token'] as String? ?? '',
+      serverUrl: json['serverUrl'] as String? ?? '',
+      roomName: json['roomName'] as String? ?? '',
+      identity: json['identity'] as String? ?? '',
+      isOnStage: json['isOnStage'] as bool? ?? false,
+      iceServers: (json['iceServers'] as List<dynamic>?)
+          ?.map((e) => IceServerDto.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class AudioPresetDto {
+  final String id;
+  final String title;
+  final String category;
+  final String url;
+  final String icon;
+
+  const AudioPresetDto({
+    required this.id,
+    required this.title,
+    required this.category,
+    required this.url,
+    required this.icon,
+  });
+
+  factory AudioPresetDto.fromJson(Map<String, dynamic> json) {
+    return AudioPresetDto(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      category: json['category'] as String? ?? '',
+      url: json['url'] as String? ?? '',
+      icon: json['icon'] as String? ?? '🎵',
     );
   }
 }

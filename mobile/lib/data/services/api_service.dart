@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../models/auth_models.dart';
 import '../models/chain_models.dart';
+import '../models/dj_list_models.dart';
 import '../models/feed_page.dart';
 import '../models/follow_models.dart';
 import '../models/pod_models.dart';
@@ -179,7 +180,7 @@ class ApiService {
       if (search != null && search.isNotEmpty) 'search': search,
       if (cursorCreatedAtUtc != null)
         'cursorCreatedAtUtc': cursorCreatedAtUtc.toUtc().toIso8601String(),
-      if (cursorId != null) 'cursorId': cursorId,
+      'cursorId': ?cursorId,
     };
 
     final res = await _dio.get('/posts', queryParameters: params);
@@ -279,6 +280,8 @@ class ApiService {
     bool allowParticipantsChangeTheme = false,
     bool allowParticipantsPlayBgMusic = true,
     bool allowOpenMic = true,
+    bool isDjMode = false,
+    bool followersOnly = false,
     int durationHours = 24,
   }) async {
     final res = await _dio.post('/moodpods', data: {
@@ -289,6 +292,8 @@ class ApiService {
       'allowParticipantsChangeTheme': allowParticipantsChangeTheme,
       'allowParticipantsPlayBgMusic': allowParticipantsPlayBgMusic,
       'allowOpenMic': allowOpenMic,
+      'isDjMode': isDjMode,
+      'followersOnly': followersOnly,
       'durationHours': durationHours,
     });
     return MoodPodDto.fromJson(res.data as Map<String, dynamic>);
@@ -352,15 +357,69 @@ class ApiService {
     return MoodPodDto.fromJson(res.data as Map<String, dynamic>);
   }
 
-  Future<({String token, String? serverUrl})> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) async {
+  Future<LiveKitTokenDto> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) async {
     final res = await _dio.get('/moodpods/$podId/livekit-token', queryParameters: {
       'isOnStage': isOnStage,
       if (inviteCode != null && inviteCode.isNotEmpty) 'inviteCode': inviteCode,
     });
     final data = res.data is Map<String, dynamic> ? res.data as Map<String, dynamic> : <String, dynamic>{};
-    final token = (data['token'] ?? res.data) as String;
-    final serverUrl = data['serverUrl'] as String?;
-    return (token: token, serverUrl: serverUrl);
+    return LiveKitTokenDto.fromJson(data);
+  }
+
+  // ================= DJ Lists & Audio Presets =================
+
+  Future<List<AudioPresetDto>> getAudioPresets() async {
+    final res = await _dio.get('/audio/presets');
+    if (res.data is List) {
+      return (res.data as List)
+          .map((e) => AudioPresetDto.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<List<DjListDto>> getDjLists({String? genre, String? userId}) async {
+    final res = await _dio.get('/dj/lists', queryParameters: {
+      if (genre != null && genre.isNotEmpty && genre != 'All') 'genre': genre,
+      if (userId != null && userId.isNotEmpty) 'userId': userId,
+    });
+    if (res.data is List) {
+      return (res.data as List)
+          .map((e) => DjListDto.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<DjListDto> getDjListById(String id) async {
+    final res = await _dio.get('/dj/lists/$id');
+    return DjListDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<DjListDto> createDjList(CreateDjListDto dto) async {
+    final res = await _dio.post('/dj/lists', data: dto.toJson());
+    return DjListDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteDjList(String id) async {
+    await _dio.delete('/dj/lists/$id');
+  }
+
+  Future<MoodPodDto> streamDjList(
+    String listId, {
+    String? podId,
+    String? title,
+    bool? followersOnly,
+  }) async {
+    final res = await _dio.post(
+      '/dj/lists/$listId/stream',
+      data: {
+        'podId': ?podId,
+        'title': ?title,
+        'followersOnly': ?followersOnly,
+      },
+    );
+    return MoodPodDto.fromJson(res.data as Map<String, dynamic>);
   }
 
   /// Fetches the currently-playing background music for a pod. Returns null
@@ -527,6 +586,32 @@ class ApiService {
       'showActivityStats': showActivityStats,
     });
     return UserDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<UserSettingsDto> getUserSettings() async {
+    final res = await _dio.get('/users/settings');
+    return UserSettingsDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<UserSettingsDto> updateUserSettings(UserSettingsDto settings) async {
+    final res = await _dio.put('/users/settings', data: settings.toJson());
+    final updated = UserSettingsDto.fromJson(res.data as Map<String, dynamic>);
+    final currentUser = storage.getCurrentUser();
+    if (currentUser != null) {
+      final updatedUser = currentUser.copyWith(
+        preferredTheme: updated.preferredTheme,
+        preferredLanguage: updated.preferredLanguage,
+        notifyStageInvites: updated.notifyStageInvites,
+        notifyChainTurns: updated.notifyChainTurns,
+        notifyFollows: updated.notifyFollows,
+        hapticFeedback: updated.hapticFeedback,
+        voiceRoomVolume: updated.voiceRoomVolume,
+        bgMusicVolume: updated.bgMusicVolume,
+        joinMicMuted: updated.joinMicMuted,
+      );
+      await storage.saveCurrentUser(updatedUser);
+    }
+    return updated;
   }
 
   Future<bool> changePassword({

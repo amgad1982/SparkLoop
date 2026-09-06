@@ -2,18 +2,27 @@ import React from 'react';
 import { TabType } from './BottomNavBar';
 import { useAuthStore } from '../../stores/useAuthStore';
 import { useThemeStore } from '../../stores/useThemeStore';
-import { Languages, Sparkles, Search, LogIn, User } from 'lucide-react';
+import { Sparkles, Search, LogIn, User, Radio, Settings } from 'lucide-react';
 
 interface TopHeaderProps {
   activeTab?: TabType;
   isConnected?: boolean;
   onNavigateTab?: (tab: TabType) => void;
   onOpenSearch?: () => void;
+  onOpenDjLists?: () => void;
+  onOpenSettings?: () => void;
 }
 
-export const TopHeader: React.FC<TopHeaderProps> = ({ activeTab, isConnected = true, onNavigateTab, onOpenSearch }) => {
+export const TopHeader: React.FC<TopHeaderProps> = ({
+  activeTab,
+  isConnected = true,
+  onNavigateTab,
+  onOpenSearch,
+  onOpenDjLists,
+  onOpenSettings,
+}) => {
   const { currentUser, currentPersona, openAuthModal } = useAuthStore();
-  const { locale, toggleLocale } = useThemeStore();
+  const { locale } = useThemeStore();
   const isArabic = locale === 'ar';
   const isProfileActive = activeTab === 'profile';
 
@@ -47,8 +56,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ activeTab, isConnected = t
           </div>
         </div>
 
-        {/* Controls: Search, Language Toggle & User Profile / Login */}
-        <div className="flex items-center gap-2">
+        {/* Controls: Search, DJ Lists, Settings & User Profile / Login */}
+        <div className="flex items-center gap-1.5">
           {/* Search Trigger Button */}
           <button
             onClick={onOpenSearch}
@@ -58,14 +67,23 @@ export const TopHeader: React.FC<TopHeaderProps> = ({ activeTab, isConnected = t
             <Search className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
           </button>
 
-          {/* Arabic / English Toggle */}
+          {/* DJ Lists Hub Trigger Button */}
           <button
-            onClick={toggleLocale}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors"
-            title={isArabic ? 'Switch to English' : 'التبديل إلى العربية'}
+            onClick={onOpenDjLists}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/30 hover:bg-fuchsia-500/20 text-xs font-bold text-fuchsia-600 dark:text-fuchsia-300 transition-colors shadow-sm cursor-pointer"
+            title={isArabic ? 'استوديو وقوائم الـ DJ' : 'DJ Lists & Broadcast'}
           >
-            <Languages className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400" />
-            <span>{isArabic ? 'EN' : 'عربي'}</span>
+            <Radio className="w-3.5 h-3.5 text-fuchsia-500 animate-pulse" />
+            <span>DJ</span>
+          </button>
+
+          {/* Settings Trigger Button */}
+          <button
+            onClick={onOpenSettings}
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+            title={isArabic ? 'الإعدادات العامة' : 'Settings'}
+          >
+            <Settings className="w-3.5 h-3.5 text-purple-500" />
           </button>
 
           {/* User Avatar or Sign In button */}

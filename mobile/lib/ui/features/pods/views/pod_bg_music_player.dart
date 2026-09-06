@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../data/services/api_service.dart';
 import '../../../../data/services/livekit_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/avatar_badge.dart';
@@ -27,6 +29,7 @@ class _PodBgMusicModalState extends State<PodBgMusicModal> {
   bool _isLoading = false;
 
   Future<void> _pickLocalAudio(BuildContext context) async {
+    setState(() => _isLoading = true);
     try {
       final result = await FilePickerPlatform.instance.pickFiles(
         type: FileType.audio,
@@ -37,6 +40,15 @@ class _PodBgMusicModalState extends State<PodBgMusicModal> {
         final authVm = context.read<AuthViewModel>();
         final liveKit = context.read<LiveKitService>();
         final podVm = context.read<PodViewModel>();
+        final apiService = context.read<ApiService>();
+
+        // Upload local audio file to server storage so listeners can stream it
+        String remoteUrl = '';
+        try {
+          remoteUrl = await apiService.uploadMedia(File(path));
+        } catch (uploadErr) {
+          debugPrint('Audio upload failed, fallback to local: $uploadErr');
+        }
 
         await liveKit.playLocalFileTrack(
           path,
@@ -50,6 +62,7 @@ class _PodBgMusicModalState extends State<PodBgMusicModal> {
           podVm.sendBgMusic(
             action: 'play',
             trackTitle: name,
+            trackUrl: remoteUrl.isNotEmpty ? remoteUrl : null,
           );
         }
 
@@ -57,6 +70,8 @@ class _PodBgMusicModalState extends State<PodBgMusicModal> {
       }
     } catch (e) {
       debugPrint('Error selecting local audio: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

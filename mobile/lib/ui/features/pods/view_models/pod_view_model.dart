@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import '../../../../data/models/dj_list_models.dart';
 import '../../../../data/models/pod_models.dart';
 import '../../../../data/repositories/pod_repository.dart';
 import '../../../../data/repositories/user_repository.dart';
@@ -396,6 +397,7 @@ class PodViewModel extends ChangeNotifier {
         currentDisplayName: currentDisplayName,
         currentAvatarUrl: currentAvatarUrl,
         asSpeaker: isSpeakerRole,
+        iceServers: tokenResult.iceServers,
       );
 
       // Broadcast our presence to all users in the pod
@@ -781,6 +783,8 @@ class PodViewModel extends ChangeNotifier {
     bool allowParticipantsChangeTheme = false,
     bool allowParticipantsPlayBgMusic = true,
     bool allowOpenMic = true,
+    bool isDjMode = false,
+    bool followersOnly = false,
     int durationHours = 24,
   }) async {
     try {
@@ -792,6 +796,8 @@ class PodViewModel extends ChangeNotifier {
         allowParticipantsChangeTheme: allowParticipantsChangeTheme,
         allowParticipantsPlayBgMusic: allowParticipantsPlayBgMusic,
         allowOpenMic: allowOpenMic,
+        isDjMode: isDjMode,
+        followersOnly: followersOnly,
         durationHours: durationHours,
       );
       _pods.insert(0, newPod);
@@ -801,5 +807,40 @@ class PodViewModel extends ChangeNotifier {
       debugPrint('Error creating mood pod: $e');
       return null;
     }
+  }
+
+  // ================= DJ Lists & Presets =================
+
+  Future<List<AudioPresetDto>> getAudioPresets() => _podRepository.getAudioPresets();
+
+  Future<List<DjListDto>> getDjLists({String? genre, String? userId}) =>
+      _podRepository.getDjLists(genre: genre, userId: userId);
+
+  Future<DjListDto> getDjListById(String id) => _podRepository.getDjListById(id);
+
+  Future<DjListDto> createDjList(CreateDjListDto dto) => _podRepository.createDjList(dto);
+
+  Future<void> deleteDjList(String id) => _podRepository.deleteDjList(id);
+
+  Future<MoodPodDto> streamDjList(
+    String listId, {
+    String? podId,
+    String? title,
+    bool? followersOnly,
+  }) async {
+    final pod = await _podRepository.streamDjList(
+      listId,
+      podId: podId,
+      title: title,
+      followersOnly: followersOnly,
+    );
+    final existingIndex = _pods.indexWhere((p) => p.id == pod.id);
+    if (existingIndex >= 0) {
+      _pods[existingIndex] = pod;
+    } else {
+      _pods.insert(0, pod);
+    }
+    notifyListeners();
+    return pod;
   }
 }

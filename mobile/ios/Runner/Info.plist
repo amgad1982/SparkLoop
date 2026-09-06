@@ -81,5 +81,11 @@
 	<string>SparkLoop requires permission to save memes and generated images to your photo library.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>SparkLoop requires camera access to take profile photos and meme content.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>

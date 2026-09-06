@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SparkLoop.Application.DTOs;
 using SparkLoop.Domain.Aggregates.ChainAggregate;
 using SparkLoop.Domain.Aggregates.MoodPodAggregate;
 using SparkLoop.Domain.Aggregates.PostAggregate;
@@ -16,6 +17,7 @@ public interface IAppDbContext
     DbSet<ChainStep> ChainSteps { get; }
     DbSet<MoodPod> MoodPods { get; }
     DbSet<PodMessage> PodMessages { get; }
+    DbSet<DjList> DjLists { get; }
     DbSet<UserFollow> UserFollows { get; }
     DbSet<UserDeviceSession> UserDeviceSessions { get; }
     DbSet<UserSocialAccount> UserSocialAccounts { get; }
@@ -90,6 +92,7 @@ public interface ILiveKitService
 {
     string GenerateVoiceToken(string podId, string userId, string username, string displayName, bool isOnStage, TimeSpan? ttl = null);
     string GetServerUrl();
+    IReadOnlyList<IceServerDto> GetIceServers();
 }
 
 /// <summary>

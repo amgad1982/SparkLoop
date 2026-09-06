@@ -160,7 +160,14 @@ public class RegisterUserCommandHandler : IRequestHandler<RegisterUserCommand, A
             user.ShowBio,
             user.ShowFollowersCount,
             user.ShowBadges,
-            user.ShowActivityStats
+            user.ShowActivityStats,
+            user.NotifyStageInvites,
+            user.NotifyChainTurns,
+            user.NotifyFollows,
+            user.HapticFeedback,
+            user.VoiceRoomVolume,
+            user.BgMusicVolume,
+            user.JoinMicMuted
         );
     }
 
@@ -1611,3 +1618,94 @@ public class GetTopCreatorsQueryHandler : IRequestHandler<GetTopCreatorsQuery, I
         );
     }
 }
+
+public record GetUserSettingsQuery() : IRequest<UserSettingsDto>;
+
+public class GetUserSettingsQueryHandler : IRequestHandler<GetUserSettingsQuery, UserSettingsDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public GetUserSettingsQueryHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<UserSettingsDto> Handle(GetUserSettingsQuery request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId ?? throw new UnauthorizedDomainException("Authentication required to get settings.");
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            ?? throw new NotFoundException("User", userId);
+
+        return new UserSettingsDto(
+            user.PreferredTheme,
+            user.PreferredLanguage,
+            user.NotifyStageInvites,
+            user.NotifyChainTurns,
+            user.NotifyFollows,
+            user.HapticFeedback,
+            user.VoiceRoomVolume,
+            user.BgMusicVolume,
+            user.JoinMicMuted
+        );
+    }
+}
+
+public record UpdateUserSettingsCommand(
+    string? PreferredTheme = null,
+    string? PreferredLanguage = null,
+    bool? NotifyStageInvites = null,
+    bool? NotifyChainTurns = null,
+    bool? NotifyFollows = null,
+    bool? HapticFeedback = null,
+    double? VoiceRoomVolume = null,
+    double? BgMusicVolume = null,
+    bool? JoinMicMuted = null
+) : IRequest<UserSettingsDto>;
+
+public class UpdateUserSettingsCommandHandler : IRequestHandler<UpdateUserSettingsCommand, UserSettingsDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+
+    public UpdateUserSettingsCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+    }
+
+    public async Task<UserSettingsDto> Handle(UpdateUserSettingsCommand request, CancellationToken cancellationToken)
+    {
+        var userId = _currentUserService.UserId ?? throw new UnauthorizedDomainException("Authentication required to update settings.");
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Id == userId, cancellationToken)
+            ?? throw new NotFoundException("User", userId);
+
+        user.UpdateUserSettings(
+            preferredTheme: request.PreferredTheme,
+            preferredLanguage: request.PreferredLanguage,
+            notifyStageInvites: request.NotifyStageInvites,
+            notifyChainTurns: request.NotifyChainTurns,
+            notifyFollows: request.NotifyFollows,
+            hapticFeedback: request.HapticFeedback,
+            voiceRoomVolume: request.VoiceRoomVolume,
+            bgMusicVolume: request.BgMusicVolume,
+            joinMicMuted: request.JoinMicMuted
+        );
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return new UserSettingsDto(
+            user.PreferredTheme,
+            user.PreferredLanguage,
+            user.NotifyStageInvites,
+            user.NotifyChainTurns,
+            user.NotifyFollows,
+            user.HapticFeedback,
+            user.VoiceRoomVolume,
+            user.BgMusicVolume,
+            user.JoinMicMuted
+        );
+    }
+}
+

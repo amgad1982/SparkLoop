@@ -7,6 +7,7 @@ import '../features/chains/views/chain_detail_screen.dart';
 import '../features/chains/views/chains_screen.dart';
 import '../features/feed/views/feed_screen.dart';
 import '../features/meme_canvas/views/meme_canvas_screen.dart';
+import '../features/pods/views/dj_lists_screen.dart';
 import '../features/pods/views/pod_room_screen.dart';
 import '../features/pods/views/pods_screen.dart';
 import '../features/profile/views/profile_screen.dart';
@@ -20,7 +21,7 @@ final GoRouter appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/feed',
   routes: [
-    // 4-Tab Navigation Shell
+    // 5-Tab Navigation Shell
     StatefulShellRoute.indexedStack(
       builder: (context, state, navigationShell) {
         return MobileAppShell(navigationShell: navigationShell);
@@ -36,22 +37,22 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
 
-        // 1. Meme Lab / Canvas Studio Branch
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/create',
-              builder: (context, state) => const MemeCanvasScreen(),
-            ),
-          ],
-        ),
-
-        // 2. Chains Branch
+        // 1. Chains Branch
         StatefulShellBranch(
           routes: [
             GoRoute(
               path: '/chains',
               builder: (context, state) => const ChainsScreen(),
+            ),
+          ],
+        ),
+
+        // 2. Meme Lab / Canvas Studio Branch (Center Action)
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/create',
+              builder: (context, state) => const MemeCanvasScreen(),
             ),
           ],
         ),
@@ -62,6 +63,16 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: '/pods',
               builder: (context, state) => const PodsScreen(),
+            ),
+          ],
+        ),
+
+        // 4. Settings Branch
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/settings',
+              builder: (context, state) => const SettingsScreen(),
             ),
           ],
         ),
@@ -90,8 +101,8 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       parentNavigatorKey: _rootNavigatorKey,
-      path: '/settings',
-      builder: (context, state) => const SettingsScreen(),
+      path: '/dj-lists',
+      builder: (context, state) => const DjListsScreen(),
     ),
     GoRoute(
       parentNavigatorKey: _rootNavigatorKey,

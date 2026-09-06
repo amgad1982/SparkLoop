@@ -144,6 +144,11 @@ export interface MoodPodDto {
   allowParticipantsPlayBgMusic?: boolean;
   allowOpenMic?: boolean;
   moderatorUserIds?: string[];
+  isDjMode?: boolean;
+  followersOnly?: boolean;
+  currentDjTrackTitle?: string;
+  currentDjTrackUrl?: string;
+  activeDjUserId?: string;
 }
 
 export interface DeviceSessionDto {
@@ -274,12 +279,82 @@ export interface GlobalSearchResultDto {
   hashtags: HashtagDto[];
 }
 
+export interface IceServerConfig {
+  urls: string | string[];
+  username?: string;
+  credential?: string;
+}
+
 export interface LiveKitTokenDto {
   token: string;
   serverUrl: string;
   roomName: string;
   identity: string;
   isOnStage: boolean;
+  iceServers?: IceServerConfig[];
+}
+
+export interface UserSettingsDto {
+  preferredTheme: string;
+  preferredLanguage: string;
+  isPrivate: boolean;
+  isSearchDiscoverable: boolean;
+  showBio: boolean;
+  showFollowersCount: boolean;
+  showBadges: boolean;
+  showActivityStats: boolean;
+  notifyStageInvites: boolean;
+  notifyChainTurns: boolean;
+  notifyFollows: boolean;
+  hapticFeedback: boolean;
+  voiceRoomVolume: number;
+  bgMusicVolume: number;
+  joinMicMuted: boolean;
+}
+
+export interface AudioPresetDto {
+  id: string;
+  title: string;
+  titleAr: string;
+  url: string;
+  category: string;
+  durationSeconds: number;
+}
+
+export interface DjTrackDto {
+  id: string;
+  title: string;
+  artist: string;
+  url: string;
+  durationSeconds: number;
+}
+
+export interface DjListDto {
+  id: string;
+  userId: string;
+  username: string;
+  userDisplayName: string;
+  userAvatarUrl?: string;
+  title: string;
+  description?: string;
+  genre: string;
+  coverUrl?: string;
+  isPublic: boolean;
+  followersOnly: boolean;
+  trackCount: number;
+  tracks: DjTrackDto[];
+  createdAtUtc: string;
+  updatedAtUtc: string;
+}
+
+export interface CreateDjListDto {
+  title: string;
+  description?: string;
+  genre: string;
+  coverUrl?: string;
+  isPublic: boolean;
+  followersOnly: boolean;
+  tracks: DjTrackDto[];
 }
 
 export interface OAuthUrlResponse {

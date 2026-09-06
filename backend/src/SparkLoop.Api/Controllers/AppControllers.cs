@@ -764,14 +764,14 @@ public class MediaController : ControllerBase
 
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        ".png", ".jpg", ".jpeg", ".webp", ".gif", ".webm", ".mp3", ".wav", ".ogg", ".m4a"
+        ".png", ".jpg", ".jpeg", ".webp", ".gif", ".webm", ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac"
     };
 
     private static readonly HashSet<string> AllowedContentTypes = new(StringComparer.OrdinalIgnoreCase)
     {
         "image/png", "image/jpeg", "image/webp", "image/gif",
         "video/webm", "video/mp4",
-        "audio/webm", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/x-m4a"
+        "audio/webm", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/flac", "audio/x-wav"
     };
 
     public MediaController(IBlobStorageService storageService)
@@ -781,7 +781,7 @@ public class MediaController : ControllerBase
 
     [Authorize]
     [HttpPost("upload")]
-    [RequestSizeLimit(15 * 1024 * 1024)] // 15 MB Max
+    [RequestSizeLimit(35 * 1024 * 1024)] // 35 MB Max for DJ music uploads
     [EnableRateLimiting(RateLimitingPolicies.Uploads)]
     public async Task<ActionResult<UploadResponse>> UploadFile(IFormFile file)
     {
@@ -833,3 +833,94 @@ public class SearchController : ControllerBase
         return Ok(result);
     }
 }
+
+[ApiController]
+[Route("api/[controller]")]
+public class AudioController : ControllerBase
+{
+    [AllowAnonymous]
+    [HttpGet("presets")]
+    public ActionResult<IReadOnlyList<AudioPresetDto>> GetPresets()
+    {
+        var presets = new List<AudioPresetDto>
+        {
+            new("lofi", "Lofi Ambient Chords", "تناغم هادئ", "/audio/presets/lofi.wav", "Chill", 12.0),
+            new("synth", "Synthwave Resonance", "صدى سنثويف", "/audio/presets/synth.wav", "Electronic", 10.0),
+            new("rain", "Midnight Rain & Sub", "مطر منتصف الليل", "/audio/presets/rain.wav", "Nature", 10.0),
+            new("cafe", "Cosmic Cafe Warmth", "مقهى كوني دافئ", "/audio/presets/cafe.wav", "Ambient", 10.0)
+        };
+        return Ok(presets);
+    }
+}
+
+[ApiController]
+[Route("api/[controller]")]
+public class DjController : ControllerBase
+{
+    private readonly IMediator _mediator;
+
+    public DjController(IMediator mediator)
+    {
+        _mediator = mediator;
+    }
+
+    [AllowAnonymous]
+    [HttpGet("lists")]
+    public async Task<ActionResult<IReadOnlyList<DjListDto>>> GetLists(
+        [FromQuery] string? genre = null,
+        [FromQuery] Guid? userId = null)
+    {
+        var result = await _mediator.Send(new GetDjListsQuery(genre, userId));
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("lists/{id:guid}")]
+    public async Task<ActionResult<DjListDto>> GetListById(Guid id)
+    {
+        var result = await _mediator.Send(new GetDjListByIdQuery(id));
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("lists")]
+    public async Task<ActionResult<DjListDto>> CreateList([FromBody] CreateDjListDto dto)
+    {
+        var result = await _mediator.Send(new CreateDjListCommand(
+            dto.Title,
+            dto.Description,
+            dto.Genre,
+            dto.CoverUrl,
+            dto.IsPublic,
+            dto.FollowersOnly,
+            dto.Tracks
+        ));
+        return CreatedAtAction(nameof(GetListById), new { id = result.Id }, result);
+    }
+
+    [Authorize]
+    [HttpDelete("lists/{id:guid}")]
+    public async Task<ActionResult> DeleteList(Guid id)
+    {
+        await _mediator.Send(new DeleteDjListCommand(id));
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpPost("lists/{id:guid}/stream")]
+    public async Task<ActionResult<MoodPodDto>> StreamList(
+        Guid id,
+        [FromBody] StreamDjListRequest? request = null)
+    {
+        var result = await _mediator.Send(new StreamDjListCommand(
+            id,
+            request?.PodId,
+            request?.Title,
+            request?.FollowersOnly
+        ));
+        return Ok(result);
+    }
+
+    public record StreamDjListRequest(Guid? PodId = null, string? Title = null, bool? FollowersOnly = null);
+}
+

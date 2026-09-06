@@ -7,6 +7,8 @@ import { BottomNavBar, TabType } from './BottomNavBar';
 import { RTLProvider } from './RTLProvider';
 import { MoodPodDto, UserDto } from '../../types/api';
 import { api } from '../../services/apiClient';
+import { DjListsModal } from '../pods/DjListsModal';
+import { SettingsModal } from '../profile/SettingsModal';
 
 interface MobileAppShellProps {
   activeTab: TabType;
@@ -28,6 +30,8 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
   children,
 }) => {
   const [topCreators, setTopCreators] = useState<UserDto[]>([]);
+  const [isDjListsOpen, setIsDjListsOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     api.getTopCreators()
@@ -54,6 +58,8 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
               isConnected={isConnected}
               onNavigateTab={onTabChange}
               onOpenSearch={onOpenSearch}
+              onOpenDjLists={() => setIsDjListsOpen(true)}
+              onOpenSettings={() => setIsSettingsOpen(true)}
             />
 
             {/* Desktop Header (Visible on >= md) */}
@@ -62,6 +68,8 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
               onNavigateTab={onTabChange}
               isConnected={isConnected}
               onOpenSearch={onOpenSearch}
+              onOpenDjLists={() => setIsDjListsOpen(true)}
+              onOpenSettings={() => setIsSettingsOpen(true)}
             />
 
             {/* Center Stream Content */}
@@ -81,6 +89,18 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
             onSelectHashtag={onSelectHashtag}
           />
         </div>
+
+        {/* Global DJ Studio & Broadcast Modal */}
+        <DjListsModal
+          isOpen={isDjListsOpen}
+          onClose={() => setIsDjListsOpen(false)}
+        />
+
+        {/* Global User Settings Modal */}
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+        />
       </div>
     </RTLProvider>
   );

@@ -4,12 +4,14 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Interfaces;
 
 namespace SparkLoop.Infrastructure.RealTime;
 
 public class LiveKitService : ILiveKitService
 {
+    private readonly IConfiguration _configuration;
     private readonly string _serverUrl;
     private readonly string _apiKey;
     private readonly string _apiSecret;
@@ -17,6 +19,7 @@ public class LiveKitService : ILiveKitService
 
     public LiveKitService(IConfiguration configuration, ILogger<LiveKitService> logger)
     {
+        _configuration = configuration;
         _logger = logger;
         _serverUrl = configuration["LiveKit:ServerUrl"] ?? "ws://localhost:7880";
         _apiKey = configuration["LiveKit:ApiKey"] ?? "sparkloop_livekit_key";
@@ -24,6 +27,20 @@ public class LiveKitService : ILiveKitService
     }
 
     public string GetServerUrl() => _serverUrl;
+
+    public IReadOnlyList<IceServerDto> GetIceServers()
+    {
+        var turnServer = _configuration["LiveKit:Turn:Server"] ?? "turn:92.4.162.183:3478";
+        var turnUsername = _configuration["LiveKit:Turn:Username"] ?? "sparkloop";
+        var turnCredential = _configuration["LiveKit:Turn:Credential"] ?? "sparkloop_turn_secret_2026";
+
+        return new List<IceServerDto>
+        {
+            new(new[] { "stun:stun.l.google.com:19302" }),
+            new(new[] { "stun:92.4.162.183:3478" }),
+            new(new[] { turnServer }, turnUsername, turnCredential)
+        };
+    }
 
     public string GenerateVoiceToken(
         string podId,

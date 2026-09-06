@@ -1,12 +1,26 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sparkloop_mobile/data/models/auth_models.dart';
+import 'package:sparkloop_mobile/data/models/dj_list_models.dart';
 import 'package:sparkloop_mobile/data/models/pod_models.dart';
 import 'package:sparkloop_mobile/data/models/post_models.dart';
 import 'package:sparkloop_mobile/data/models/search_models.dart';
+import 'package:sparkloop_mobile/data/repositories/auth_repository.dart';
+import 'package:sparkloop_mobile/data/repositories/follow_repository.dart';
+import 'package:sparkloop_mobile/data/repositories/user_repository.dart';
 import 'package:sparkloop_mobile/data/services/api_service.dart';
+import 'package:sparkloop_mobile/data/services/centrifugo_service.dart';
 import 'package:sparkloop_mobile/data/services/livekit_service.dart';
 import 'package:sparkloop_mobile/data/services/sound_synth_service.dart';
+import 'package:sparkloop_mobile/data/services/storage_service.dart';
 import 'package:sparkloop_mobile/ui/core/widgets/app_network_image.dart';
+import 'package:sparkloop_mobile/ui/features/auth/view_models/auth_view_model.dart';
+import 'package:sparkloop_mobile/ui/features/profile/view_models/profile_view_model.dart';
+import 'package:sparkloop_mobile/ui/features/profile/views/settings_screen.dart';
+import 'package:sparkloop_mobile/ui/features/shell/bottom_nav_bar.dart';
+import 'package:sparkloop_mobile/ui/features/theme/theme_view_model.dart';
 
 void main() {
   group('SparkLoop Mobile Unit Tests', () {
@@ -377,8 +391,189 @@ void main() {
       }
     });
 
-    testWidgets('ProfileScreen renders without crashing', (tester) async {
-      // Check if ProfileScreen builds cleanly
+    testWidgets('BottomNavBar renders 5 buttons and handles taps correctly', (tester) async {
+      int tappedIndex = -1;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            bottomNavigationBar: BottomNavBar(
+              currentIndex: 0,
+              onTap: (index) => tappedIndex = index,
+            ),
+          ),
+        ),
+      );
+
+      // Verify all 5 tab items exist
+      expect(find.text('Feed'), findsOneWidget);
+      expect(find.text('Chains'), findsOneWidget);
+      expect(find.text('Meme Lab'), findsOneWidget);
+      expect(find.text('Pods'), findsOneWidget);
+      expect(find.text('Settings'), findsOneWidget);
+      expect(find.byIcon(Icons.palette_outlined), findsOneWidget); // Center Meme Lab FAB
+
+      // Tap on Settings (index 4)
+      await tester.tap(find.text('Settings'));
+      expect(tappedIndex, 4);
+
+      // Tap on Meme Lab center button (index 2)
+      await tester.tap(find.byIcon(Icons.palette_outlined));
+      expect(tappedIndex, 2);
+
+      // Tap on Chains (index 1)
+      await tester.tap(find.text('Chains'));
+      expect(tappedIndex, 1);
+
+      // Tap on Pods (index 3)
+      await tester.tap(find.text('Pods'));
+      expect(tappedIndex, 3);
+    });
+
+    testWidgets('SettingsScreen renders key sections without crashing', (tester) async {
+      tester.view.physicalSize = const Size(800, 2400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.init();
+
+      final api = ApiService(storage: storage);
+      final centrifugo = CentrifugoService(apiService: api);
+      final liveKit = LiveKitService();
+      final authRepo = AuthRepository(apiService: api, storageService: storage);
+      final userRepo = UserRepository(apiService: api);
+      final followRepo = FollowRepository(apiService: api);
+
+      final themeVm = ThemeViewModel(storageService: storage);
+      final authVm = AuthViewModel(authRepository: authRepo, centrifugoService: centrifugo);
+      final profileVm = ProfileViewModel(userRepository: userRepo, followRepository: followRepo);
+
+      await tester.pumpWidget(
+        MultiProvider(
+          providers: [
+            Provider<ApiService>.value(value: api),
+            ChangeNotifierProvider<ThemeViewModel>.value(value: themeVm),
+            ChangeNotifierProvider<AuthViewModel>.value(value: authVm),
+            ChangeNotifierProvider<ProfileViewModel>.value(value: profileVm),
+            ChangeNotifierProvider<LiveKitService>.value(value: liveKit),
+            ChangeNotifierProvider<CentrifugoService>.value(value: centrifugo),
+          ],
+          child: const MaterialApp(
+            home: SettingsScreen(),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('Appearance & Language'), findsOneWidget);
+      expect(find.text('Dark Mode'), findsOneWidget);
+      expect(find.text('Audio & Voice Stage'), findsOneWidget);
+      expect(find.text('Notifications & Experience'), findsOneWidget);
+      expect(find.text('Pod & Stage Invites'), findsOneWidget);
+      expect(find.text('Meme Chain Turn Alerts'), findsOneWidget);
+      expect(find.text('New Follower Alerts'), findsOneWidget);
+      expect(find.text('Haptic Feedback'), findsOneWidget);
+      expect(find.text('Clear Media Cache'), findsOneWidget);
+      expect(find.text('v1.0.0 (Build 42)'), findsOneWidget);
+
+      // Verify all tech plumbing and monospace/IP info is stripped
+      expect(find.text('Network & Infrastructure'), findsNothing);
+      expect(find.text('Centrifugo Real-time'), findsNothing);
+      expect(find.text('Coturn TURN Relay'), findsNothing);
+    });
+
+    test('DjListDto, DjTrackDto, and CreateDjListDto serialization', () {
+      final track = DjTrackDto(
+        id: 't-1',
+        title: 'Neon Nights',
+        artist: 'DJ Pixel',
+        url: '/audio/presets/synth.wav',
+        durationSeconds: 180,
+      );
+
+      final trackJson = track.toJson();
+      expect(trackJson['title'], 'Neon Nights');
+      expect(trackJson['durationSeconds'], 180);
+
+      final reconstructedTrack = DjTrackDto.fromJson(trackJson);
+      expect(reconstructedTrack.id, 't-1');
+      expect(reconstructedTrack.title, 'Neon Nights');
+
+      final listJson = {
+        'id': 'dj-1',
+        'userId': 'u-1',
+        'username': 'dj_master',
+        'userDisplayName': 'Master DJ',
+        'title': 'Chill Sunset Vibes',
+        'description': 'Handcrafted lo-fi ambient tracks',
+        'genre': 'Lo-Fi',
+        'isPublic': true,
+        'followersOnly': false,
+        'trackCount': 1,
+        'tracks': [trackJson],
+        'createdAtUtc': '2026-09-07T00:00:00Z',
+      };
+
+      final djList = DjListDto.fromJson(listJson);
+      expect(djList.id, 'dj-1');
+      expect(djList.title, 'Chill Sunset Vibes');
+      expect(djList.tracks.length, 1);
+      expect(djList.tracks.first.title, 'Neon Nights');
+      expect(djList.followersOnly, isFalse);
+
+      final createDto = CreateDjListDto(
+        title: 'Exclusive Beats',
+        genre: 'Electronic',
+        isPublic: false,
+        followersOnly: true,
+        tracks: [track],
+      );
+      final createJson = createDto.toJson();
+      expect(createJson['followersOnly'], isTrue);
+      expect(createJson['isPublic'], isFalse);
+    });
+
+    test('IceServerDto, LiveKitTokenDto, and AudioPresetDto parsing', () {
+      final iceJson = {
+        'urls': ['stun:turn.sparkloop.com:3478', 'turn:turn.sparkloop.com:3478?transport=udp'],
+        'username': 'sparkloop',
+        'credential': 'secret_password',
+      };
+      final iceServer = IceServerDto.fromJson(iceJson);
+      expect(iceServer.urls.length, 2);
+      expect(iceServer.username, 'sparkloop');
+
+      final tokenJson = {
+        'token': 'mock_jwt_token',
+        'serverUrl': 'wss://livekit.sparkloop.com',
+        'roomName': 'pod_123',
+        'identity': 'user_456',
+        'isOnStage': true,
+        'iceServers': [iceJson],
+      };
+      final tokenDto = LiveKitTokenDto.fromJson(tokenJson);
+      expect(tokenDto.token, 'mock_jwt_token');
+      expect(tokenDto.isOnStage, isTrue);
+      expect(tokenDto.iceServers?.length, 1);
+      expect(tokenDto.iceServers?.first.urls.first, 'stun:turn.sparkloop.com:3478');
+
+      final presetJson = {
+        'id': 'rain',
+        'title': 'Rainy Cafe',
+        'category': 'Ambient',
+        'url': '/audio/presets/rain.wav',
+        'icon': '🌧️',
+      };
+      final preset = AudioPresetDto.fromJson(presetJson);
+      expect(preset.id, 'rain');
+      expect(preset.url, '/audio/presets/rain.wav');
     });
   });
 }

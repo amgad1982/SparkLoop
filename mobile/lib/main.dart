@@ -11,6 +11,7 @@ import 'data/repositories/user_repository.dart';
 import 'data/services/api_service.dart';
 import 'data/services/centrifugo_service.dart';
 import 'data/services/livekit_service.dart';
+import 'data/services/notification_service.dart';
 import 'data/services/storage_service.dart';
 import 'l10n/generated/app_localizations.dart';
 import 'ui/core/theme/app_theme.dart';
@@ -35,6 +36,9 @@ void main() async {
   final apiService = ApiService(storage: storageService);
   final centrifugoService = CentrifugoService(apiService: apiService);
   final liveKitService = LiveKitService();
+
+  // Initialize System Notifications
+  await NotificationService.instance.initialize();
 
   // Connect to Centrifugo WebSocket
   centrifugoService.connect();

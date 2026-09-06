@@ -140,33 +140,24 @@ class TopAppHeader extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 4),
 
-            // Language Toggle
-            InkWell(
-              onTap: () => themeVm.toggleLocale(),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? AppColors.surfaceDark
-                      : const Color(0xFFF1F5F9),
+            // DJ Lists Hub
+            IconButton(
+              onPressed: () => context.push('/dj-lists'),
+              tooltip: isArabic ? 'قوائم الدي جي' : 'DJ Lists',
+              icon: const Icon(Icons.radio, size: 18, color: AppColors.accentCyan),
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              padding: const EdgeInsets.all(6),
+              style: IconButton.styleFrom(
+                backgroundColor: Theme.of(context).brightness == Brightness.dark
+                    ? AppColors.surfaceDark
+                    : const Color(0xFFF1F5F9),
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
+                  side: BorderSide(
                     color: Theme.of(context).brightness == Brightness.dark
                         ? AppColors.borderDark
                         : AppColors.borderLight,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.language, size: 13, color: AppColors.accentCyan),
-                    const SizedBox(width: 3),
-                    Text(
-                      isArabic ? 'EN' : 'عربي',
-                      style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
-                    ),
-                  ],
                 ),
               ),
             ),

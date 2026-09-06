@@ -4,6 +4,7 @@ using SparkLoop.Application.Common;
 using SparkLoop.Application.DTOs;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Aggregates.MoodPodAggregate;
+using SparkLoop.Domain.Aggregates.UserAggregate;
 using SparkLoop.Domain.Exceptions;
 
 namespace SparkLoop.Application.Features.MoodPods;
@@ -56,7 +57,12 @@ public static class MoodPodQueries
             pod.AllowParticipantsChangeTheme,
             pod.AllowParticipantsPlayBgMusic,
             pod.AllowOpenMic,
-            pod.ModeratorUserIds.ToList()
+            pod.ModeratorUserIds.ToList(),
+            pod.IsDjMode,
+            pod.FollowersOnly,
+            pod.CurrentDjTrackTitle,
+            pod.CurrentDjTrackUrl,
+            pod.ActiveDjUserId
         );
     }
 }
@@ -132,8 +138,15 @@ public class GetPodByIdQueryHandler : IRequestHandler<GetPodByIdQuery, MoodPodDt
         // For read access we intentionally treat an anonymous viewer as Guid.Empty —
         // anyone can fetch a public pod's metadata without authentication.
         var currentUserId = _currentUserService.UserId ?? Guid.Empty;
-        if (pod.IsPrivate && !pod.CanUserAccess(currentUserId, request.InviteCode))
+        var isFollower = currentUserId != Guid.Empty && await _dbContext.UserFollows
+            .AnyAsync(f => f.FollowerId == currentUserId && f.FollowingId == pod.HostUserId && f.Status == FollowStatus.Accepted, cancellationToken);
+
+        if (!pod.CanUserAccess(currentUserId, isFollower, request.InviteCode))
         {
+            if (pod.FollowersOnly)
+            {
+                throw new DomainRuleException("This DJ Pod is exclusive to followers of the host.", "FOLLOWERS_ONLY_POD_ACCESS_DENIED");
+            }
             throw new DomainRuleException("This Mood Pod is private and requires a valid invite code or host invitation.", "PRIVATE_POD_ACCESS_DENIED");
         }
 
@@ -230,6 +243,16 @@ public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuer
         var isHost = pod.HostUserId == userId;
         var isModerator = pod.IsModerator(userId);
 
+        if (pod.FollowersOnly && !isHost && !isModerator)
+        {
+            var isFollower = await _dbContext.UserFollows
+                .AnyAsync(f => f.FollowerId == userId && f.FollowingId == pod.HostUserId && f.Status == FollowStatus.Accepted, cancellationToken);
+            if (!isFollower && (string.IsNullOrWhiteSpace(request.InviteCode) || !string.Equals(pod.InviteCode?.Trim(), request.InviteCode.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new UnauthorizedDomainException("Access denied. This DJ Pod is exclusive to followers of the host.");
+            }
+        }
+
         if (pod.IsPrivate && !isHost && !isModerator)
         {
             if (string.IsNullOrWhiteSpace(request.InviteCode) ||
@@ -258,7 +281,8 @@ public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuer
             ServerUrl: serverUrl,
             RoomName: roomName,
             Identity: userId.ToString(),
-            IsOnStage: isOnStage
+            IsOnStage: isOnStage,
+            IceServers: _liveKitService.GetIceServers()
         );
     }
 }

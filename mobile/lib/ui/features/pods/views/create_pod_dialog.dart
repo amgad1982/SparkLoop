@@ -82,6 +82,8 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
   bool _allowOpenMic = true;
   bool _allowParticipantsChangeTheme = false;
   bool _allowParticipantsPlayBgMusic = true;
+  bool _isDjMode = false;
+  bool _followersOnly = false;
   bool _isSubmitting = false;
 
   @override
@@ -108,6 +110,8 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
       allowOpenMic: _allowOpenMic,
       allowParticipantsChangeTheme: _allowParticipantsChangeTheme,
       allowParticipantsPlayBgMusic: _allowParticipantsPlayBgMusic,
+      isDjMode: _isDjMode,
+      followersOnly: _followersOnly,
       durationHours: _selectedDuration,
     );
 
@@ -415,6 +419,20 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
                         title: isArabic ? 'السماح بتغيير الثيم' : 'Allow guests to change room theme',
                         value: _allowParticipantsChangeTheme,
                         onChanged: (v) => setState(() => _allowParticipantsChangeTheme = v),
+                      ),
+                      const Divider(height: 12),
+                      _buildSwitchTile(
+                        icon: Icons.radio,
+                        title: isArabic ? 'حجرة دي جي وبث مباشر 🎧' : 'DJ Mode & Live Broadcast 🎧',
+                        value: _isDjMode,
+                        onChanged: (v) => setState(() => _isDjMode = v),
+                      ),
+                      const Divider(height: 12),
+                      _buildSwitchTile(
+                        icon: Icons.people_outline,
+                        title: isArabic ? 'متاح للمتابعين فقط (حصري) 🔒' : 'Followers Only (Exclusive) 🔒',
+                        value: _followersOnly,
+                        onChanged: (v) => setState(() => _followersOnly = v),
                       ),
                     ],
                   ),

@@ -184,11 +184,26 @@ class PodsScreen extends StatelessWidget {
                             onPressed: () => _showJoinByCodeDialog(context),
                             icon: const Icon(Icons.key, size: 16, color: AppColors.accentEmerald),
                             label: Text(
-                              isArabic ? 'انضمام برمز دعوة' : 'Join with Code',
+                              isArabic ? 'رمز دعوة' : 'Invite Code',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentEmerald),
                             ),
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: AppColors.accentEmerald.withValues(alpha: 0.4)),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push('/dj-lists'),
+                            icon: const Icon(Icons.radio, size: 16, color: AppColors.accentCyan),
+                            label: Text(
+                              isArabic ? 'قوائم الدي جي 🎧' : 'DJ Lists 🎧',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: AppColors.accentCyan.withValues(alpha: 0.4)),
                               padding: const EdgeInsets.symmetric(vertical: 8),
                             ),
                           ),
@@ -309,7 +324,14 @@ class PodsScreen extends StatelessWidget {
                 ),
                 Row(
                   children: [
-                    if (pod.isPrivate) ...[
+                    if (pod.isDjMode) ...[
+                      const Icon(Icons.radio, size: 12, color: AppColors.accentCyan),
+                      const SizedBox(width: 4),
+                    ],
+                    if (pod.followersOnly) ...[
+                      const Icon(Icons.lock, size: 11, color: AppColors.accentAmber),
+                      const SizedBox(width: 4),
+                    ] else if (pod.isPrivate) ...[
                       const Icon(Icons.lock, size: 11, color: AppColors.primaryLight),
                       const SizedBox(width: 4),
                     ],

@@ -84,6 +84,34 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasDefaultValue(true)
             .IsRequired();
 
+        builder.Property(u => u.NotifyStageInvites)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(u => u.NotifyChainTurns)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(u => u.NotifyFollows)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(u => u.HapticFeedback)
+            .HasDefaultValue(true)
+            .IsRequired();
+
+        builder.Property(u => u.VoiceRoomVolume)
+            .HasDefaultValue(1.0)
+            .IsRequired();
+
+        builder.Property(u => u.BgMusicVolume)
+            .HasDefaultValue(0.5)
+            .IsRequired();
+
+        builder.Property(u => u.JoinMicMuted)
+            .HasDefaultValue(true)
+            .IsRequired();
+
         builder.Property(u => u.EmailConfirmationCode)
             .HasMaxLength(20);
 
@@ -256,6 +284,11 @@ public class MoodPodConfiguration : IEntityTypeConfiguration<MoodPod>
         builder.Property(p => p.AllowParticipantsChangeTheme).HasDefaultValue(false);
         builder.Property(p => p.AllowParticipantsPlayBgMusic).HasDefaultValue(true);
         builder.Property(p => p.AllowOpenMic).HasDefaultValue(true);
+        builder.Property(p => p.IsDjMode).HasDefaultValue(false);
+        builder.Property(p => p.FollowersOnly).HasDefaultValue(false);
+        builder.Property(p => p.CurrentDjTrackTitle).HasMaxLength(200);
+        builder.Property(p => p.CurrentDjTrackUrl).HasMaxLength(2000000);
+        builder.Property(p => p.ActiveDjUserId);
         builder.Property(p => p.HostUsername).HasMaxLength(30).IsRequired();
         builder.Property(p => p.HostDisplayName).HasMaxLength(100);
         builder.Property(p => p.HostAvatarUrl).HasMaxLength(500);
@@ -293,6 +326,31 @@ public class MoodPodConfiguration : IEntityTypeConfiguration<MoodPod>
         builder.HasIndex(p => p.ExpiresAtUtc);
         builder.HasIndex(p => p.IsActive);
         builder.HasIndex(p => p.InviteCode);
+    }
+}
+
+public class DjListConfiguration : IEntityTypeConfiguration<DjList>
+{
+    public void Configure(EntityTypeBuilder<DjList> builder)
+    {
+        builder.ToTable("dj_lists");
+        builder.HasKey(d => d.Id);
+
+        builder.Property(d => d.Username).HasMaxLength(30).IsRequired();
+        builder.Property(d => d.UserDisplayName).HasMaxLength(100).IsRequired();
+        builder.Property(d => d.UserAvatarUrl).HasMaxLength(500);
+        builder.Property(d => d.Title).HasMaxLength(150).IsRequired();
+        builder.Property(d => d.Description).HasMaxLength(1000);
+        builder.Property(d => d.Genre).HasMaxLength(50).IsRequired();
+        builder.Property(d => d.CoverUrl).HasMaxLength(2000000);
+        builder.Property(d => d.TracksJson).HasColumnName("tracks_json").IsRequired();
+        builder.Property(d => d.IsPublic).HasDefaultValue(true);
+        builder.Property(d => d.FollowersOnly).HasDefaultValue(false);
+
+        builder.HasIndex(d => d.UserId);
+        builder.HasIndex(d => d.Genre);
+        builder.HasIndex(d => d.CreatedAtUtc);
+        builder.HasIndex(d => d.IsPublic);
     }
 }
 

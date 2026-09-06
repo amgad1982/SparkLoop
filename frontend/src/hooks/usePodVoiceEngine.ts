@@ -10,7 +10,7 @@ import {
 } from 'livekit-client';
 import { useAuthStore } from '../stores/useAuthStore';
 import { PodSpeaker } from '../types/api';
-import { api } from '../services/apiClient';
+import { api, getMediaUrl } from '../services/apiClient';
 import { soundEffects } from '../services/soundEffects';
 import { startProceduralAmbient, ActiveSynthTrack } from '../services/ambientAudioGenerator';
 
@@ -108,6 +108,12 @@ export function usePodVoiceEngine({
   const isBgMusicMutedRef = useRef(isBgMusicMuted);
   isBgMusicMutedRef.current = isBgMusicMuted;
 
+  useEffect(() => {
+    if (remoteBgMusicAudioRef.current) {
+      remoteBgMusicAudioRef.current.volume = isBgMusicMuted ? 0 : bgMusicVolume;
+    }
+  }, [bgMusicVolume, isBgMusicMuted]);
+
   // LiveKit Room & Audio Elements Map
   const roomRef = useRef<Room | null>(null);
   const attachedAudioElementsRef = useRef<Map<string, AttachedAudioTrackEntry>>(new Map());
@@ -115,6 +121,7 @@ export function usePodVoiceEngine({
   const djBufferSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const djSynthRef = useRef<ActiveSynthTrack | null>(null);
   const djGainNodeRef = useRef<GainNode | null>(null);
+  const remoteBgMusicAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Audio Context & Analyser for Local Visualizer
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -463,8 +470,31 @@ export function usePodVoiceEngine({
           liveKitUrl = liveKitUrl.replace(/^ws:\/\//i, 'wss://');
         }
 
-        // Connect
-        await roomInstance.connect(liveKitUrl, tokenDto.token);
+        // Connect with dynamic iceServers from backend
+        const dynamicIceServers =
+          tokenDto.iceServers && tokenDto.iceServers.length > 0
+            ? tokenDto.iceServers.map((s) => ({
+                urls: s.urls,
+                username: s.username,
+                credential: s.credential,
+              }))
+            : [
+                { urls: ['stun:92.4.162.183:3478', 'stun:stun.l.google.com:19302'] },
+                {
+                  urls: [
+                    'turn:92.4.162.183:3478?transport=udp',
+                    'turn:92.4.162.183:3478?transport=tcp',
+                  ],
+                  username: 'sparkloop',
+                  credential: 'SparkLoopTurnSecret2026Secure!',
+                },
+              ];
+
+        await roomInstance.connect(liveKitUrl, tokenDto.token, {
+          rtcConfig: {
+            iceServers: dynamicIceServers,
+          },
+        });
         roomInstance.startAudio().catch(() => {});
       } catch (err) {
         console.error('Failed to connect to LiveKit voice room:', err);
@@ -482,6 +512,9 @@ export function usePodVoiceEngine({
       if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
         audioCtxRef.current.resume().catch(() => {});
       }
+      if (remoteBgMusicAudioRef.current && remoteBgMusicAudioRef.current.paused) {
+        remoteBgMusicAudioRef.current.play().catch(() => {});
+      }
     };
     window.addEventListener('click', unlockAudio, { once: true });
     window.addEventListener('keydown', unlockAudio, { once: true });
@@ -494,6 +527,13 @@ export function usePodVoiceEngine({
       attachedAudioElementsRef.current.forEach(({ element }) => element.remove());
       attachedAudioElementsRef.current.clear();
       cleanupLocalDjAudio();
+      if (remoteBgMusicAudioRef.current) {
+        try {
+          remoteBgMusicAudioRef.current.pause();
+          remoteBgMusicAudioRef.current.src = '';
+        } catch {}
+        remoteBgMusicAudioRef.current = null;
+      }
       if (roomInstance) {
         roomInstance.disconnect();
       }
@@ -1101,15 +1141,49 @@ export function usePodVoiceEngine({
       }
       // 11. DJ Background Music State
       else if (eventType === 'BG_MUSIC_STATE' || eventType === 'POD_BG_MUSIC') {
+        const isMe = data.djUserId === currentPersona.id;
         // If another DJ took over, stop any local stream immediately to avoid dual tracks
-        if (data.action !== 'stop' && data.djUserId && data.djUserId !== currentPersona.id) {
+        if (data.action !== 'stop' && data.djUserId && !isMe) {
           cleanupLocalDjAudio();
+        }
+
+        const isPlaying = data.action === 'play' || data.action === 'track_change';
+
+        // Play or stop remote audio for listeners (when not the DJ playing locally)
+        if (!isMe) {
+          if (isPlaying && data.trackUrl) {
+            const fullUrl = getMediaUrl(data.trackUrl);
+            if (!remoteBgMusicAudioRef.current) {
+              remoteBgMusicAudioRef.current = new Audio();
+              remoteBgMusicAudioRef.current.loop = true;
+            }
+            const audio = remoteBgMusicAudioRef.current;
+            audio.volume = isBgMusicMutedRef.current ? 0 : bgMusicVolumeRef.current;
+            if (audio.src !== fullUrl) {
+              audio.src = fullUrl;
+            }
+            if (typeof data.currentTime === 'number' && data.currentTime > 0) {
+              try {
+                audio.currentTime = data.currentTime;
+              } catch {}
+            }
+            audio.play().catch((err) => {
+              console.warn('Autoplay prevented for remote DJ background music:', err);
+            });
+          } else if (data.action === 'pause') {
+            remoteBgMusicAudioRef.current?.pause();
+          } else if (data.action === 'stop') {
+            if (remoteBgMusicAudioRef.current) {
+              remoteBgMusicAudioRef.current.pause();
+              remoteBgMusicAudioRef.current.src = '';
+            }
+          }
         }
 
         setBgMusic((prev) => ({
           ...prev,
           isActive: data.action !== 'stop',
-          isPlaying: data.action === 'play' || data.action === 'track_change',
+          isPlaying,
           djUserId: data.djUserId,
           djUsername: data.djUsername,
           djDisplayName: data.djDisplayName,

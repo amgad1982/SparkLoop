@@ -1,3 +1,4 @@
+import '../models/dj_list_models.dart';
 import '../models/pod_models.dart';
 import '../services/api_service.dart';
 
@@ -19,6 +20,8 @@ class PodRepository {
     bool allowParticipantsChangeTheme = false,
     bool allowParticipantsPlayBgMusic = true,
     bool allowOpenMic = true,
+    bool isDjMode = false,
+    bool followersOnly = false,
     int durationHours = 24,
   }) =>
       _apiService.createMoodPod(
@@ -29,6 +32,8 @@ class PodRepository {
         allowParticipantsChangeTheme: allowParticipantsChangeTheme,
         allowParticipantsPlayBgMusic: allowParticipantsPlayBgMusic,
         allowOpenMic: allowOpenMic,
+        isDjMode: isDjMode,
+        followersOnly: followersOnly,
         durationHours: durationHours,
       );
 
@@ -79,8 +84,32 @@ class PodRepository {
   Future<PodBgMusicStateDto?> getBgMusicState(String podId) =>
       _apiService.getPodBgMusicState(podId);
 
-  Future<({String token, String? serverUrl})> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) =>
+  Future<LiveKitTokenDto> getLiveKitToken(String podId, {bool isOnStage = false, String? inviteCode}) =>
       _apiService.getLiveKitToken(podId, isOnStage: isOnStage, inviteCode: inviteCode);
+
+  Future<List<AudioPresetDto>> getAudioPresets() => _apiService.getAudioPresets();
+
+  Future<List<DjListDto>> getDjLists({String? genre, String? userId}) =>
+      _apiService.getDjLists(genre: genre, userId: userId);
+
+  Future<DjListDto> getDjListById(String id) => _apiService.getDjListById(id);
+
+  Future<DjListDto> createDjList(CreateDjListDto dto) => _apiService.createDjList(dto);
+
+  Future<void> deleteDjList(String id) => _apiService.deleteDjList(id);
+
+  Future<MoodPodDto> streamDjList(
+    String listId, {
+    String? podId,
+    String? title,
+    bool? followersOnly,
+  }) =>
+      _apiService.streamDjList(
+        listId,
+        podId: podId,
+        title: title,
+        followersOnly: followersOnly,
+      );
 
   Future<PodChatMessageDto> sendMessage(String podId, String content) =>
       _apiService.sendPodChatMessage(podId, content);

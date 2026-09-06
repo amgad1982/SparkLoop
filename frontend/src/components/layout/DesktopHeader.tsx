@@ -12,6 +12,7 @@ import {
   Sun,
   User,
   Search,
+  Settings,
 } from 'lucide-react';
 
 interface DesktopHeaderProps {
@@ -19,12 +20,16 @@ interface DesktopHeaderProps {
   onNavigateTab: (tab: TabType | 'profile') => void;
   isConnected?: boolean;
   onOpenSearch?: () => void;
+  onOpenDjLists?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
   activeTab,
   onNavigateTab,
   onOpenSearch,
+  onOpenDjLists,
+  onOpenSettings,
 }) => {
   const { locale, theme, toggleTheme } = useThemeStore();
   const isArabic = locale === 'ar';
@@ -154,13 +159,33 @@ export const DesktopHeader: React.FC<DesktopHeaderProps> = ({
           >
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 transition-colors shadow-sm"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 transition-colors shadow-sm cursor-pointer"
             >
               {isDark ? (
                 <Sun className="w-4 h-4 text-amber-400" />
               ) : (
                 <Moon className="w-4 h-4 text-indigo-500" />
               )}
+            </button>
+          </Tooltip>
+
+          {/* DJ Lists Button */}
+          <Tooltip content={isArabic ? 'استوديو وقوائم الـ DJ' : 'DJ Studio & Playlists'} position="bottom">
+            <button
+              onClick={onOpenDjLists}
+              className="p-2 rounded-xl bg-fuchsia-500/10 hover:bg-fuchsia-500/20 border border-fuchsia-500/30 text-fuchsia-600 dark:text-fuchsia-300 transition-all shadow-sm cursor-pointer"
+            >
+              <Radio className="w-4 h-4" />
+            </button>
+          </Tooltip>
+
+          {/* Settings Button */}
+          <Tooltip content={isArabic ? 'الإعدادات العامة' : 'Settings'} position="bottom">
+            <button
+              onClick={onOpenSettings}
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800/80 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 transition-all shadow-sm cursor-pointer"
+            >
+              <Settings className="w-4 h-4 text-purple-500" />
             </button>
           </Tooltip>
 

@@ -21,6 +21,10 @@ import {
   OAuthUrlResponse,
   OAuthCallbackRequest,
   PrivacySettingsDto,
+  UserSettingsDto,
+  AudioPresetDto,
+  DjListDto,
+  CreateDjListDto,
 } from '../types/api';
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5195/api';
@@ -525,7 +529,9 @@ export const api = {
     currentTime?: number,
     duration?: number,
     audioBase64?: string,
-    chunkIndex?: number
+    chunkIndex?: number,
+    trackUrl?: string,
+    presetId?: string
   ) =>
     fetchWithAuth<boolean>(`/moodpods/${podId}/bg-music`, {
       method: 'POST',
@@ -536,7 +542,44 @@ export const api = {
         duration,
         audioBase64,
         chunkIndex,
+        trackUrl,
+        presetId,
       }),
+    }),
+
+  // User Settings API
+  getUserSettings: () => fetchWithAuth<UserSettingsDto>('/users/settings'),
+  updateUserSettings: (settings: Partial<UserSettingsDto>) =>
+    fetchWithAuth<UserSettingsDto>('/users/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    }),
+
+  // Audio Presets API (Server Offline Royalty-Free Presets)
+  getAudioPresets: () => fetchWithAuth<AudioPresetDto[]>('/audio/presets'),
+
+  // DJ Lists API
+  getDjLists: (genre?: string, userId?: string) => {
+    const params = new URLSearchParams();
+    if (genre) params.append('genre', genre);
+    if (userId) params.append('userId', userId);
+    const query = params.toString();
+    return fetchWithAuth<DjListDto[]>(`/dj/lists${query ? `?${query}` : ''}`);
+  },
+  getDjListById: (id: string) => fetchWithAuth<DjListDto>(`/dj/lists/${id}`),
+  createDjList: (data: CreateDjListDto) =>
+    fetchWithAuth<DjListDto>('/dj/lists', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  deleteDjList: (id: string) =>
+    fetchWithAuth<void>(`/dj/lists/${id}`, {
+      method: 'DELETE',
+    }),
+  streamDjList: (id: string, req?: { podId?: string; title?: string; followersOnly?: boolean }) =>
+    fetchWithAuth<MoodPodDto>(`/dj/lists/${id}/stream`, {
+      method: 'POST',
+      body: JSON.stringify(req || {}),
     }),
 
   // Media Upload with JWT Authorization

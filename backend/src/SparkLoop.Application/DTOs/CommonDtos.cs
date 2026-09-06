@@ -19,7 +19,26 @@ public record UserDto(
     bool ShowBio = true,
     bool ShowFollowersCount = true,
     bool ShowBadges = true,
-    bool ShowActivityStats = true
+    bool ShowActivityStats = true,
+    bool NotifyStageInvites = true,
+    bool NotifyChainTurns = true,
+    bool NotifyFollows = true,
+    bool HapticFeedback = true,
+    double VoiceRoomVolume = 1.0,
+    double BgMusicVolume = 0.5,
+    bool JoinMicMuted = true
+);
+
+public record UserSettingsDto(
+    string PreferredTheme,
+    string PreferredLanguage,
+    bool NotifyStageInvites,
+    bool NotifyChainTurns,
+    bool NotifyFollows,
+    bool HapticFeedback,
+    double VoiceRoomVolume,
+    double BgMusicVolume,
+    bool JoinMicMuted
 );
 
 public record PrivacySettingsDto(
@@ -152,7 +171,12 @@ public record MoodPodDto(
     bool AllowParticipantsChangeTheme = false,
     bool AllowParticipantsPlayBgMusic = true,
     bool AllowOpenMic = true,
-    IReadOnlyList<Guid>? ModeratorUserIds = null
+    IReadOnlyList<Guid>? ModeratorUserIds = null,
+    bool IsDjMode = false,
+    bool FollowersOnly = false,
+    string? CurrentDjTrackTitle = null,
+    string? CurrentDjTrackUrl = null,
+    Guid? ActiveDjUserId = null
 );
 
 public record DeviceSessionDto(
@@ -254,12 +278,64 @@ public record GlobalSearchResultDto(
     IReadOnlyList<HashtagDto> Hashtags
 );
 
+public record IceServerDto(
+    string[] Urls,
+    string? Username = null,
+    string? Credential = null
+);
+
 public record LiveKitTokenDto(
     string Token,
     string ServerUrl,
     string RoomName,
     string Identity,
-    bool IsOnStage
+    bool IsOnStage,
+    IReadOnlyList<IceServerDto>? IceServers = null
+);
+
+public record AudioPresetDto(
+    string Id,
+    string Title,
+    string TitleAr,
+    string Url,
+    string Category,
+    double DurationSeconds
+);
+
+public record DjTrackDto(
+    string Id,
+    string Title,
+    string Artist,
+    string Url,
+    double DurationSeconds
+);
+
+public record DjListDto(
+    Guid Id,
+    Guid UserId,
+    string Username,
+    string UserDisplayName,
+    string? UserAvatarUrl,
+    string Title,
+    string? Description,
+    string Genre,
+    string? CoverUrl,
+    bool IsPublic,
+    bool FollowersOnly,
+    int TrackCount,
+    IReadOnlyList<DjTrackDto> Tracks,
+    DateTime CreatedAtUtc,
+    DateTime UpdatedAtUtc
+);
+
+public record CreateDjListDto(
+    string Title,
+    string? Description,
+    string Genre,
+    string? CoverUrl,
+    bool IsPublic,
+    bool FollowersOnly,
+    IReadOnlyList<DjTrackDto> Tracks
 );
 
 /// <summary>

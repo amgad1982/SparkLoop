@@ -51,6 +51,90 @@ public static class DbInitializer
                 "DROP TABLE IF EXISTS \"spark_submissions\" CASCADE; " +
                 "DROP TABLE IF EXISTS \"sparks\" CASCADE;");
 
+            // ---------------------------------------------------------------------
+            // Idempotent column additions for User Settings
+            // ---------------------------------------------------------------------
+            try
+            {
+                await dbContext.Database.ExecuteSqlRawAsync(
+                    "ALTER TABLE \"users\" ADD COLUMN IF NOT EXISTS \"NotifyStageInvites\" boolean NOT NULL DEFAULT true; " +
+                    "ALTER TABLE \"users\" ADD COLUMN IF NOT EXISTS \"NotifyChainTurns\" boolean NOT NULL DEFAULT true; " +
+                    "ALTER TABLE \"users\" ADD COLUMN IF NOT EXISTS \"NotifyFollows\" boolean NOT NULL DEFAULT true; " +
+                    "ALTER TABLE \"users\" ADD COLUMN IF NOT EXISTS \"HapticFeedback\" boolean NOT NULL DEFAULT true; " +
+                    "ALTER TABLE \"users\" ADD COLUMN IF NOT EXISTS \"VoiceRoomVolume\" double precision NOT NULL DEFAULT 1.0; " +
+                    "ALTER TABLE \"users\" ADD COLUMN IF NOT EXISTS \"BgMusicVolume\" double precision NOT NULL DEFAULT 0.5; " +
+                    "ALTER TABLE \"users\" ADD COLUMN IF NOT EXISTS \"JoinMicMuted\" boolean NOT NULL DEFAULT true;");
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "User settings columns alteration note");
+            }
+
+            // ---------------------------------------------------------------------
+            // DJ Lists table & MoodPod DJ columns
+            // ---------------------------------------------------------------------
+            var isSqlite = dbContext.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
+            if (isSqlite)
+            {
+                await dbContext.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""dj_lists"" (
+                        ""Id"" TEXT NOT NULL PRIMARY KEY,
+                        ""UserId"" TEXT NOT NULL,
+                        ""Username"" TEXT NOT NULL,
+                        ""UserDisplayName"" TEXT NOT NULL,
+                        ""UserAvatarUrl"" TEXT,
+                        ""Title"" TEXT NOT NULL,
+                        ""Description"" TEXT,
+                        ""Genre"" TEXT NOT NULL,
+                        ""CoverUrl"" TEXT,
+                        ""tracks_json"" TEXT NOT NULL,
+                        ""TrackCount"" INTEGER NOT NULL DEFAULT 0,
+                        ""IsPublic"" INTEGER NOT NULL DEFAULT 1,
+                        ""FollowersOnly"" INTEGER NOT NULL DEFAULT 0,
+                        ""CreatedAtUtc"" TEXT NOT NULL,
+                        ""UpdatedAtUtc"" TEXT NOT NULL
+                    );
+                ");
+                var djCols = new[] {
+                    ("IsDjMode", "INTEGER NOT NULL DEFAULT 0"),
+                    ("FollowersOnly", "INTEGER NOT NULL DEFAULT 0"),
+                    ("CurrentDjTrackTitle", "TEXT"),
+                    ("CurrentDjTrackUrl", "TEXT"),
+                    ("ActiveDjUserId", "TEXT")
+                };
+                foreach (var (col, colType) in djCols)
+                {
+                    try { await dbContext.Database.ExecuteSqlRawAsync($"ALTER TABLE \"mood_pods\" ADD COLUMN \"{col}\" {colType};"); } catch { }
+                }
+            }
+            else
+            {
+                await dbContext.Database.ExecuteSqlRawAsync(@"
+                    CREATE TABLE IF NOT EXISTS ""dj_lists"" (
+                        ""Id"" uuid NOT NULL PRIMARY KEY,
+                        ""UserId"" uuid NOT NULL,
+                        ""Username"" character varying(30) NOT NULL,
+                        ""UserDisplayName"" character varying(100) NOT NULL,
+                        ""UserAvatarUrl"" character varying(500),
+                        ""Title"" character varying(150) NOT NULL,
+                        ""Description"" character varying(1000),
+                        ""Genre"" character varying(50) NOT NULL,
+                        ""CoverUrl"" character varying(2000000),
+                        ""tracks_json"" text NOT NULL,
+                        ""TrackCount"" integer NOT NULL DEFAULT 0,
+                        ""IsPublic"" boolean NOT NULL DEFAULT true,
+                        ""FollowersOnly"" boolean NOT NULL DEFAULT false,
+                        ""CreatedAtUtc"" timestamp with time zone NOT NULL,
+                        ""UpdatedAtUtc"" timestamp with time zone NOT NULL
+                    );
+                    ALTER TABLE ""mood_pods"" ADD COLUMN IF NOT EXISTS ""IsDjMode"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""mood_pods"" ADD COLUMN IF NOT EXISTS ""FollowersOnly"" boolean NOT NULL DEFAULT false;
+                    ALTER TABLE ""mood_pods"" ADD COLUMN IF NOT EXISTS ""CurrentDjTrackTitle"" character varying(200);
+                    ALTER TABLE ""mood_pods"" ADD COLUMN IF NOT EXISTS ""CurrentDjTrackUrl"" character varying(2000000);
+                    ALTER TABLE ""mood_pods"" ADD COLUMN IF NOT EXISTS ""ActiveDjUserId"" uuid;
+                ");
+            }
+
             var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasherService>();
 
             if (await dbContext.Users.AnyAsync())

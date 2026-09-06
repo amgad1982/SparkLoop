@@ -19,7 +19,9 @@ public record CreateMoodPodCommand(
     bool AllowParticipantsChangeTheme = false,
     bool AllowParticipantsPlayBgMusic = true,
     bool AllowOpenMic = true,
-    int? DurationHours = 24
+    int? DurationHours = 24,
+    bool IsDjMode = false,
+    bool FollowersOnly = false
 ) : IRequest<MoodPodDto>;
 
 public class CreateMoodPodCommandValidator : AbstractValidator<CreateMoodPodCommand>
@@ -81,7 +83,9 @@ public class CreateMoodPodCommandHandler : IRequestHandler<CreateMoodPodCommand,
             allowParticipantsChangeTheme: request.AllowParticipantsChangeTheme,
             allowParticipantsPlayBgMusic: request.AllowParticipantsPlayBgMusic,
             allowOpenMic: request.AllowOpenMic,
-            customTtl: customTtl);
+            customTtl: customTtl,
+            isDjMode: request.IsDjMode,
+            followersOnly: request.FollowersOnly);
 
         _dbContext.MoodPods.Add(pod);
         await _dbContext.SaveChangesAsync(cancellationToken);
