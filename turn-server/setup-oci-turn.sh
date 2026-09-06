@@ -18,7 +18,7 @@ sudo iptables -I INPUT 1 -p tcp --dport 3478 -j ACCEPT
 sudo iptables -I INPUT 1 -p tcp --dport 5349 -j ACCEPT
 sudo iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT
 sudo iptables -I INPUT 1 -p tcp --dport 9641 -j ACCEPT
-sudo iptables -I INPUT 1 -p udp --dport 49152:65535 -j ACCEPT
+sudo iptables -I INPUT 1 -p udp --dport 49152:49300 -j ACCEPT
 
 # Save iptables rules across reboots
 if command -v netfilter-persistent &> /dev/null; then
@@ -36,7 +36,7 @@ if sudo ufw status | grep -q "Status: active"; then
     sudo ufw allow 5349/tcp
     sudo ufw allow 8080/tcp
     sudo ufw allow 9641/tcp
-    sudo ufw allow 49152:65535/udp
+    sudo ufw allow 49152:49300/udp
     sudo ufw reload
 fi
 
@@ -53,7 +53,7 @@ if [ ! -f certs/cert.pem ] || [ ! -f certs/privkey.pem ]; then
 fi
 
 # Set directory permissions for Coturn container
-sudo chown -R 65534:65534 data certs 2>/dev/null || sudo chmod -R 777 data certs
+sudo chmod -R 777 data certs
 
 echo "⚡ [4/6] Optimizing Linux Kernel sysctl for High-Concurrency UDP/WebRTC..."
 sudo tee /etc/sysctl.d/99-coturn-tuning.conf > /dev/null <<EOF
@@ -78,12 +78,14 @@ if ! command -v docker &> /dev/null; then
     sudo usermod -aG docker $USER
 fi
 
-echo "👤 [6/6] Initializing SQLite User Database & Provisioning Accounts..."
-# Launch Coturn container
+echo "👤 [6/6] Initializing SQLite User Database & Starting Container..."
+# Stop previous container if running
+sudo docker compose down 2>/dev/null || true
+# Start Coturn with explicit port mappings
 sudo docker compose up -d
 
-# Wait 2 seconds for container initialization
-sleep 2
+# Wait 3 seconds for container initialization
+sleep 3
 
 # Provision Web Admin Account and LiveKit Service Account in Coturn SQLite Database
 echo "Adding admin account for Web Admin..."
@@ -92,7 +94,14 @@ sudo docker compose exec coturn turnadmin -A -u admin -r turn.sparkloop.app -p S
 echo "Adding service account for LiveKit SFU..."
 sudo docker compose exec coturn turnadmin -a -u sparkloop -r turn.sparkloop.app -p SparkLoopTurnSecret2026Secure! -b /var/lib/turn/turndb || true
 
+# Restart coturn to ensure clean database connection
+sudo docker compose restart coturn
+sleep 2
+
 echo ""
+echo "=========================================================================="
+echo "🔍 DOCKER CONTAINER STATUS & MAPPED PORTS (docker ps):"
+sudo docker ps --filter "name=sparkloop-coturn" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 echo "=========================================================================="
 echo "🎉 SparkLoop TURN Server & Web Admin are UP and RUNNING!"
 echo "=========================================================================="
@@ -106,9 +115,9 @@ echo "📊 Metrics:          http://92.4.162.183:9641/metrics"
 echo "--------------------------------------------------------------------------"
 echo "⚠️  CRITICAL: ORACLE CLOUD CONSOLE SECURITY LIST INGRESS RULES"
 echo "Ensure your OCI VCN Security List includes the following rules:"
-echo "  1. TCP | Port 8080        | Source: 0.0.0.0/0 (Web Admin Interface)"
-echo "  2. UDP | Port 3478        | Source: 0.0.0.0/0 (STUN & TURN Media)"
-echo "  3. TCP | Port 3478        | Source: 0.0.0.0/0 (TURN TCP Fallback)"
-echo "  4. TCP | Port 5349        | Source: 0.0.0.0/0 (TURNS over TLS)"
-echo "  5. UDP | Port 49152-65535 | Source: 0.0.0.0/0 (Dynamic Relay Range)"
+echo "  1. TCP | Port 8080       | Source: 0.0.0.0/0 (Web Admin Interface)"
+echo "  2. UDP | Port 3478       | Source: 0.0.0.0/0 (STUN & TURN Media)"
+echo "  3. TCP | Port 3478       | Source: 0.0.0.0/0 (TURN TCP Fallback)"
+echo "  4. TCP | Port 5349       | Source: 0.0.0.0/0 (TURNS over TLS)"
+echo "  5. UDP | Port 49152-49300| Source: 0.0.0.0/0 (Dynamic Relay Range)"
 echo "=========================================================================="
