@@ -1,6 +1,7 @@
 # ==============================================================================
 # Coturn TURN/STUN Server Docker Compose for Oracle Cloud (ARM64)
 # Server IP: 92.4.162.183
+# Web Admin Port: 8080 (HTTPS)
 # ==============================================================================
 
 services:
@@ -13,5 +14,6 @@ services:
     network_mode: host
     volumes:
       - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - ./certs:/etc/coturn/certs:ro
+      - ./data:/var/lib/turn
     command: ["-c", "/etc/coturn/turnserver.conf"]
-
