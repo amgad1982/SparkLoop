@@ -6,19 +6,28 @@
 # ==============================================================================
 set -e
 
+# Ensure we run from the directory containing this script and docker-compose.yml
+cd "$(dirname "$0")"
+
 echo "🚀 [1/6] Updating Ubuntu package cache & installing prerequisites..."
 sudo apt-get update -y
 sudo apt-get install -y openssl sqlite3 curl
 
 echo "🔒 [2/6] Configuring Ubuntu Firewall (Oracle Cloud Host iptables)..."
 # Oracle Cloud Ubuntu images drop incoming traffic via iptables by default.
-# We insert rules at the top of the INPUT chain to ensure WebRTC & Web Admin packets pass.
+# We insert rules at the top of INPUT, FORWARD, and DOCKER-USER chains.
 sudo iptables -I INPUT 1 -p udp --dport 3478 -j ACCEPT
 sudo iptables -I INPUT 1 -p tcp --dport 3478 -j ACCEPT
 sudo iptables -I INPUT 1 -p tcp --dport 5349 -j ACCEPT
 sudo iptables -I INPUT 1 -p tcp --dport 8080 -j ACCEPT
 sudo iptables -I INPUT 1 -p tcp --dport 9641 -j ACCEPT
 sudo iptables -I INPUT 1 -p udp --dport 49152:49300 -j ACCEPT
+
+# CRITICAL FOR DOCKER ON ORACLE CLOUD:
+# Oracle Cloud's default iptables rejects forwarded traffic (-A FORWARD -j REJECT).
+# Docker port forwards rely on the FORWARD and DOCKER-USER chains.
+sudo iptables -I FORWARD 1 -j ACCEPT
+sudo iptables -I DOCKER-USER 1 -j ACCEPT 2>/dev/null || true
 
 # Save iptables rules across reboots
 if command -v netfilter-persistent &> /dev/null; then
@@ -78,30 +87,43 @@ if ! command -v docker &> /dev/null; then
     sudo usermod -aG docker $USER
 fi
 
-echo "👤 [6/6] Initializing SQLite User Database & Starting Container..."
+echo "👤 [6/6] Pre-seeding SQLite Database & Starting Coturn Container..."
 # Stop previous container if running
 sudo docker compose down 2>/dev/null || true
+
+# Pre-initialize SQLite Database with admin and livekit credentials BEFORE starting Coturn
+echo "Pre-creating SQLite schema & accounts using temporary turnadmin container..."
+sudo docker run --rm -v "$(pwd)/data:/var/lib/turn" coturn/coturn:latest \
+    turnadmin -A -u admin -p SparkLoopAdmin2026! -b /var/lib/turn/turndb || true
+
+sudo docker run --rm -v "$(pwd)/data:/var/lib/turn" coturn/coturn:latest \
+    turnadmin -a -u sparkloop -r turn.sparkloop.app -p SparkLoopTurnSecret2026Secure! -b /var/lib/turn/turndb || true
+
+# Ensure read/write permissions on the newly created SQLite DB file for Docker user 'nobody'
+sudo chmod -R 777 data certs
+
 # Start Coturn with explicit port mappings
 sudo docker compose up -d
 
 # Wait 3 seconds for container initialization
 sleep 3
 
-# Provision Web Admin Account and LiveKit Service Account in Coturn SQLite Database
-echo "Adding admin account for Web Admin..."
-sudo docker compose exec coturn turnadmin -A -u admin -r turn.sparkloop.app -p SparkLoopAdmin2026! -b /var/lib/turn/turndb || true
-
-echo "Adding service account for LiveKit SFU..."
-sudo docker compose exec coturn turnadmin -a -u sparkloop -r turn.sparkloop.app -p SparkLoopTurnSecret2026Secure! -b /var/lib/turn/turndb || true
-
-# Restart coturn to ensure clean database connection
-sudo docker compose restart coturn
-sleep 2
-
 echo ""
 echo "=========================================================================="
-echo "🔍 DOCKER CONTAINER STATUS & MAPPED PORTS (docker ps):"
+echo "🔍 DOCKER CONTAINER STATUS (docker ps):"
 sudo docker ps --filter "name=sparkloop-coturn" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+echo ""
+echo "🔍 LISTENING SOCKETS ON HOST (ss -tulpn):"
+sudo ss -tulpn | grep -E '8080|3478|5349|9641' || echo "No listening sockets found on target ports!"
+echo ""
+echo "🧪 LOCAL RESPONSE TESTS:"
+echo -n "Testing HTTPS https://127.0.0.1:8080/ -> "
+curl -k -I --connect-timeout 3 https://127.0.0.1:8080/ 2>&1 | head -n 1 || true
+echo -n "Testing HTTP  http://127.0.0.1:8080/  -> "
+curl -I --connect-timeout 3 http://127.0.0.1:8080/ 2>&1 | head -n 1 || true
+echo "=========================================================================="
+echo "📋 RECENT COTURN LOGS (docker logs):"
+sudo docker logs --tail 20 sparkloop-coturn || true
 echo "=========================================================================="
 echo "🎉 SparkLoop TURN Server & Web Admin are UP and RUNNING!"
 echo "=========================================================================="
