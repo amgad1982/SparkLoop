@@ -50,7 +50,7 @@ if sudo ufw status | grep -q "Status: active"; then
 fi
 
 echo "🔑 [3/6] Generating TLS Certificates for Web Admin & TURNS..."
-mkdir -p certs data
+mkdir -p certs data logs
 if [ ! -f certs/cert.pem ] || [ ! -f certs/privkey.pem ]; then
     echo "Generating self-signed SSL certificates for 92.4.162.183..."
     openssl req -x509 -newkey rsa:2048 -nodes \
@@ -62,7 +62,7 @@ if [ ! -f certs/cert.pem ] || [ ! -f certs/privkey.pem ]; then
 fi
 
 # Set directory permissions for Coturn container
-sudo chmod -R 777 data certs
+sudo chmod -R 777 data certs logs
 
 echo "⚡ [4/6] Optimizing Linux Kernel sysctl for High-Concurrency UDP/WebRTC..."
 sudo tee /etc/sysctl.d/99-coturn-tuning.conf > /dev/null <<EOF
@@ -99,8 +99,8 @@ sudo docker run --rm -v "$(pwd)/data:/var/lib/turn" coturn/coturn:latest \
 sudo docker run --rm -v "$(pwd)/data:/var/lib/turn" coturn/coturn:latest \
     turnadmin -a -u sparkloop -r turn.sparkloop.app -p SparkLoopTurnSecret2026Secure! -b /var/lib/turn/turndb || true
 
-# Ensure read/write permissions on the newly created SQLite DB file for Docker user 'nobody'
-sudo chmod -R 777 data certs
+# Ensure read/write permissions on the newly created SQLite DB file and logs for Docker user 'nobody'
+sudo chmod -R 777 data certs logs
 
 # Start Coturn with explicit port mappings
 sudo docker compose up -d
@@ -134,6 +134,7 @@ echo "--------------------------------------------------------------------------
 echo "📡 TURN Server:      92.4.162.183:3478 (UDP & TCP)"
 echo "🔒 TURNS (TLS):      92.4.162.183:5349 (TCP)"
 echo "📊 Metrics:          http://92.4.162.183:9641/metrics"
+echo "📁 Host Logs File:   $(pwd)/logs/turnserver.log"
 echo "--------------------------------------------------------------------------"
 echo "⚠️  CRITICAL: ORACLE CLOUD CONSOLE SECURITY LIST INGRESS RULES"
 echo "Ensure your OCI VCN Security List includes the following rules:"

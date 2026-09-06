@@ -26,4 +26,5 @@ services:
       - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
       - ./certs:/etc/coturn/certs:ro
       - ./data:/var/lib/turn
+      - ./logs:/var/log/coturn
     command: ["-c", "/etc/coturn/turnserver.conf"]
