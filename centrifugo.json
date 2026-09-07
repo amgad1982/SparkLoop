@@ -20,9 +20,8 @@
     "https://*.mydev-lab.com",
     "http://*.mydev-lab.com"
   ],
-  "allow_anonymous_connect_with_empty_token": true,
+  "allow_anonymous_connect_without_token": true,
   "allow_subscribe_for_client": false,
-  "client_presence": true,
   "namespaces": [
     {
       "name": "sparks",
@@ -30,7 +29,8 @@
       "history_size": 100,
       "history_ttl": "24h",
       "allow_subscribe_for_client": true,
-      "allow_publish_for_client": false
+      "allow_publish_for_client": false,
+      "allow_presence_for_client": true
     },
     {
       "name": "chain",
@@ -38,7 +38,8 @@
       "history_size": 100,
       "history_ttl": "24h",
       "allow_subscribe_for_client": true,
-      "allow_publish_for_client": false
+      "allow_publish_for_client": false,
+      "allow_presence_for_client": true
     },
     {
       "name": "pod",
@@ -47,7 +48,8 @@
       "history_size": 100,
       "history_ttl": "6h",
       "allow_subscribe_for_client": true,
-      "allow_publish_for_client": false
+      "allow_publish_for_client": false,
+      "allow_presence_for_client": true
     },
     {
       "name": "feed",
@@ -55,7 +57,8 @@
       "history_size": 50,
       "history_ttl": "12h",
       "allow_subscribe_for_client": true,
-      "allow_publish_for_client": false
+      "allow_publish_for_client": false,
+      "allow_presence_for_client": true
     },
     {
       "name": "user",

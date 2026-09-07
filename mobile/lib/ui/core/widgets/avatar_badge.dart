@@ -131,6 +131,8 @@ class AvatarBadge extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
+        memCacheWidth: size.isFinite && size > 0 ? (size * 2).round().clamp(32, 256) : 80,
+        memCacheHeight: size.isFinite && size > 0 ? (size * 2).round().clamp(32, 256) : 80,
         placeholder: (context, url) => Container(
           width: size,
           height: size,

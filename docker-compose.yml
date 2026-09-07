@@ -74,30 +74,9 @@ services:
       timeout: 5s
       retries: 5
 
-  livekit:
-    image: livekit/livekit-server:latest
-    container_name: sparkloop-livekit
-    restart: unless-stopped
-    volumes:
-      - ./livekit.yaml:/livekit.yaml:ro
-    command: --config /livekit.yaml
-    ports:
-      - "7880:7880"
-      - "7881:7881/tcp"
-      - "7882:7882/udp"
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "5349:5349/tcp"
-    environment:
-      LIVEKIT_KEYS: "sparkloop_livekit_key: sparkloop_livekit_secret_2026_super_secure_32chars"
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:7880/"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+  # NOTE: LiveKit SFU & Coturn STUN/TURN servers are hosted on the dedicated
+  # edge host (see TURN-SFU/docker-compose.yml).
+  # Local infrastructure provides Postgres, Redis, Centrifugo, and MinIO.
 
 volumes:
   pgdata:

@@ -110,35 +110,9 @@ services:
       retries: 5
       start_period: 10s
 
-  livekit:
-    image: livekit/livekit-server:latest
-    container_name: sparkloop-livekit
-    restart: unless-stopped
-    volumes:
-      - ./livekit.yaml:/livekit.yaml:ro
-    command: --config /livekit.yaml
-    ports:
-      - "7880:7880"
-      - "7881:7881/tcp"
-      - "7882:7882/udp"
-      - "3478:3478/udp"
-      - "3478:3478/tcp"
-      - "5349:5349/tcp"
-    environment:
-      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-sparkloop_livekit_key}: ${LIVEKIT_API_SECRET:-sparkloop_livekit_secret_2026_super_secure_32chars}"
-    depends_on:
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:7880/"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 5s
-  # NOTE: LiveKit SFU has been relocated to the dedicated 'TURN-SFU' stack on Oracle Cloud
-  # (Public IP: 92.4.162.183). This offloads heavy WebRTC UDP audio streaming from the homelab,
-  # eliminates Cloudflare Tunnel UDP drops, and colocates the SFU directly with Coturn.
-  # See: TURN-SFU/docker-compose.yml
+  # NOTE: LiveKit SFU & Coturn STUN/TURN media services are hosted on the
+  # dedicated edge host (Oracle Cloud ARM64 stack in TURN-SFU/docker-compose.yml).
+  # This isolates heavy WebRTC UDP audio traffic from the core homelab infrastructure.
 
 volumes:
   pgdata:

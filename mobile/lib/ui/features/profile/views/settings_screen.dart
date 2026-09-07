@@ -7,7 +7,6 @@ import '../../../../data/services/api_service.dart';
 import '../../../../data/services/livekit_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_network_image.dart';
-import '../../../core/widgets/glass_container.dart';
 import '../../auth/view_models/auth_view_model.dart';
 import '../../theme/theme_view_model.dart';
 import '../view_models/profile_view_model.dart';
@@ -55,8 +54,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _voiceRoomVolume = user.voiceRoomVolume;
           _bgMusicVolume = user.bgMusicVolume;
         });
-        liveKit.setRoomVolume(user.voiceRoomVolume);
-        liveKit.setBgMusicVolume(user.bgMusicVolume);
+        if ((user.voiceRoomVolume - liveKit.roomVolume).abs() > 0.01) {
+          liveKit.setRoomVolume(user.voiceRoomVolume);
+        }
+        if ((user.bgMusicVolume - liveKit.bgMusicVolume).abs() > 0.01) {
+          liveKit.setBgMusicVolume(user.bgMusicVolume);
+        }
       }
 
       try {
@@ -72,8 +75,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _voiceRoomVolume = settings.voiceRoomVolume;
             _bgMusicVolume = settings.bgMusicVolume;
           });
-          liveKit.setRoomVolume(settings.voiceRoomVolume);
-          liveKit.setBgMusicVolume(settings.bgMusicVolume);
+          if ((settings.voiceRoomVolume - liveKit.roomVolume).abs() > 0.01) {
+            liveKit.setRoomVolume(settings.voiceRoomVolume);
+          }
+          if ((settings.bgMusicVolume - liveKit.bgMusicVolume).abs() > 0.01) {
+            liveKit.setBgMusicVolume(settings.bgMusicVolume);
+          }
         }
       } catch (e) {
         debugPrint('Could not fetch settings from backend: $e');
@@ -120,46 +127,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final themeVm = context.watch<ThemeViewModel>();
     final authVm = context.watch<AuthViewModel>();
-    final profileVm = context.watch<ProfileViewModel>();
+    final sessionCount = context.select<ProfileViewModel, int>(
+      (p) => p.sessions.isNotEmpty ? p.sessions.length : 1,
+    );
     final isAudioMuted = context.select<LiveKitService, bool>((lk) => lk.isAudioMuted);
 
     final isArabic = themeVm.isArabic;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          isArabic ? 'الإعدادات العامة' : 'Settings',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline, size: 22),
-            tooltip: isArabic ? 'مساعدة ومعلومات' : 'Help & Info',
-            onPressed: () => _showAboutDialog(context, isArabic),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: ListView(
+      backgroundColor: Colors.transparent,
+      body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          // 1. Account & Identity Hero Card
-          _buildAccountCard(context, authVm, profileVm, isArabic, isDark),
-          const SizedBox(height: 16),
+        physics: const ClampingScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Screen Header Row
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: Row(
+                children: [
+                  Text(
+                    isArabic ? 'الإعدادات العامة' : 'Settings',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.help_outline, size: 22),
+                    tooltip: isArabic ? 'مساعدة ومعلومات' : 'Help & Info',
+                    onPressed: () => _showAboutDialog(context, isArabic),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
 
-          // 2. Appearance & Localization
-          _buildSectionHeader(
-            isArabic ? 'المظهر واللغة' : 'Appearance & Language',
-            icon: Icons.palette_outlined,
-          ),
-          const SizedBox(height: 8),
-          GlassContainer(
-            blur: 0,
-            padding: const EdgeInsets.all(12),
-            borderRadius: 18,
-            child: Column(
+            // 1. Account & Identity Hero Card
+            _buildAccountCard(context, authVm, sessionCount, isArabic, isDark),
+            const SizedBox(height: 16),
+
+            // 2. Appearance & Localization
+            _buildSectionHeader(
+              isArabic ? 'المظهر واللغة' : 'Appearance & Language',
+              icon: Icons.palette_outlined,
+            ),
+            const SizedBox(height: 8),
+            _buildCard(
+              padding: const EdgeInsets.all(12),
+              borderRadius: 18,
+              child: Column(
               children: [
                 SwitchListTile(
                   secondary: Container(
@@ -248,8 +265,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.headphones_outlined,
           ),
           const SizedBox(height: 8),
-          GlassContainer(
-            blur: 0,
+          _buildCard(
             padding: const EdgeInsets.all(16),
             borderRadius: 18,
             child: Column(
@@ -480,8 +496,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.notifications_outlined,
           ),
           const SizedBox(height: 8),
-          GlassContainer(
-            blur: 0,
+          _buildCard(
             padding: const EdgeInsets.all(12),
             borderRadius: 18,
             child: Column(
@@ -608,8 +623,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.cleaning_services_outlined,
           ),
           const SizedBox(height: 8),
-          GlassContainer(
-            blur: 0,
+          _buildCard(
             padding: const EdgeInsets.all(12),
             borderRadius: 18,
             child: ListTile(
@@ -673,8 +687,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             icon: Icons.info_outline,
           ),
           const SizedBox(height: 8),
-          GlassContainer(
-            blur: 0,
+          _buildCard(
             padding: const EdgeInsets.all(12),
             borderRadius: 18,
             child: Column(
@@ -768,6 +781,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 32),
         ],
       ),
+    ),
+  );
+}
+
+  Widget _buildCard({
+    required Widget child,
+    EdgeInsetsGeometry padding = const EdgeInsets.all(12),
+    double borderRadius = 18,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Material(
+      color: isDark
+          ? AppColors.surfaceDark.withValues(alpha: 0.85)
+          : Colors.white.withValues(alpha: 0.9),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(borderRadius),
+        side: BorderSide(
+          color: isDark
+              ? AppColors.borderDark.withValues(alpha: 0.8)
+              : AppColors.borderLight.withValues(alpha: 0.9),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: padding,
+        child: child,
+      ),
     );
   }
 
@@ -797,14 +837,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildAccountCard(
     BuildContext context,
     AuthViewModel authVm,
-    ProfileViewModel profileVm,
+    int sessionCount,
     bool isArabic,
     bool isDark,
   ) {
     if (!authVm.isAuthenticated || authVm.currentUser == null) {
       // Guest Card
-      return GlassContainer(
-        blur: 0,
+      return _buildCard(
         padding: const EdgeInsets.all(16),
         borderRadius: 20,
         child: Column(
@@ -884,10 +923,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     // Authenticated User Card
     final user = authVm.currentUser!;
-    final sessionCount = profileVm.sessions.isNotEmpty ? profileVm.sessions.length : 1;
 
-    return GlassContainer(
-      blur: 0,
+    return _buildCard(
       padding: const EdgeInsets.all(16),
       borderRadius: 20,
       child: Column(
@@ -903,6 +940,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
                       ? AppNetworkImage(
                           imageUrl: user.avatarUrl,
+                          width: 52,
+                          height: 52,
                           fit: BoxFit.cover,
                         )
                       : Container(

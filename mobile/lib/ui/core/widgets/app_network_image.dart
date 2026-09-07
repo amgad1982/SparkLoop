@@ -78,11 +78,20 @@ class AppNetworkImage extends StatelessWidget {
         errorBuilder: (context, error, stackTrace) => _buildError(context),
       );
     } else {
+      final int cacheWidth = (width != null && width!.isFinite && width! > 0)
+          ? (width! * 2).round().clamp(100, 1080)
+          : 720;
+      final int? cacheHeight = (height != null && height!.isFinite && height! > 0)
+          ? (height! * 2).round().clamp(100, 1920)
+          : null;
+
       content = CachedNetworkImage(
         imageUrl: resolvedUrl,
         width: width,
         height: height,
         fit: fit,
+        memCacheWidth: cacheWidth,
+        memCacheHeight: cacheHeight,
         placeholder: (context, url) => _buildPlaceholder(context),
         errorWidget: (context, url, error) => _buildError(context),
       );

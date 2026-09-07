@@ -230,6 +230,26 @@ void main() {
       expect(AppNetworkImage.isSvgUrl('https://example.com/pic.png'), isFalse);
     });
 
+    testWidgets('AppNetworkImage handles double.infinity width and height without throwing', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 300,
+              height: 300,
+              child: AppNetworkImage(
+                imageUrl: 'https://example.com/test-image.jpg',
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(AppNetworkImage), findsOneWidget);
+    });
+
     test('PostDto media attachment with relative GIF URL resolves to absolute', () {
       final postJson = {
         'id': 'p-99',

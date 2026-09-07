@@ -6,61 +6,20 @@ This document provides complete instructions for deploying the **SparkLoop** pla
 
 ## 1. System Architecture Overview
 
-SparkLoop is split into two independent Docker Compose stacks joined by a shared internal network (`sparkloop-net`):
 SparkLoop uses a **Hybrid Production Architecture** separating the private stateful homelab core from the public high-speed real-time audio edge:
 
-1. **Infrastructure Stack (`docker-compose.infra.prod.yml`)**:
-   - **PostgreSQL 17**: Core relational database (Internal only).
-   - **Redis 7**: L2 caching, session management, and FusionCache backplane (Internal only).
-   - **MinIO**: S3-compatible object storage for meme media, audio recordings, and avatars.
-   - **Centrifugo v5**: High-performance real-time WebSocket server for live updates, voting counters, and chat.
-   - **LiveKit SFU**: Real-time WebRTC audio server for Mood Pod voice stages.
 1. **Homelab Core Stack (Private behind Cloudflare Tunnel)**:
    - **Infrastructure (`docker-compose.infra.prod.yml`)**: PostgreSQL 17, PgBouncer, Redis 7, MinIO S3, Centrifugo v5.
    - **Application (`docker-compose.app.yml`)**: .NET 10 Web API, React 18 / Nginx Frontend.
    - Zero open inbound ports at home; all traffic is securely proxied via Cloudflare Tunnel.
 
-2. **Application Stack (`docker-compose.app.yml`)**:
-   - **Backend API**: .NET 10 ASP.NET Web API (Multi-stage Alpine container).
-   - **Frontend Web**: React 18 + Vite + TailwindCSS served via Nginx Alpine.
-2. **Oracle Cloud Edge Voice & Traversal Stack (`TURN-SFU`)**:
-   - **Public Server IP**: `92.4.162.183` (Ubuntu ARM64, Ampere A1).
+2. **Dedicated Edge Voice & Traversal Stack (`TURN-SFU/docker-compose.yml`)**:
+   - **Dedicated Server Host**: Oracle Cloud / Dedicated VPS (Public IP: `92.4.162.183`, Ubuntu ARM64).
    - **LiveKit WebRTC SFU**: Real-time voice stage server listening directly on UDP `7882` (media) and TCP `7880` (signaling).
-   - **Coturn STUN/TURN**: NAT traversal and relay for mobile cellular/restricted firewall clients (UDP/TCP `3478`, TLS `5349`, Web Admin `8080`).
+   - **Coturn STUN/TURN**: NAT traversal and media relay for mobile cellular/restricted firewall clients (UDP/TCP `3478`, TLS `5349`, Web Admin `8080`, relay range `49152-49300`).
    - Direct datacenter connection avoids residential bandwidth throttling and Cloudflare Tunnel UDP drops.
 
 ```
-                     ┌────────────────────────────────────────────────────────┐
-                     │                 Cloudflare Edge & Tunnel                │
-                     └───────┬────────────┬───────────┬────────────┬──────────┘
-                             │            │           │            │
-     ┌───────────────────────┼────────────┼───────────┼────────────┼───────────────────────┐
-     │ Host Machine          │            │           │            │                       │
-     │                       ▼            ▼           ▼            ▼                       │
-     │                 :7070 (HTTP)  :5000 (HTTP) :8000 (WS)  :9000 (HTTP)                 │
-     │                      │            │           │            │                        │
-     │  ┌───────────────────┼────────────┼───────────┴────────────┼─────────────────────┐  │
-     │  │ Docker Bridge     │            │                        │                     │  │
-     │  │ (sparkloop-net)   ▼            ▼                        ▼                     │  │
-     │  │              ┌─────────┐  ┌─────────┐              ┌─────────┐                │  │
-     │  │              │Frontend │  │ Backend │              │  MinIO  │                │  │
-     │  │              │ (Nginx) │  │(.NET 10)│              │ Storage │                │  │
-     │  │              └─────────┘  └────┬────┘              └─────────┘                │  │
-     │  │                                │                                              │  │
-     │  │                 ┌──────────────┼──────────────┐                               │  │
-     │  │                 ▼              ▼              ▼                               │  │
-     │  │            ┌──────────┐  ┌───────────┐  ┌───────────┐                         │  │
-     │  │            │PostgreSQL│  │   Redis   │  │Centrifugo │                         │  │
-     │  │            │(Internal)│  │(Internal) │  │  (Realtime│                         │  │
-     │  │            └──────────┘  └───────────┘  └───────────┘                         │  │
-     │  │                                               │                               │  │
-     │  │                                               ▼                               │  │
-     │  │                                         ┌───────────┐                         │  │
-     │  │                                         │  LiveKit  │◀─── UDP 50000-50050     │  │
-     │  │                                         │(Voice SFU)│     (WebRTC Audio)      │  │
-     │  │                                         └───────────┘                         │  │
-     │  └───────────────────────────────────────────────────────────────────────────────┘  │
-     └─────────────────────────────────────────────────────────────────────────────────────┘
 ┌──────────────────────────────────────────────────────────────┐
 │                   YOUR HOMELAB (PRIVATE)                     │
 │          Connected securely via Cloudflare Tunnel            │
@@ -74,7 +33,7 @@ SparkLoop uses a **Hybrid Production Architecture** separating the private state
                Webhook & Token Signing (HTTPS)
                                │
 ┌──────────────────────────────▼───────────────────────────────┐
-│        ORACLE CLOUD INFRASTRUCTURE (PUBLIC IP: 92.4.162.183) │
+│        DEDICATED EDGE HOST (PUBLIC IP: 92.4.162.183)         │
 │                     TURN-SFU STACK                           │
 │                                                              │
 │  • LiveKit SFU: TCP 7880 (Signaling), UDP 7882 (Voice Audio) │
@@ -87,20 +46,14 @@ SparkLoop uses a **Hybrid Production Architecture** separating the private state
 
 ## 2. Domain & Subdomain Mapping
 
-| Subdomain | Target Container Port | Protocol | Purpose |
 | Subdomain | Target Server / Port | Protocol | Purpose |
 |---|---|:---:|---|
-| **`sloop.mydev-lab.com`** | `http://localhost:7070` | HTTPS | React Web App UI (Nginx) |
-| **`sloopapi.mydev-lab.com`** | `http://localhost:5000` | HTTPS | .NET 10 REST API & Swagger |
-| **`sloopws.mydev-lab.com`** | `http://localhost:8000` | WSS | Centrifugo WebSockets (Live updates & chat) |
-| **`sloopmedia.mydev-lab.com`** | `http://localhost:9000` | HTTPS | MinIO S3 Public Media CDN |
-| **`slooplive.mydev-lab.com`** | `http://localhost:7880` | WSS | LiveKit WebRTC Signaling |
 | **`sloop.mydev-lab.com`** | Homelab `localhost:7070` | HTTPS | React Web App UI (Nginx) |
 | **`sloopapi.mydev-lab.com`** | Homelab `localhost:5000` | HTTPS | .NET 10 REST API & Swagger |
 | **`sloopws.mydev-lab.com`** | Homelab `localhost:8000` | WSS | Centrifugo WebSockets (Live updates & chat) |
 | **`sloopmedia.mydev-lab.com`** | Homelab `localhost:9000` | HTTPS | MinIO S3 Public Media CDN |
-| **`slooplive.mydev-lab.com`** | OCI `92.4.162.183:7880` | WSS/HTTPS | LiveKit WebRTC Signaling (DNS A Record -> `92.4.162.183`) |
-| **`turn.sparkloop.app`** | OCI `92.4.162.183:3478` | STUN/TURN | Coturn Media Relay Server |
+| **`slooplive.mydev-lab.com`** | Dedicated Host `92.4.162.183:7880` | WSS/HTTPS | LiveKit WebRTC Signaling (DNS A Record -> `92.4.162.183`) |
+| **`turn.sparkloop.app`** | Dedicated Host `92.4.162.183:3478` | STUN/TURN | Coturn Media Relay Server |
 
 ---
 

@@ -32,7 +32,7 @@ public class LiveKitService : ILiveKitService
     {
         var turnServer = _configuration["LiveKit:Turn:Server"] ?? "turn:92.4.162.183:3478";
         var turnUsername = _configuration["LiveKit:Turn:Username"] ?? "sparkloop";
-        var turnCredential = _configuration["LiveKit:Turn:Credential"] ?? "sparkloop_turn_secret_2026";
+        var turnCredential = _configuration["LiveKit:Turn:Credential"] ?? "SparkLoopTurnSecret2026Secure!";
 
         return new List<IceServerDto>
         {
