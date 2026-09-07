@@ -1,4 +1,5 @@
 {
+  "health": true,
   "admin": true,
   "engine": "redis",
   "redis_address": "sparkloop-redis:6379",

@@ -63,6 +63,7 @@ class AppNetworkImage extends StatelessWidget {
         height: height,
         fit: fit,
         placeholderBuilder: (_) => _buildPlaceholder(context),
+        errorBuilder: (context, error, stackTrace) => _buildError(context),
       );
     } else if (isGifUrl(resolvedUrl)) {
       // Direct Image.network retains complete multi-frame GIF animation without raster cache freezing

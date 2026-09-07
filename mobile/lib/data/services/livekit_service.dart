@@ -84,22 +84,22 @@ class LiveKitService extends ChangeNotifier {
   static String get defaultWsUrl {
     const envUrl = String.fromEnvironment('LIVEKIT_URL', defaultValue: '');
     if (envUrl.isNotEmpty) return envUrl;
-    if (!kIsWeb && Platform.isAndroid) {
-      return 'ws://10.0.2.2:7880';
-    }
-    return 'ws://localhost:7880';
+    return 'ws://92.4.162.183:7880';
   }
 
   static String resolveWsUrl({String? customHost}) {
     if (customHost != null && customHost.isNotEmpty) {
+      var host = customHost
+          .replaceAll('wss://slooplive.mydev-lab.com', 'ws://92.4.162.183:7880')
+          .replaceAll('https://slooplive.mydev-lab.com', 'http://92.4.162.183:7880');
       if (!kIsWeb && Platform.isAndroid) {
-        return customHost
+        host = host
             .replaceAll('ws://localhost:', 'ws://10.0.2.2:')
             .replaceAll('ws://127.0.0.1:', 'ws://10.0.2.2:')
             .replaceAll('http://localhost:', 'http://10.0.2.2:')
             .replaceAll('http://127.0.0.1:', 'http://10.0.2.2:');
       }
-      return customHost;
+      return host;
     }
     return defaultWsUrl;
   }

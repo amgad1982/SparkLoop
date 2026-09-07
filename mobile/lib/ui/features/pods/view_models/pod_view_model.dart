@@ -388,17 +388,21 @@ class PodViewModel extends ChangeNotifier {
 
       final liveKitWsUrl = LiveKitService.resolveWsUrl(customHost: tokenResult.serverUrl);
 
-      await _liveKitService.connectToRoom(
-        podId: podId,
-        token: tokenResult.token,
-        wsUrl: liveKitWsUrl,
-        currentUserId: currentUserId,
-        currentUsername: currentUsername,
-        currentDisplayName: currentDisplayName,
-        currentAvatarUrl: currentAvatarUrl,
-        asSpeaker: isSpeakerRole,
-        iceServers: tokenResult.iceServers,
-      );
+      try {
+        await _liveKitService.connectToRoom(
+          podId: podId,
+          token: tokenResult.token,
+          wsUrl: liveKitWsUrl,
+          currentUserId: currentUserId,
+          currentUsername: currentUsername,
+          currentDisplayName: currentDisplayName,
+          currentAvatarUrl: currentAvatarUrl,
+          asSpeaker: isSpeakerRole,
+          iceServers: tokenResult.iceServers,
+        );
+      } catch (voiceErr) {
+        debugPrint('Warning: LiveKit voice connection could not be established ($voiceErr). Proceeding into mood pod in text/music mode.');
+      }
 
       // Broadcast our presence to all users in the pod
       _podRepository.sendSignal(
