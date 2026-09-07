@@ -28,16 +28,16 @@ const List<Map<String, String>> soundboardEffects = [
   {'id': 'gasp', 'name': 'Audience Gasp', 'emoji': '😱', 'arName': 'شهقة ذهول'},
 ];
 
-/// Custom clipper that draws a WhatsApp speech bubble with an authentic top-corner
-/// nip pointing outward toward the sender's avatar.
-class WhatsAppBubbleClipper extends CustomClipper<Path> {
+/// Custom clipper that draws a speech bubble with an outward top-corner
+/// nip pointing toward the sender's avatar.
+class ChatBubbleClipper extends CustomClipper<Path> {
   final bool isSelf;
   final bool isRtl;
   final double nipSize;
   final double nipHeight;
   final double radius;
 
-  const WhatsAppBubbleClipper({
+  const ChatBubbleClipper({
     required this.isSelf,
     this.isRtl = false,
     this.nipSize = 6.0,
@@ -49,102 +49,54 @@ class WhatsAppBubbleClipper extends CustomClipper<Path> {
 
   @override
   Path getClip(Size size) {
-    final path = Path();
     final w = size.width;
     final h = size.height;
 
-    if (nipOnRight) {
-      final right = w - nipSize;
-      path.moveTo(radius, 0);
-      path.lineTo(right, 0);
-      path.lineTo(w, 0); // Tip pointing right towards avatar
-      path.quadraticBezierTo(right + 2, 5, right, nipHeight);
-      path.lineTo(right, h - radius);
-      path.arcToPoint(Offset(right - radius, h), radius: Radius.circular(radius));
-      path.lineTo(radius, h);
-      path.arcToPoint(Offset(0, h - radius), radius: Radius.circular(radius));
-      path.lineTo(0, radius);
-      path.arcToPoint(Offset(radius, 0), radius: Radius.circular(radius));
-    } else {
-      final left = nipSize;
-      path.moveTo(w - radius, 0);
-      path.lineTo(left, 0);
-      path.lineTo(0, 0); // Tip pointing left towards avatar
-      path.quadraticBezierTo(left - 2, 5, left, nipHeight);
-      path.lineTo(left, h - radius);
-      path.arcToPoint(Offset(left + radius, h), radius: Radius.circular(radius));
-      path.lineTo(w - radius, h);
-      path.arcToPoint(Offset(w, h - radius), radius: Radius.circular(radius));
-      path.lineTo(w, radius);
-      path.arcToPoint(Offset(w - radius, 0), radius: Radius.circular(radius));
+    // Canonical speech bubble shape (nip on top-right, perfectly rounded corners)
+    final right = w - nipSize;
+    final path = Path();
+    path.moveTo(radius, 0);
+    path.lineTo(right, 0);
+    path.lineTo(w, 0); // Tip pointing right towards avatar
+    path.quadraticBezierTo(right + 2, 5, right, nipHeight);
+    path.lineTo(right, h - radius);
+    path.arcToPoint(
+      Offset(right - radius, h),
+      radius: Radius.circular(radius),
+      clockwise: true,
+    );
+    path.lineTo(radius, h);
+    path.arcToPoint(
+      Offset(0, h - radius),
+      radius: Radius.circular(radius),
+      clockwise: true,
+    );
+    path.lineTo(0, radius);
+    path.arcToPoint(
+      Offset(radius, 0),
+      radius: Radius.circular(radius),
+      clockwise: true,
+    );
+    path.close();
+
+    if (!nipOnRight) {
+      // Horizontally mirror canonical path so receiver bubble shape is 100% mathematically exact
+      final matrix = Matrix4.identity();
+      matrix[0] = -1.0;
+      matrix[12] = w;
+      return path.transform(matrix.storage);
     }
 
-    path.close();
     return path;
   }
 
   @override
-  bool shouldReclip(covariant WhatsAppBubbleClipper oldClipper) =>
+  bool shouldReclip(covariant ChatBubbleClipper oldClipper) =>
       oldClipper.isSelf != isSelf ||
       oldClipper.isRtl != isRtl ||
       oldClipper.nipSize != nipSize ||
       oldClipper.nipHeight != nipHeight ||
       oldClipper.radius != radius;
-}
-
-/// Subtle procedural doodle background painter rendering authentic WhatsApp chat wallpaper.
-class WhatsAppDoodleBackgroundPainter extends CustomPainter {
-  final bool isDark;
-
-  const WhatsAppDoodleBackgroundPainter({required this.isDark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = (isDark ? Colors.white : const Color(0xFF54656F))
-          .withValues(alpha: isDark ? 0.035 : 0.04)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-
-    const stepX = 70.0;
-    const stepY = 70.0;
-
-    for (double y = 15; y < size.height + 20; y += stepY) {
-      for (double x = 15; x < size.width + 20; x += stepX) {
-        final patternIndex = ((x / stepX).floor() + (y / stepY).floor()) % 4;
-        switch (patternIndex) {
-          case 0:
-            final r = RRect.fromRectAndRadius(
-              Rect.fromCenter(center: Offset(x, y), width: 14, height: 10),
-              const Radius.circular(3),
-            );
-            canvas.drawRRect(r, paint);
-            break;
-          case 1:
-            canvas.drawCircle(Offset(x - 3, y + 4), 2.5, paint);
-            canvas.drawLine(Offset(x - 0.5, y + 4), Offset(x - 0.5, y - 5), paint);
-            canvas.drawLine(Offset(x - 0.5, y - 5), Offset(x + 4, y - 3), paint);
-            break;
-          case 2:
-            canvas.drawLine(Offset(x - 4, y), Offset(x + 4, y), paint);
-            canvas.drawLine(Offset(x, y - 4), Offset(x, y + 4), paint);
-            canvas.drawLine(Offset(x - 3, y - 3), Offset(x + 3, y + 3), paint);
-            break;
-          case 3:
-            final heart = Path()
-              ..moveTo(x, y + 4)
-              ..cubicTo(x - 6, y, x - 5, y - 5, x, y - 2)
-              ..cubicTo(x + 5, y - 5, x + 6, y, x, y + 4);
-            canvas.drawPath(heart, paint);
-            break;
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant WhatsAppDoodleBackgroundPainter oldDelegate) =>
-      oldDelegate.isDark != isDark;
 }
 
 class PodRoomScreen extends StatefulWidget {
@@ -161,6 +113,37 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   final ScrollController _scrollController = ScrollController();
   Timer? _countdownTimer;
   bool _showAllSpeakers = false;
+  int _lastMessageCount = 0;
+
+  void _scrollToBottom({bool animate = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
+      if (animate) {
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(target);
+      }
+      Future.delayed(const Duration(milliseconds: 80), () {
+        if (!mounted || !_scrollController.hasClients) return;
+        if (_scrollController.position.maxScrollExtent > target) {
+          if (animate) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOut,
+            );
+          } else {
+            _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+          }
+        }
+      });
+    });
+  }
 
   @override
   void initState() {
@@ -384,15 +367,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         currentAvatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
       );
       _chatController.clear();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      _scrollToBottom(animate: true);
     }
   }
 
@@ -932,68 +907,51 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
       ));
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final chatBg = isDark ? const Color(0xFF0B141A) : const Color(0xFFEFEAE2);
-    final borderColor = isDark ? const Color(0xFF1F2C34) : const Color(0xFFD1D7DB);
+    // Automatically scroll to the newest message whenever the message count changes
+    if (messages.length != _lastMessageCount) {
+      final isInitial = _lastMessageCount == 0;
+      _lastMessageCount = messages.length;
+      _scrollToBottom(animate: !isInitial);
+    }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: chatBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: 1),
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: CustomPaint(
-                painter: WhatsAppDoodleBackgroundPainter(isDark: isDark),
-              ),
+    return GlassContainer(
+      padding: EdgeInsets.zero,
+      borderRadius: 18,
+      child: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              reverse: false,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              itemCount: items.length,
+              itemBuilder: (context, index) => items[index],
             ),
-            Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    controller: _scrollController,
-                    reverse: false,
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    itemCount: items.length,
-                    itemBuilder: (context, index) => items[index],
-                  ),
-                ),
-                _buildWhatsAppInputBar(context, isArabic),
-              ],
-            ),
-          ],
-        ),
+          ),
+          _buildChatInputBar(context, isArabic),
+        ],
       ),
     );
   }
 
-  Widget _buildWhatsAppInputBar(BuildContext context, bool isArabic) {
+  Widget _buildChatInputBar(BuildContext context, bool isArabic) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pillBg = isDark ? const Color(0xFF202C33) : Colors.white;
-    final hintColor = isDark ? const Color(0xFF8696A0) : const Color(0xFF667781);
-    final textColor = isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
+    final boxBg = isDark ? AppColors.surfaceDarkElevated : AppColors.surfaceLightElevated;
+    final boxBorder = isDark ? AppColors.borderDark : AppColors.borderLight;
+    final hintColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
+    final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: pillBg,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
+                color: boxBg,
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: boxBorder, width: 1),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
               child: TextField(
@@ -1001,39 +959,40 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                 maxLines: 4,
                 minLines: 1,
                 textInputAction: TextInputAction.send,
-                style: TextStyle(fontSize: 14.5, color: textColor),
+                style: TextStyle(fontSize: 14, color: textColor),
+                onTap: () => _scrollToBottom(animate: true),
                 decoration: InputDecoration(
-                  hintText: isArabic ? 'اكتب رسالة...' : 'Type a message...',
-                  hintStyle: TextStyle(fontSize: 14, color: hintColor),
+                  hintText: isArabic ? 'اكتب رسالة للغرفة...' : 'Send room message...',
+                  hintStyle: TextStyle(fontSize: 13.5, color: hintColor),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 9),
                 ),
                 onSubmitted: (_) => _sendCurrentChat(context),
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           Container(
             width: 42,
             height: 42,
-            decoration: const BoxDecoration(
-              color: Color(0xFF00A884), // WhatsApp primary green
+            decoration: BoxDecoration(
+              gradient: AppColors.primaryGradient,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Color(0x3300A884),
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
+                  color: AppColors.primary.withValues(alpha: 0.35),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: IconButton(
               padding: EdgeInsets.zero,
               onPressed: () => _sendCurrentChat(context),
-              icon: const Icon(Icons.send, color: Colors.white, size: 19),
+              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 19),
               tooltip: isArabic ? 'إرسال' : 'Send',
             ),
           ),
@@ -1042,9 +1001,10 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     );
   }
 
-  /// Builds one WhatsApp-style chat bubble.
+  /// Builds a pod chat bubble.
   /// All senders have their avatar rendered directly beside the bubble (self on trailing,
-  /// others on leading). WhatsApp speech bubble has a top-corner nip pointing to the avatar.
+  /// others on leading). Both sender and receiver bubbles share the exact same styling
+  /// with a corner nip pointing directly to their avatar.
   Widget _buildChatBubble({
     required BuildContext context,
     required PodChatMessageDto msg,
@@ -1057,16 +1017,12 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     final isPending = msg.id.startsWith('opt_');
     final authVm = context.read<AuthViewModel>();
 
-    // WhatsApp-accurate palette
-    final Color bubbleColor = isSelf
-        ? (isDark ? const Color(0xFF005C4B) : const Color(0xFFD9FDD3))
-        : (isDark ? const Color(0xFF202C33) : const Color(0xFFFFFFFF));
-    final Color textColor = isSelf
-        ? (isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21))
-        : (isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21));
-    final Color metaColor = isSelf
-        ? (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781))
-        : (isDark ? const Color(0xFF8696A0) : const Color(0xFF667781));
+    // Unified bubble color for both sender and receiver
+    final Color bubbleColor = isDark
+        ? const Color(0xFF005C4B)
+        : const Color(0xFFD9FDD3);
+    final Color textColor = isDark ? const Color(0xFFE9EDEF) : const Color(0xFF111B21);
+    final Color metaColor = isDark ? const Color(0xFF8696A0) : const Color(0xFF667781);
 
     final bubbleMaxWidth = MediaQuery.of(context).size.width * 0.70;
 
@@ -1100,7 +1056,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     final bubble = ConstrainedBox(
       constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
       child: ClipPath(
-        clipper: WhatsAppBubbleClipper(
+        clipper: ChatBubbleClipper(
           isSelf: isSelf,
           isRtl: isArabic,
           nipSize: nipSize,
@@ -1156,7 +1112,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                     const Icon(
                       Icons.done_all,
                       size: 14,
-                      color: Color(0xFF53BDEB), // WhatsApp double blue checkmark
+                      color: Color(0xFF53BDEB), // Double blue checkmark
                     ),
                   ],
                 ],
@@ -1218,22 +1174,26 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           decoration: BoxDecoration(
             color: isDark
-                ? const Color(0xFF1F2C33)
-                : const Color(0xFFE9EDF0),
-            borderRadius: BorderRadius.circular(8),
+                ? AppColors.surfaceDarkElevated.withValues(alpha: 0.9)
+                : AppColors.surfaceLightElevated.withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+              width: 0.8,
+            ),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 10.5,
-              fontWeight: FontWeight.w700,
-              color: isDark ? const Color(0xFFB5BAC0) : const Color(0xFF54656F),
+              fontWeight: FontWeight.w600,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
             ),
           ),
         ),

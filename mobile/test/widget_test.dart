@@ -597,18 +597,24 @@ void main() {
       expect(preset.url, '/audio/presets/rain.wav');
     });
 
-    test('WhatsAppBubbleClipper produces valid closed clip paths for self and incoming messages', () {
-      const selfClipper = WhatsAppBubbleClipper(isSelf: true, isRtl: false);
+    test('ChatBubbleClipper produces valid closed clip paths for self and incoming messages', () {
+      const selfClipper = ChatBubbleClipper(isSelf: true, isRtl: false);
       final selfPath = selfClipper.getClip(const Size(200, 60));
       expect(selfPath.getBounds().width, 200);
       expect(selfPath.getBounds().height, 60);
+      // Verify self convex rounded corners
+      expect(selfPath.contains(const Offset(10, 55)), isTrue);
+      expect(selfPath.contains(const Offset(5, 55)), isTrue);
 
-      const incomingClipper = WhatsAppBubbleClipper(isSelf: false, isRtl: false);
+      const incomingClipper = ChatBubbleClipper(isSelf: false, isRtl: false);
       final incomingPath = incomingClipper.getClip(const Size(200, 60));
       expect(incomingPath.getBounds().width, 200);
       expect(incomingPath.getBounds().height, 60);
+      // Verify incoming (receiver) has mathematically exact mirrored convex rounded corners
+      expect(incomingPath.contains(const Offset(190, 55)), isTrue);
+      expect(incomingPath.contains(const Offset(195, 55)), isTrue);
 
-      const rtlClipper = WhatsAppBubbleClipper(isSelf: true, isRtl: true);
+      const rtlClipper = ChatBubbleClipper(isSelf: true, isRtl: true);
       expect(rtlClipper.nipOnRight, isFalse);
     });
 
