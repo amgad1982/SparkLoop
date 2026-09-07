@@ -37,6 +37,13 @@ services:
       - LiveKit__ServerUrl=wss://slooplive.mydev-lab.com
       - LiveKit__ApiKey=sparkloop_livekit_key
       - LiveKit__ApiSecret=sparkloop_livekit_secret_2026_super_secure_32chars
+      # LiveKit SFU & Colocated Coturn TURN on Oracle Cloud (92.4.162.183)
+      - LiveKit__ServerUrl=${LIVEKIT_URL:-wss://slooplive.mydev-lab.com}
+      - LiveKit__ApiKey=${LIVEKIT_API_KEY:-sparkloop_livekit_key}
+      - LiveKit__ApiSecret=${LIVEKIT_API_SECRET:-sparkloop_livekit_secret_2026_super_secure_32chars}
+      - LiveKit__Turn__Server=turn:92.4.162.183:3478
+      - LiveKit__Turn__Username=sparkloop
+      - LiveKit__Turn__Credential=SparkLoopTurnSecret2026Secure!
       - CorsOrigins__0=https://sloop.mydev-lab.com
       - CorsOrigins__1=http://localhost:5173
       - CorsOrigins__2=http://localhost:3000

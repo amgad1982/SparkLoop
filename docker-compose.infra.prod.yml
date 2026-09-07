@@ -135,6 +135,10 @@ services:
       timeout: 5s
       retries: 5
       start_period: 5s
+  # NOTE: LiveKit SFU has been relocated to the dedicated 'TURN-SFU' stack on Oracle Cloud
+  # (Public IP: 92.4.162.183). This offloads heavy WebRTC UDP audio streaming from the homelab,
+  # eliminates Cloudflare Tunnel UDP drops, and colocates the SFU directly with Coturn.
+  # See: TURN-SFU/docker-compose.yml
 
 volumes:
   pgdata:

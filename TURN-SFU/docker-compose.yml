@@ -1,0 +1,61 @@
+# ==============================================================================
+# SparkLoop - Edge Voice & Traversal Stack (Oracle Cloud ARM64)
+# Services:
+#   1. Coturn (STUN/TURN Server + Web Admin Dashboard)
+#   2. LiveKit SFU (WebRTC Audio Media Multiplexer)
+# Server Public IP: 92.4.162.183
+# ==============================================================================
+
+services:
+  # ----------------------------------------------------------------------------
+  # Coturn: Dedicated STUN/TURN Media Relay Server
+  # ----------------------------------------------------------------------------
+  coturn:
+    image: coturn/coturn:latest
+    container_name: sparkloop-coturn
+    restart: unless-stopped
+    ports:
+      # STUN / TURN Standard Ports
+      - "3478:3478/tcp"
+      - "3478:3478/udp"
+      # TURNS (TLS) Secure Port
+      - "5349:5349/tcp"
+      # Coturn Web Admin Dashboard (HTTPS)
+      - "8080:8080/tcp"
+      # Prometheus Metrics Exporter
+      - "9641:9641/tcp"
+      # WebRTC UDP Media Relay Port Range
+      - "49152-49300:49152-49300/udp"
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+      - ./certs:/etc/coturn/certs:ro
+      - ./data:/var/lib/turn
+      - ./logs:/var/log/coturn
+    command: ["-c", "/etc/coturn/turnserver.conf"]
+
+  # ----------------------------------------------------------------------------
+  # LiveKit: High-Performance WebRTC SFU Server
+  # ----------------------------------------------------------------------------
+  livekit:
+    image: livekit/livekit-server:latest
+    container_name: sparkloop-livekit
+    restart: unless-stopped
+    ports:
+      # WebSocket Signaling & HTTP API
+      - "7880:7880/tcp"
+      # WebRTC TCP Fallback Port
+      - "7881:7881/tcp"
+      # WebRTC Primary UDP Media Multiplexer (Audio packets flow here)
+      - "7882:7882/udp"
+    volumes:
+      - ./livekit.yaml:/livekit.yaml:ro
+    command: --config /livekit.yaml
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY:-sparkloop_livekit_key}: ${LIVEKIT_API_SECRET:-sparkloop_livekit_secret_2026_super_secure_32chars}"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7880/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+

@@ -7,6 +7,7 @@ This document provides complete instructions for deploying the **SparkLoop** pla
 ## 1. System Architecture Overview
 
 SparkLoop is split into two independent Docker Compose stacks joined by a shared internal network (`sparkloop-net`):
+SparkLoop uses a **Hybrid Production Architecture** separating the private stateful homelab core from the public high-speed real-time audio edge:
 
 1. **Infrastructure Stack (`docker-compose.infra.prod.yml`)**:
    - **PostgreSQL 17**: Core relational database (Internal only).
@@ -14,10 +15,19 @@ SparkLoop is split into two independent Docker Compose stacks joined by a shared
    - **MinIO**: S3-compatible object storage for meme media, audio recordings, and avatars.
    - **Centrifugo v5**: High-performance real-time WebSocket server for live updates, voting counters, and chat.
    - **LiveKit SFU**: Real-time WebRTC audio server for Mood Pod voice stages.
+1. **Homelab Core Stack (Private behind Cloudflare Tunnel)**:
+   - **Infrastructure (`docker-compose.infra.prod.yml`)**: PostgreSQL 17, PgBouncer, Redis 7, MinIO S3, Centrifugo v5.
+   - **Application (`docker-compose.app.yml`)**: .NET 10 Web API, React 18 / Nginx Frontend.
+   - Zero open inbound ports at home; all traffic is securely proxied via Cloudflare Tunnel.
 
 2. **Application Stack (`docker-compose.app.yml`)**:
    - **Backend API**: .NET 10 ASP.NET Web API (Multi-stage Alpine container).
    - **Frontend Web**: React 18 + Vite + TailwindCSS served via Nginx Alpine.
+2. **Oracle Cloud Edge Voice & Traversal Stack (`TURN-SFU`)**:
+   - **Public Server IP**: `92.4.162.183` (Ubuntu ARM64, Ampere A1).
+   - **LiveKit WebRTC SFU**: Real-time voice stage server listening directly on UDP `7882` (media) and TCP `7880` (signaling).
+   - **Coturn STUN/TURN**: NAT traversal and relay for mobile cellular/restricted firewall clients (UDP/TCP `3478`, TLS `5349`, Web Admin `8080`).
+   - Direct datacenter connection avoids residential bandwidth throttling and Cloudflare Tunnel UDP drops.
 
 ```
                      ┌────────────────────────────────────────────────────────┐
@@ -51,6 +61,26 @@ SparkLoop is split into two independent Docker Compose stacks joined by a shared
      │  │                                         └───────────┘                         │  │
      │  └───────────────────────────────────────────────────────────────────────────────┘  │
      └─────────────────────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                   YOUR HOMELAB (PRIVATE)                     │
+│          Connected securely via Cloudflare Tunnel            │
+│                                                              │
+│  [React Frontend]   [Backend API .NET 10]   [Centrifugo WS]  │
+│        │                     │                     │         │
+│        ▼                     ▼                     ▼         │
+│    [MinIO S3]     [PgBouncer -> Postgres]      [Redis 7]     │
+└──────────────────────────────┬───────────────────────────────┘
+                               │
+               Webhook & Token Signing (HTTPS)
+                               │
+┌──────────────────────────────▼───────────────────────────────┐
+│        ORACLE CLOUD INFRASTRUCTURE (PUBLIC IP: 92.4.162.183) │
+│                     TURN-SFU STACK                           │
+│                                                              │
+│  • LiveKit SFU: TCP 7880 (Signaling), UDP 7882 (Voice Audio) │
+│  • Coturn TURN: UDP/TCP 3478, TLS 5349, HTTPS 8080 (Admin)   │
+│  • Direct UDP audio with sub-30ms datacenter latency         │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -58,12 +88,19 @@ SparkLoop is split into two independent Docker Compose stacks joined by a shared
 ## 2. Domain & Subdomain Mapping
 
 | Subdomain | Target Container Port | Protocol | Purpose |
+| Subdomain | Target Server / Port | Protocol | Purpose |
 |---|---|:---:|---|
 | **`sloop.mydev-lab.com`** | `http://localhost:7070` | HTTPS | React Web App UI (Nginx) |
 | **`sloopapi.mydev-lab.com`** | `http://localhost:5000` | HTTPS | .NET 10 REST API & Swagger |
 | **`sloopws.mydev-lab.com`** | `http://localhost:8000` | WSS | Centrifugo WebSockets (Live updates & chat) |
 | **`sloopmedia.mydev-lab.com`** | `http://localhost:9000` | HTTPS | MinIO S3 Public Media CDN |
 | **`slooplive.mydev-lab.com`** | `http://localhost:7880` | WSS | LiveKit WebRTC Signaling |
+| **`sloop.mydev-lab.com`** | Homelab `localhost:7070` | HTTPS | React Web App UI (Nginx) |
+| **`sloopapi.mydev-lab.com`** | Homelab `localhost:5000` | HTTPS | .NET 10 REST API & Swagger |
+| **`sloopws.mydev-lab.com`** | Homelab `localhost:8000` | WSS | Centrifugo WebSockets (Live updates & chat) |
+| **`sloopmedia.mydev-lab.com`** | Homelab `localhost:9000` | HTTPS | MinIO S3 Public Media CDN |
+| **`slooplive.mydev-lab.com`** | OCI `92.4.162.183:7880` | WSS/HTTPS | LiveKit WebRTC Signaling (DNS A Record -> `92.4.162.183`) |
+| **`turn.sparkloop.app`** | OCI `92.4.162.183:3478` | STUN/TURN | Coturn Media Relay Server |
 
 ---
 
@@ -192,20 +229,39 @@ The Centrifugo Admin Dashboard allows real-time channel inspection, connection m
 
 ## 5. Security & Port Exposure Reference
 
+### A. Homelab Core Machine (Zero Direct Internet Ingress)
 | Container | Host Port | Exposure | Notes |
 |---|:---:|:---:|---|
 | `sparkloop-postgres` | *None* | 🔒 Closed | Connected only via internal Docker network `sparkloop-net` |
+| `sparkloop-pgbouncer` | *None* | 🔒 Closed | Multiplexes connection pool to Postgres |
 | `sparkloop-redis` | *None* | 🔒 Closed | Connected only via internal Docker network `sparkloop-net` |
 | `sparkloop-minio` | `127.0.0.1:9000` |  Loopback | Proxied to `sloopmedia.mydev-lab.com` via Cloudflare Tunnel |
 | `sparkloop-centrifugo` | `127.0.0.1:8000` |  Loopback | Proxied to `sloopws.mydev-lab.com` via Cloudflare Tunnel |
 | `sparkloop-livekit` | `127.0.0.1:7880`<br/>`50000-50050/udp` |  Loopback<br/>🌐 UDP Host | Signaling via Cloudflare Tunnel; Audio streams over UDP |
 | `sparkloop-backend` | `5000` |  Host Port | Proxied to `sloopapi.mydev-lab.com` via Cloudflare Tunnel |
 | `sparkloop-frontend` | `7070` |  Host Port | Proxied to `sloop.mydev-lab.com` via Cloudflare Tunnel |
+| `sparkloop-minio` | `127.0.0.1:9000` | 🏠 Loopback | Proxied to `sloopmedia.mydev-lab.com` via Cloudflare Tunnel |
+| `sparkloop-centrifugo` | `127.0.0.1:8000` | 🏠 Loopback | Proxied to `sloopws.mydev-lab.com` via Cloudflare Tunnel |
+| `sparkloop-backend` | `5000` | 🏠 Host Port | Proxied to `sloopapi.mydev-lab.com` via Cloudflare Tunnel |
+| `sparkloop-frontend` | `7070` | 🏠 Host Port | Proxied to `sloop.mydev-lab.com` via Cloudflare Tunnel |
+
+### B. Oracle Cloud Server (92.4.162.183 - Edge Voice Stack: `TURN-SFU`)
+| Container / Service | Port | Protocol | Purpose |
+|---|:---:|:---:|---|
+| `sparkloop-livekit` | `7880` | TCP | WebSocket Signaling & HTTP API |
+| `sparkloop-livekit` | `7881` | TCP | WebRTC TCP Fallback |
+| `sparkloop-livekit` | `7882` | **UDP** | Primary WebRTC Audio Stream (Direct) |
+| `sparkloop-coturn` | `3478` | **UDP & TCP** | STUN / TURN Standard Relay |
+| `sparkloop-coturn` | `5349` | TCP | TURNS over TLS (Encrypted Relay) |
+| `sparkloop-coturn` | `8080` | TCP | Coturn Web Admin Dashboard (HTTPS) |
+| `sparkloop-coturn` | `9641` | TCP | Prometheus Metrics Exporter |
+| `sparkloop-coturn` | `49152-49300`| **UDP** | WebRTC Dynamic Relay Media Ports |
 
 ---
 
 ## 6. Useful Maintenance Commands
 
+### Homelab Commands
 ```bash
 # View live logs for Backend API
 docker logs -f sparkloop-backend
@@ -223,6 +279,26 @@ docker compose -f docker-compose.app.yml restart sparkloop-backend
 docker compose -f docker-compose.app.yml up -d --build sparkloop-frontend
 
 # Stop All Services Gracefully
+# Stop All Homelab Services Gracefully
 docker compose -f docker-compose.app.yml down
 docker compose -f docker-compose.infra.prod.yml down
+```
+
+### Oracle Cloud (`TURN-SFU`) Commands
+```bash
+# SSH into OCI Server
+ssh ubuntu@92.4.162.183
+
+# View live logs for LiveKit SFU
+docker logs -f sparkloop-livekit
+
+# View live logs for Coturn TURN Server
+docker logs -f sparkloop-coturn
+
+# Restart Voice & Traversal Stack
+cd ~/TURN-SFU
+docker compose restart
+
+# Check Listening Ports on OCI Host
+ss -tulpn | grep -E '7880|7882|8080|3478'
 ```
