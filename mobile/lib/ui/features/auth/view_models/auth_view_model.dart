@@ -34,10 +34,11 @@ class AuthViewModel extends ChangeNotifier {
     _currentUser = await _authRepository.getInitialUser();
     if (_currentUser != null) {
       _currentPersona = Persona.fromUser(_currentUser!);
-      _centrifugoService?.connect();
+      _centrifugoService?.connect(force: true);
       _centrifugoService?.subscribe('user:${_currentUser!.id}');
     } else {
       _currentPersona = Persona.guest;
+      _centrifugoService?.connect();
     }
     notifyListeners();
   }
@@ -51,7 +52,7 @@ class AuthViewModel extends ChangeNotifier {
       final res = await _authRepository.login(email, password);
       _currentUser = res.user;
       _currentPersona = Persona.fromUser(res.user);
-      _centrifugoService?.connect();
+      _centrifugoService?.connect(force: true);
       _centrifugoService?.subscribe('user:${res.user.id}');
       _isLoading = false;
       notifyListeners();
@@ -83,7 +84,7 @@ class AuthViewModel extends ChangeNotifier {
       );
       _currentUser = res.user;
       _currentPersona = Persona.fromUser(res.user);
-      _centrifugoService?.connect();
+      _centrifugoService?.connect(force: true);
       _centrifugoService?.subscribe('user:${res.user.id}');
       _isLoading = false;
       notifyListeners();
@@ -174,6 +175,7 @@ class AuthViewModel extends ChangeNotifier {
 
   void switchPersona(Persona persona) {
     _currentPersona = persona;
+    _centrifugoService?.connect(force: true);
     notifyListeners();
   }
 
@@ -218,6 +220,7 @@ class AuthViewModel extends ChangeNotifier {
     }
     _currentUser = null;
     _currentPersona = Persona.guest;
+    _centrifugoService?.connect(force: true);
     notifyListeners();
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import '../../../../data/models/dj_list_models.dart';
@@ -61,6 +62,7 @@ class PodViewModel extends ChangeNotifier {
   String? _localUsername;
   String? _localDisplayName;
   String? _localAvatarUrl;
+  Timer? _messageSyncTimer;
 
   PodViewModel({
     required this._podRepository,
@@ -73,15 +75,25 @@ class PodViewModel extends ChangeNotifier {
   }
 
   void _handleCentrifugoEvent(CentrifugoEvent event) async {
-    if (_activePod != null && event.channel == 'pod:${_activePod!.id}') {
-      final type = event.data['type'] as String?;
+    final activeId = _activePod?.id.toLowerCase();
+    final eventChannel = event.channel.toLowerCase().trim();
+    final evPodId = (event.data['podId'] ?? event.data['pod_id'])?.toString().toLowerCase().trim();
+    final isMatchingPod = _activePod != null &&
+        (eventChannel == 'pod:$activeId' || (activeId != null && evPodId == activeId));
+
+    if (isMatchingPod) {
+      final type = (event.data['type'] ?? event.data['signalType']) as String?;
       final signalType = (event.data['signalType'] ?? type) as String?;
 
       // 1. Live Chat Messages (with optimistic deduplication)
-      if (type == 'POD_MESSAGE' || type == 'CHAT_MESSAGE') {
+      if (type == 'POD_MESSAGE' || type == 'CHAT_MESSAGE' || signalType == 'POD_MESSAGE') {
         final msgData = (event.data['message'] ?? event.data) as Map<String, dynamic>;
         if (msgData.containsKey('text') || msgData.containsKey('content') || msgData.containsKey('audioUrl')) {
-          final newMsg = PodChatMessageDto.fromJson(msgData);
+          final msgMap = Map<String, dynamic>.from(msgData);
+          if (!msgMap.containsKey('podId') && _activePod != null) {
+            msgMap['podId'] = _activePod!.id;
+          }
+          final newMsg = PodChatMessageDto.fromJson(msgMap);
           final idx = _chatMessages.indexWhere((m) =>
               m.id == newMsg.id ||
               (m.id.startsWith('opt_') &&
@@ -376,7 +388,9 @@ class PodViewModel extends ChangeNotifier {
         ..addAll(pendingOptimistic);
       _handRaisedUsers.clear();
 
-      _centrifugoService.subscribe('pod:$podId');
+      _centrifugoService.connect();
+      _centrifugoService.subscribe('pod:${podId.toLowerCase()}');
+      _startMessageSync(podId);
 
       final isSpeakerRole = _isHost || (_activePod?.allowOpenMic == true);
 
@@ -744,6 +758,8 @@ class PodViewModel extends ChangeNotifier {
   }
 
   Future<void> leaveActivePod() async {
+    _messageSyncTimer?.cancel();
+    _messageSyncTimer = null;
     if (_activePod != null) {
       final podId = _activePod!.id;
       final userId = _localUserId;
@@ -762,7 +778,7 @@ class PodViewModel extends ChangeNotifier {
           debugPrint('Error sending STAGE_LEAVE signal: $e');
         }
       }
-      _centrifugoService.unsubscribe('pod:$podId');
+      _centrifugoService.unsubscribe('pod:${podId.toLowerCase()}');
     }
     _liveKitService.leaveRoom();
     _activePod = null;
@@ -846,5 +862,49 @@ class PodViewModel extends ChangeNotifier {
     }
     notifyListeners();
     return pod;
+  }
+
+  void _startMessageSync(String podId) {
+    _messageSyncTimer?.cancel();
+    _messageSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (_activePod == null || _activePod!.id.toLowerCase() != podId.toLowerCase()) {
+        _messageSyncTimer?.cancel();
+        return;
+      }
+      try {
+        final freshPod = await _podRepository.getMoodPodById(podId);
+        if (_activePod != null && _activePod!.id.toLowerCase() == podId.toLowerCase()) {
+          final newMessages = freshPod.recentMessages;
+          bool changed = false;
+          for (final freshMsg in newMessages) {
+            final idx = _chatMessages.indexWhere((m) =>
+                m.id == freshMsg.id ||
+                (m.id.startsWith('opt_') &&
+                    m.userId == freshMsg.userId &&
+                    m.content.trim() == freshMsg.content.trim()));
+            if (idx >= 0) {
+              if (_chatMessages[idx].id != freshMsg.id) {
+                _chatMessages[idx] = freshMsg;
+                changed = true;
+              }
+            } else {
+              _chatMessages.add(freshMsg);
+              changed = true;
+            }
+          }
+          if (changed) {
+            _chatMessages.sort((a, b) => a.createdAtUtc.compareTo(b.createdAtUtc));
+            notifyListeners();
+          }
+        }
+      } catch (_) {}
+    });
+  }
+
+  @override
+  void dispose() {
+    _messageSyncTimer?.cancel();
+    _messageSyncTimer = null;
+    super.dispose();
   }
 }

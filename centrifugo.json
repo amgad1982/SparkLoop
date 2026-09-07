@@ -22,7 +22,8 @@
     "http://*.mydev-lab.com"
   ],
   "allow_anonymous_connect_without_token": true,
-  "allow_subscribe_for_client": false,
+  "allow_subscribe_for_client": true,
+  "allow_subscribe_for_anonymous": true,
   "namespaces": [
     {
       "name": "sparks",
@@ -30,6 +31,7 @@
       "history_size": 100,
       "history_ttl": "24h",
       "allow_subscribe_for_client": true,
+      "allow_subscribe_for_anonymous": true,
       "allow_publish_for_client": false,
       "allow_presence_for_client": true
     },
@@ -39,6 +41,7 @@
       "history_size": 100,
       "history_ttl": "24h",
       "allow_subscribe_for_client": true,
+      "allow_subscribe_for_anonymous": true,
       "allow_publish_for_client": false,
       "allow_presence_for_client": true
     },
@@ -49,6 +52,7 @@
       "history_size": 100,
       "history_ttl": "6h",
       "allow_subscribe_for_client": true,
+      "allow_subscribe_for_anonymous": true,
       "allow_publish_for_client": false,
       "allow_presence_for_client": true
     },
@@ -58,6 +62,7 @@
       "history_size": 50,
       "history_ttl": "12h",
       "allow_subscribe_for_client": true,
+      "allow_subscribe_for_anonymous": true,
       "allow_publish_for_client": false,
       "allow_presence_for_client": true
     },
@@ -68,6 +73,7 @@
       "history_ttl": "24h",
       "allow_user_limited_channels": true,
       "allow_subscribe_for_client": true,
+      "allow_subscribe_for_anonymous": true,
       "allow_publish_for_client": false
     }
   ]

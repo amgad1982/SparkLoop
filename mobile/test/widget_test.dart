@@ -17,6 +17,7 @@ import 'package:sparkloop_mobile/data/services/sound_synth_service.dart';
 import 'package:sparkloop_mobile/data/services/storage_service.dart';
 import 'package:sparkloop_mobile/ui/core/widgets/app_network_image.dart';
 import 'package:sparkloop_mobile/ui/features/auth/view_models/auth_view_model.dart';
+import 'package:sparkloop_mobile/ui/features/pods/views/pod_room_screen.dart';
 import 'package:sparkloop_mobile/ui/features/profile/view_models/profile_view_model.dart';
 import 'package:sparkloop_mobile/ui/features/profile/views/settings_screen.dart';
 import 'package:sparkloop_mobile/ui/features/shell/bottom_nav_bar.dart';
@@ -594,6 +595,51 @@ void main() {
       final preset = AudioPresetDto.fromJson(presetJson);
       expect(preset.id, 'rain');
       expect(preset.url, '/audio/presets/rain.wav');
+    });
+
+    test('WhatsAppBubbleClipper produces valid closed clip paths for self and incoming messages', () {
+      const selfClipper = WhatsAppBubbleClipper(isSelf: true, isRtl: false);
+      final selfPath = selfClipper.getClip(const Size(200, 60));
+      expect(selfPath.getBounds().width, 200);
+      expect(selfPath.getBounds().height, 60);
+
+      const incomingClipper = WhatsAppBubbleClipper(isSelf: false, isRtl: false);
+      final incomingPath = incomingClipper.getClip(const Size(200, 60));
+      expect(incomingPath.getBounds().width, 200);
+      expect(incomingPath.getBounds().height, 60);
+
+      const rtlClipper = WhatsAppBubbleClipper(isSelf: true, isRtl: true);
+      expect(rtlClipper.nipOnRight, isFalse);
+    });
+
+    test('PodChatMessageDto parses nested and flat backend message payloads with avatars', () {
+      final backendPayload = {
+        'type': 'POD_MESSAGE',
+        'podId': 'pod-guid-123',
+        'message': {
+          'id': 'msg-1',
+          'senderId': 'user-1',
+          'senderUsername': 'dj_sam',
+          'senderDisplayName': 'DJ Sam 🎧',
+          'senderAvatarUrl': 'https://sparkloop.com/avatars/dj_sam.jpg',
+          'text': 'Welcome to the pod everyone!',
+          'createdAtUtc': '2026-09-08T00:00:00.000Z',
+        }
+      };
+
+      final msgData = Map<String, dynamic>.from(backendPayload['message'] as Map);
+      if (!msgData.containsKey('podId')) {
+        msgData['podId'] = backendPayload['podId'];
+      }
+      final msg = PodChatMessageDto.fromJson(msgData);
+
+      expect(msg.id, 'msg-1');
+      expect(msg.podId, 'pod-guid-123');
+      expect(msg.userId, 'user-1');
+      expect(msg.username, 'dj_sam');
+      expect(msg.displayName, 'DJ Sam 🎧');
+      expect(msg.avatarUrl, 'https://sparkloop.com/avatars/dj_sam.jpg');
+      expect(msg.content, 'Welcome to the pod everyone!');
     });
   });
 }
