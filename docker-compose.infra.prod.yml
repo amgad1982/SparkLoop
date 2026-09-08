@@ -27,7 +27,7 @@ services:
   # much smaller pool of long-lived Postgres connections. This avoids the
   # "MaxClients / connection refused" failure mode when the API scales out.
   pgbouncer:
-    image: bitnami/pgbouncer:1.23.1
+    image: bitnamilegacy/pgbouncer:1.23.1
     container_name: sparkloop-pgbouncer
     restart: unless-stopped
     environment:
