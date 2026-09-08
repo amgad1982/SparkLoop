@@ -19,21 +19,22 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:5000
       - DatabaseProvider=PostgreSQL
+      - SKIP_SECRET_VALIDATION=${SKIP_SECRET_VALIDATION:-true}
       # The API connects to PgBouncer (transaction-pool mode) rather than directly
       # to Postgres. PgBouncer multiplexes many short-lived client connections
       # onto a small pool of long-lived server connections, which avoids the
       # "Postgres rejected the connection" failure mode when the API scales out.
-      - ConnectionStrings__DefaultConnection=Host=sparkloop-pgbouncer;Port=6432;Database=sparkloop;Username=sparkuser;Password=sparkpassword123!;Pooling=true;Maximum Pool Size=80;Timeout=15;Command Timeout=30
+      - ConnectionStrings__DefaultConnection=Host=sparkloop-pgbouncer;Port=6432;Database=${POSTGRES_DB:-sparkloop};Username=${POSTGRES_USER:-sparkuser};Password=${POSTGRES_PASSWORD:-sparkpassword123!};Pooling=true;Maximum Pool Size=80;Timeout=15;Command Timeout=30
       - ConnectionStrings__Redis=sparkloop-redis:6379,abortConnect=false
       - Centrifugo__ApiUrl=http://sparkloop-centrifugo:8000/api
       - Centrifugo__WsUrl=wss://sloopws.mydev-lab.com/connection/websocket
-      - Centrifugo__ApiKey=sparkloop_centrifugo_api_key_2026_super_secure
-      - Centrifugo__SecretKey=sparkloop_centrifugo_secret_jwt_key_2026_super_secure
+      - Centrifugo__ApiKey=${CENTRIFUGO_API_KEY:-sparkloop_centrifugo_api_key_2026_super_secure}
+      - Centrifugo__SecretKey=${CENTRIFUGO_SECRET_KEY:-sparkloop_centrifugo_secret_jwt_key_2026_super_secure}
       - Storage__ServiceUrl=http://sparkloop-minio:9000
-      - Storage__AccessKey=minioadmin
-      - Storage__SecretKey=minioadminpassword123!
-      - Storage__BucketName=sparkloop-media
-      - Storage__PublicUrl=https://sloopmedia.mydev-lab.com/sparkloop-media
+      - Storage__AccessKey=${MINIO_ROOT_USER:-minioadmin}
+      - Storage__SecretKey=${MINIO_ROOT_PASSWORD:-minioadminpassword123!}
+      - Storage__BucketName=${STORAGE_BUCKET_NAME:-sparkloop-media}
+      - Storage__PublicUrl=${STORAGE_PUBLIC_URL:-https://sloopmedia.mydev-lab.com/sparkloop-media}
       # LiveKit SFU & Colocated Coturn TURN on Dedicated Host (TURN-SFU stack on 92.4.162.183)
       - LiveKit__ServerUrl=${LIVEKIT_URL:-wss://slooplive.mydev-lab.com}
       - LiveKit__ApiKey=${LIVEKIT_API_KEY:-sparkloop_livekit_key}

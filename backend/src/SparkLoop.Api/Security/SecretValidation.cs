@@ -37,6 +37,17 @@ public static class SecretValidation
             return;
         }
 
+        var skipValidation = config.GetValue<bool>("SkipSecretValidation", false)
+            || string.Equals(Environment.GetEnvironmentVariable("SKIP_SECRET_VALIDATION"), "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(config["SKIP_SECRET_VALIDATION"], "true", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(config["SkipSecretValidation"], "true", StringComparison.OrdinalIgnoreCase);
+
+        if (skipValidation)
+        {
+            Console.WriteLine("[WARN] SecretValidation: SKIP_SECRET_VALIDATION is enabled. Bypassing production placeholder secret enforcement.");
+            return;
+        }
+
         var problems = new List<string>();
 
         void Check(string sectionKey, string label)
