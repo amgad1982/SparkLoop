@@ -5,6 +5,17 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "mobile (Production)",
+            "cwd": "mobile",
+            "request": "launch",
+            "type": "dart",
+            "args": [
+                "--dart-define=API_URL=https://sloopapi.mydev-lab.com/api",
+                "--dart-define=WS_URL=wss://sloopws.mydev-lab.com/connection/websocket",
+                "--dart-define=LIVEKIT_URL=wss://slooplive.mydev-lab.com"
+            ]
+        },
+        {
             "name": "mobile",
             "cwd": "mobile",
             "request": "launch",
