@@ -31,14 +31,17 @@ services:
     container_name: sparkloop-pgbouncer
     restart: unless-stopped
     environment:
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_USERNAME: ${POSTGRES_USER:-sparkuser}
+      POSTGRESQL_PASSWORD: ${POSTGRES_PASSWORD:-sparkpassword123!}
+      POSTGRESQL_DATABASE: ${POSTGRES_DB:-sparkloop}
       PGBOUNCER_DATABASE: ${POSTGRES_DB:-sparkloop}
-      PGBOUNCER_USER: ${POSTGRES_USER:-sparkuser}
-      PGBOUNCER_PASSWORD: ${POSTGRES_PASSWORD:-sparkpassword123!}
-      PGBOUNCER_AUTH_TYPE: scram-sha-256
-      PGBOUNCER_AUTH_FILE: /etc/pgbouncer/userlist.txt
-      PGBOUNCER_LISTEN_ADDR: 0.0.0.0
-      PGBOUNCER_LISTEN_PORT: "6432"
+      PGBOUNCER_PORT: "6432"
       PGBOUNCER_POOL_MODE: transaction
+      PGBOUNCER_AUTH_TYPE: scram-sha-256
+      PGBOUNCER_SET_DATABASE_USER: "yes"
+      PGBOUNCER_SET_DATABASE_PASSWORD: "yes"
       PGBOUNCER_MAX_CLIENT_CONN: "2000"
       PGBOUNCER_DEFAULT_POOL_SIZE: "40"
       PGBOUNCER_MIN_POOL_SIZE: "10"
@@ -46,17 +49,16 @@ services:
       PGBOUNCER_SERVER_IDLE_TIMEOUT: "600"
       PGBOUNCER_QUERY_TIMEOUT: "30"
       PGBOUNCER_SERVER_TLS_SSLMODE: prefer
-    volumes:
-      - ./pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
+      PGBOUNCER_IGNORE_STARTUP_PARAMETERS: extra_float_digits
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-p", "6432"]
+      test: ["CMD-SHELL", "PGPASSWORD=\"${POSTGRES_PASSWORD:-sparkpassword123!}\" psql -h 127.0.0.1 -p 6432 -U \"${POSTGRES_USER:-sparkuser}\" -d \"${POSTGRES_DB:-sparkloop}\" -c 'SELECT 1;' || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 10s
 
   redis:
     image: redis:7-alpine
