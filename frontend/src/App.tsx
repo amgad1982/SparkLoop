@@ -14,6 +14,7 @@ import { useCentrifugo } from './hooks/useCentrifugo';
 import { useThemeStore } from './stores/useThemeStore';
 import { useAuthStore } from './stores/useAuthStore';
 import { useFollowStore } from './stores/useFollowStore';
+import { useDjRadioStore } from './stores/useDjRadioStore';
 import { api } from './services/apiClient';
 import { ChainDto, MoodPodDto, PostDto } from './types/api';
 import { GitBranch, Plus, Radio, Sparkles } from 'lucide-react';
@@ -70,20 +71,36 @@ export const App: React.FC = () => {
     }
   });
 
+  // Real-time DJ Radio Station broadcast events (sync playback, tracks, and sfx across listeners)
+  useCentrifugo('sparks:global', (data) => {
+    useDjRadioStore.getState().handleBroadcastMessage(data);
+  });
+
   // Queries for initial data
   const { data: posts = [], refetch: refetchPosts } = useQuery<PostDto[]>({
     queryKey: ['posts'],
-    queryFn: () => api.getFeed(),
+    queryFn: async () => {
+      const res = await api.getFeed();
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray((res as any).items)) return (res as any).items;
+      return [];
+    },
   });
 
   const { data: chains = [], refetch: refetchChains } = useQuery<ChainDto[]>({
     queryKey: ['chains'],
-    queryFn: () => api.getActiveChains(),
+    queryFn: async () => {
+      const res = await api.getActiveChains();
+      return Array.isArray(res) ? res : [];
+    },
   });
 
   const { data: pods = [], refetch: refetchPods } = useQuery<MoodPodDto[]>({
     queryKey: ['pods'],
-    queryFn: () => api.getActivePods(),
+    queryFn: async () => {
+      const res = await api.getActivePods();
+      return Array.isArray(res) ? res : [];
+    },
   });
 
   const [selectedProfileUsername, setSelectedProfileUsername] = useState<string | null>(null);
@@ -120,7 +137,7 @@ export const App: React.FC = () => {
         {/* 1. Feed Tab */}
         {activeTab === 'feed' && (
           <FeedView
-            initialPosts={posts}
+            initialPosts={Array.isArray(posts) ? posts : []}
             onOpenCanvas={() => setActiveTab('create')}
             selectedHashtag={searchHashtag}
             onSelectHashtag={handleSelectHashtag}

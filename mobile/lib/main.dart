@@ -10,6 +10,7 @@ import 'data/repositories/pod_repository.dart';
 import 'data/repositories/user_repository.dart';
 import 'data/services/api_service.dart';
 import 'data/services/centrifugo_service.dart';
+import 'data/services/dj_radio_service.dart';
 import 'data/services/livekit_service.dart';
 import 'data/services/notification_service.dart';
 import 'data/services/storage_service.dart';
@@ -17,6 +18,7 @@ import 'l10n/generated/app_localizations.dart';
 import 'ui/core/theme/app_theme.dart';
 import 'ui/features/auth/view_models/auth_view_model.dart';
 import 'ui/features/chains/view_models/chain_view_model.dart';
+import 'ui/features/dj_deck/view_models/dj_deck_view_model.dart';
 import 'ui/features/feed/view_models/feed_view_model.dart';
 import 'ui/features/follow/view_models/follow_view_model.dart';
 import 'ui/features/meme_canvas/view_models/meme_canvas_view_model.dart';
@@ -36,6 +38,7 @@ void main() async {
   final apiService = ApiService(storage: storageService);
   final centrifugoService = CentrifugoService(apiService: apiService);
   final liveKitService = LiveKitService();
+  final djRadioService = DjRadioService();
 
   // Initialize System Notifications
   await NotificationService.instance.initialize();
@@ -62,6 +65,7 @@ void main() async {
         Provider<ApiService>.value(value: apiService),
         ChangeNotifierProvider<LiveKitService>.value(value: liveKitService),
         ChangeNotifierProvider<CentrifugoService>.value(value: centrifugoService),
+        ChangeNotifierProvider<DjRadioService>.value(value: djRadioService),
 
         // Repositories
         Provider<AuthRepository>.value(value: authRepository),
@@ -116,6 +120,14 @@ void main() async {
         ),
         ChangeNotifierProvider<SearchViewModel>(
           create: (_) => SearchViewModel(userRepository: userRepository),
+        ),
+        ChangeNotifierProvider<DjDeckViewModel>(
+          create: (_) => DjDeckViewModel(
+            apiService: apiService,
+            radioService: djRadioService,
+            centrifugoService: centrifugoService,
+            liveKitService: liveKitService,
+          ),
         ),
       ],
       child: const SparkLoopMobileApp(),

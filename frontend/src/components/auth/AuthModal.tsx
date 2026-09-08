@@ -79,7 +79,7 @@ export const AuthModal: React.FC = () => {
 
   if (!isAuthModalOpen) return null;
 
-  const generatedAvatarUrl = `https://api.dicebear.com/7.x/${avatarStyle}/svg?seed=${encodeURIComponent(avatarSeed || 'spark')}`;
+  const generatedAvatarUrl = `https://api.dicebear.com/10.x/${avatarStyle}/svg?seed=${encodeURIComponent(avatarSeed || 'spark')}`;
 
   const handleRandomizeAvatar = () => {
     setAvatarSeed(Math.random().toString(36).substring(2, 9));
@@ -340,15 +340,15 @@ export const AuthModal: React.FC = () => {
                   {tab === 'verify'
                     ? (isArabic ? 'تأكيد البريد الإلكتروني' : 'Verify Email')
                     : tab === 'register'
-                    ? (isArabic ? 'إنشاء حساب صانع جديد' : 'Create Creator Account')
-                    : (isArabic ? 'تسجيل الدخول' : 'Sign in to SparkLoop')}
+                      ? (isArabic ? 'إنشاء حساب صانع جديد' : 'Create Creator Account')
+                      : (isArabic ? 'تسجيل الدخول' : 'Sign in to SparkLoop')}
                 </h3>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
                   {tab === 'verify'
                     ? (isArabic ? 'أدخل الرمز المكون من 6 أرقام لتفعيل حسابك' : 'Enter 6-digit code to activate your account')
                     : tab === 'register'
-                    ? (isArabic ? 'انضم إلى مجتمع الميمز والقصص التفاعلية' : 'Join the interactive storytelling and memes loop')
-                    : (isArabic ? 'مرحباً بك مجدداً في استوديو SparkLoop' : 'Welcome back to SparkLoop studio')}
+                      ? (isArabic ? 'انضم إلى مجتمع الميمز والقصص التفاعلية' : 'Join the interactive storytelling and memes loop')
+                      : (isArabic ? 'مرحباً بك مجدداً في استوديو SparkLoop' : 'Welcome back to SparkLoop studio')}
                 </p>
               </div>
             </div>
@@ -371,11 +371,10 @@ export const AuthModal: React.FC = () => {
                   setError(null);
                   setSuccessMsg(null);
                 }}
-                className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  tab === 'login'
+                className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${tab === 'login'
                     ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm border border-slate-200 dark:border-slate-700'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
+                  }`}
               >
                 <LogIn className="w-3.5 h-3.5" />
                 <span>{isArabic ? 'تسجيل الدخول' : 'Sign In'}</span>
@@ -388,11 +387,10 @@ export const AuthModal: React.FC = () => {
                   setError(null);
                   setSuccessMsg(null);
                 }}
-                className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  tab === 'register'
+                className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${tab === 'register'
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
+                  }`}
               >
                 <UserPlus className="w-3.5 h-3.5" />
                 <span>{isArabic ? 'حساب جديد' : 'Register'}</span>
@@ -644,11 +642,10 @@ export const AuthModal: React.FC = () => {
                       value={regConfirmPassword}
                       onChange={(e) => setRegConfirmPassword(e.target.value)}
                       placeholder="Re-type password"
-                      className={`w-full bg-slate-50 dark:bg-[#0b0f17] border rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white pr-8 rtl:pr-3 rtl:pl-8 focus:outline-none shadow-sm ${
-                        regConfirmPassword && regPassword !== regConfirmPassword
+                      className={`w-full bg-slate-50 dark:bg-[#0b0f17] border rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white pr-8 rtl:pr-3 rtl:pl-8 focus:outline-none shadow-sm ${regConfirmPassword && regPassword !== regConfirmPassword
                           ? 'border-rose-500 focus:border-rose-500'
                           : 'border-slate-200 dark:border-slate-800 focus:border-indigo-500'
-                      }`}
+                        }`}
                     />
                     <button
                       type="button"

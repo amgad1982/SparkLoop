@@ -1237,7 +1237,8 @@ public class GetUserProfileQueryHandler : IRequestHandler<GetUserProfileQuery, U
                 p.Media != null ? new MediaAttachmentDto(p.Media.Url, p.Media.Type.ToString(), p.Media.Width, p.Media.Height, p.Media.AspectRatio) : null,
                 p.Reactions.Count,
                 p.Reactions.Select(r => new ReactionDto(r.Id, r.UserId, r.Username, r.Type, r.CreatedAtUtc)).ToList(),
-                p.CreatedAtUtc
+                p.CreatedAtUtc,
+                p.CommentCount
             )).ToList();
 
             var userChains = await _dbContext.Chains

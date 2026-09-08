@@ -18,9 +18,11 @@ public interface IAppDbContext
     DbSet<MoodPod> MoodPods { get; }
     DbSet<PodMessage> PodMessages { get; }
     DbSet<DjList> DjLists { get; }
+    DbSet<MusicCopyrightAttestation> MusicCopyrightAttestations { get; }
     DbSet<UserFollow> UserFollows { get; }
     DbSet<UserDeviceSession> UserDeviceSessions { get; }
     DbSet<UserSocialAccount> UserSocialAccounts { get; }
+    DbSet<PostComment> PostComments { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }
@@ -91,6 +93,7 @@ public interface IOAuthService
 public interface ILiveKitService
 {
     string GenerateVoiceToken(string podId, string userId, string username, string displayName, bool isOnStage, TimeSpan? ttl = null);
+    string GenerateStationToken(string stationId, string userId, string username, string displayName, bool isDjHost, TimeSpan? ttl = null);
     string GetServerUrl();
     IReadOnlyList<IceServerDto> GetIceServers();
 }

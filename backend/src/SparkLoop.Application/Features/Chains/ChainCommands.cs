@@ -68,7 +68,7 @@ public class CreateChainCommandHandler : IRequestHandler<CreateChainCommand, Cha
                 norm,
                 $"{norm}@sparkloop.app",
                 displayName,
-                avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={norm}",
+                avatarUrl ?? $"https://api.dicebear.com/10.x/bottts/svg?seed={norm}",
                 "SparkLoop Creator & Storyteller"
             );
             user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");
@@ -203,7 +203,7 @@ public class SubmitChainStepCommandHandler : IRequestHandler<SubmitChainStepComm
                 norm,
                 $"{norm}@sparkloop.app",
                 displayName,
-                avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={norm}",
+                avatarUrl ?? $"https://api.dicebear.com/10.x/bottts/svg?seed={norm}",
                 "SparkLoop Creator & Storyteller"
             );
             user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");

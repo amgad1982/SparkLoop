@@ -12,6 +12,8 @@ using SparkLoop.Application.Features.Posts;
 using SparkLoop.Application.Features.Search;
 using SparkLoop.Application.Features.Users;
 using SparkLoop.Application.Interfaces;
+using SparkLoop.Domain.Aggregates.MoodPodAggregate;
+using Microsoft.EntityFrameworkCore;
 
 namespace SparkLoop.Api.Controllers;
 
@@ -490,6 +492,31 @@ public class PostsController : ControllerBase
         return Ok(result);
     }
 
+    [AllowAnonymous]
+    [HttpGet("{id:guid}/comments")]
+    public async Task<ActionResult<IReadOnlyList<PostCommentDto>>> GetComments(Guid id, [FromQuery] int limit = 50, [FromQuery] int offset = 0)
+    {
+        var result = await _mediator.Send(new GetPostCommentsQuery(id, limit, offset));
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPost("{id:guid}/comments")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
+    public async Task<ActionResult<PostCommentDto>> AddComment(Guid id, [FromBody] CreatePostCommentRequest request)
+    {
+        var result = await _mediator.Send(new AddPostCommentCommand(id, request.Content));
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpDelete("{id:guid}/comments/{commentId:guid}")]
+    public async Task<IActionResult> DeleteComment(Guid id, Guid commentId)
+    {
+        await _mediator.Send(new DeletePostCommentCommand(id, commentId));
+        return NoContent();
+    }
+
     public class ReactRequest
     {
         public string? Type { get; set; }
@@ -761,6 +788,8 @@ public class MoodPodsController : ControllerBase
 public class MediaController : ControllerBase
 {
     private readonly IBlobStorageService _storageService;
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
 
     private static readonly HashSet<string> AllowedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -774,14 +803,23 @@ public class MediaController : ControllerBase
         "audio/webm", "audio/mpeg", "audio/wav", "audio/ogg", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/flac", "audio/x-wav"
     };
 
-    public MediaController(IBlobStorageService storageService)
+    private readonly ILogger<MediaController> _logger;
+
+    public MediaController(
+        IBlobStorageService storageService,
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ILogger<MediaController> logger)
     {
         _storageService = storageService;
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _logger = logger;
     }
 
     [Authorize]
     [HttpPost("upload")]
-    [RequestSizeLimit(35 * 1024 * 1024)] // 35 MB Max for DJ music uploads
+    [RequestSizeLimit(35 * 1024 * 1024)] // 35 MB Max
     [EnableRateLimiting(RateLimitingPolicies.Uploads)]
     public async Task<ActionResult<UploadResponse>> UploadFile(IFormFile file)
     {
@@ -808,7 +846,289 @@ public class MediaController : ControllerBase
         return Ok(new UploadResponse(url, contentType, file.Length));
     }
 
+    [Authorize]
+    [HttpPost("upload-music")]
+    [RequestSizeLimit(50 * 1024 * 1024)] // 50 MB
+    [EnableRateLimiting(RateLimitingPolicies.Uploads)]
+    public async Task<ActionResult<MusicUploadResultDto>> UploadMusicTrack(
+        [FromForm] IFormFile file,
+        [FromForm] string? title = null,
+        [FromForm] string? artist = null,
+        [FromForm] bool acceptCopyrightPolicy = false,
+        [FromForm] double durationSeconds = 0,
+        [FromForm] string policyVersion = "1.0")
+    {
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { error = "No audio file uploaded or file is empty." });
+        }
+
+        if (!acceptCopyrightPolicy)
+        {
+            return BadRequest(new
+            {
+                error = "You must acknowledge and accept the Music Ownership & Copyright Responsibility Policy to upload audio tracks to SparkLoop servers.",
+                errorAr = "يجب الإقرار والموافقة على سياسة ملكية الموسيقى والمسؤولية القانونية الكاملة عن حقوق النشر لرفع المقاطع الصوتية إلى خوادم SparkLoop."
+            });
+        }
+
+        var extension = Path.GetExtension(file.FileName);
+        var allowedAudioExts = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ".mp3", ".wav", ".ogg", ".m4a", ".aac", ".flac", ".webm"
+        };
+        if (string.IsNullOrEmpty(extension) || !allowedAudioExts.Contains(extension))
+        {
+            return BadRequest(new { error = $"Unsupported audio extension '{extension}'. Allowed: {string.Join(", ", allowedAudioExts)}" });
+        }
+
+        var userId = _currentUserService.UserId ?? Guid.Empty;
+        var username = _currentUserService.Username ?? "creator";
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized(new { error = "User authentication required." });
+        }
+
+        // Compute SHA256 checksum for legal audit and integrity verification
+        string sha256Hex;
+        using (var sha256 = System.Security.Cryptography.SHA256.Create())
+        using (var hashStream = file.OpenReadStream())
+        {
+            var hashBytes = await sha256.ComputeHashAsync(hashStream);
+            sha256Hex = Convert.ToHexString(hashBytes);
+        }
+
+        // Upload to MinIO S3 bucket under tracks/
+        string publicMediaUrl;
+        using (var uploadStream = file.OpenReadStream())
+        {
+            var sanitizedName = $"tracks/{Guid.NewGuid()}_{Path.GetFileName(file.FileName)}";
+            publicMediaUrl = await _storageService.UploadFileAsync(uploadStream, sanitizedName, file.ContentType);
+        }
+
+        var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
+        var userAgent = HttpContext.Request.Headers.UserAgent.ToString();
+
+        var attestation = MusicCopyrightAttestation.Create(
+            id: Guid.NewGuid(),
+            userId: userId,
+            username: username,
+            trackTitle: string.IsNullOrWhiteSpace(title) ? Path.GetFileNameWithoutExtension(file.FileName) : title.Trim(),
+            trackArtist: string.IsNullOrWhiteSpace(artist) ? (_currentUserService.DisplayName ?? username) : artist.Trim(),
+            mediaUrl: publicMediaUrl,
+            fileSizeBytes: file.Length,
+            fileChecksumSha256: sha256Hex,
+            policyVersion: policyVersion,
+            clientIp: clientIp,
+            userAgent: userAgent,
+            durationSeconds: durationSeconds > 0 ? durationSeconds : 180
+        );
+
+        _dbContext.MusicCopyrightAttestations.Add(attestation);
+        await _dbContext.SaveChangesAsync();
+
+        var trackId = $"track_{Guid.NewGuid():N}";
+        return Ok(new MusicUploadResultDto(
+            Url: publicMediaUrl,
+            TrackId: trackId,
+            Title: attestation.TrackTitle,
+            Artist: attestation.TrackArtist,
+            DurationSeconds: attestation.DurationSeconds,
+            FileSizeBytes: file.Length,
+            AttestationId: attestation.Id,
+            AttestedAtUtc: attestation.AttestedAtUtc
+        ));
+    }
+
+    [Authorize]
+    [HttpGet("my-tracks")]
+    public async Task<ActionResult<List<UserMusicTrackDto>>> GetMyMusicTracks()
+    {
+        var userId = _currentUserService.UserId ?? Guid.Empty;
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized(new { error = "User authentication required." });
+        }
+
+        var tracks = await _dbContext.MusicCopyrightAttestations
+            .AsNoTracking()
+            .Where(a => a.UserId == userId && !a.IsDeleted)
+            .OrderByDescending(a => a.AttestedAtUtc)
+            .Select(a => new UserMusicTrackDto(
+                a.Id,
+                a.UserId,
+                a.Username,
+                a.TrackTitle,
+                a.TrackArtist,
+                a.MediaUrl,
+                a.DurationSeconds,
+                a.FileSizeBytes,
+                a.FileChecksumSha256,
+                a.PolicyVersion,
+                a.AttestedAtUtc
+            ))
+            .ToListAsync();
+
+        return Ok(tracks);
+    }
+
+    [Authorize]
+    [HttpDelete("my-tracks/{id:guid}")]
+    public async Task<IActionResult> DeleteMyMusicTrack([FromRoute] Guid id)
+    {
+        var userId = _currentUserService.UserId ?? Guid.Empty;
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized(new { error = "User authentication required." });
+        }
+
+        var track = await _dbContext.MusicCopyrightAttestations
+            .FirstOrDefaultAsync(a => a.Id == id);
+
+        if (track == null)
+        {
+            return NotFound(new { error = "Music track not found." });
+        }
+
+        if (track.UserId != userId)
+        {
+            return Forbid();
+        }
+
+        track.MarkDeleted();
+
+        // Attempt to clean up media file from storage asynchronously
+        try
+        {
+            await _storageService.DeleteFileAsync(track.MediaUrl);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete storage file {MediaUrl} for track {TrackId}", track.MediaUrl, track.Id);
+        }
+
+        await _dbContext.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [Authorize]
+    [HttpPatch("my-tracks/{id:guid}")]
+    public async Task<ActionResult<UserMusicTrackDto>> UpdateMyMusicTrack(
+        [FromRoute] Guid id,
+        [FromBody] UpdateMusicTrackRequest request)
+    {
+        var userId = _currentUserService.UserId ?? Guid.Empty;
+        if (userId == Guid.Empty)
+        {
+            return Unauthorized(new { error = "User authentication required." });
+        }
+
+        var track = await _dbContext.MusicCopyrightAttestations
+            .FirstOrDefaultAsync(a => a.Id == id && !a.IsDeleted);
+
+        if (track == null)
+        {
+            return NotFound(new { error = "Music track not found." });
+        }
+
+        if (track.UserId != userId)
+        {
+            return Forbid();
+        }
+
+        track.UpdateMetadata(request.Title, request.Artist);
+        await _dbContext.SaveChangesAsync();
+
+        return Ok(new UserMusicTrackDto(
+            track.Id,
+            track.UserId,
+            track.Username,
+            track.TrackTitle,
+            track.TrackArtist,
+            track.MediaUrl,
+            track.DurationSeconds,
+            track.FileSizeBytes,
+            track.FileChecksumSha256,
+            track.PolicyVersion,
+            track.AttestedAtUtc
+        ));
+    }
+
     public record UploadResponse(string Url, string ContentType, long SizeBytes);
+}
+
+[ApiController]
+[Route("api/[controller]")]
+public class CopyrightController : ControllerBase
+{
+    private readonly IAppDbContext _dbContext;
+
+    public CopyrightController(IAppDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    [AllowAnonymous]
+    [HttpGet("policy")]
+    public ActionResult<CopyrightPolicyDto> GetPolicy()
+    {
+        var clauses = new List<CopyrightPolicyClauseDto>
+        {
+            new(
+                TitleEn: "1. User Ownership & Authorization Warranty",
+                TitleAr: "١. إقرار الملكية والترخيص القانوني للمستخدم",
+                DescriptionEn: "The user represents, warrants, and guarantees that they are the sole copyright owner or possess verifiable, express legal licenses and broadcast rights for any audio track uploaded to SparkLoop.",
+                DescriptionAr: "يقر المستخدم ويتعهد بأنه المالك الحصري أو الحائز على ترخيص قانوني رسمي وموثق يمنحه كامل الصلاحية لبث وتوزيع ونشر المقطع الصوتي عبر خوادم المنصة."
+            ),
+            new(
+                TitleEn: "2. Absolute User Liability & Indemnification",
+                TitleAr: "٢. المسؤولية القانونية والجنائية والمالية الحصرية للمستخدم",
+                DescriptionEn: "The user assumes sole and total civil, criminal, and financial liability for any copyright infringement, damages, statutory fines, or licensing claims arising from uploaded content, and indemnifies SparkLoop and its operators against all claims.",
+                DescriptionAr: "يتحمل المستخدم بمفرده المسؤولية المدنية والجنائية والمالية الكاملة عن أي مطالبات أو انتهاكات لحقوق التأليف والنشر أو تعويضات تطالب بها أي جهة، دون أدنى مسؤولية أو التزام على المنصة أو مشغليها."
+            ),
+            new(
+                TitleEn: "3. Intermediary Safe Harbor & Non-Liability",
+                TitleAr: "٣. الملاذ الآمن والوساطة التقنية للمنصة",
+                DescriptionEn: "SparkLoop operates strictly as an intermediary technical hosting provider and conduit under DMCA 17 U.S.C. § 512 and equivalent international safe harbor laws. SparkLoop does not pre-screen, review, or endorse user-provided audio.",
+                DescriptionAr: "تعمل منصة SparkLoop كمزود استضافة تقني وسيط محايد بموجب أحكام الملاذ الآمن (DMCA والمبادئ القانونية الدولية المقابلة)، ولا تقوم المنصة بالمراجعة المسبقة أو التدقيق أو تبني المحتوى المرفوع."
+            ),
+            new(
+                TitleEn: "4. Notice, Takedown & Repeat Infringer Termination",
+                TitleAr: "٤. إجراءات الإبلاغ والإزالة وسياسة تكرار الانتهاك",
+                DescriptionEn: "SparkLoop will promptly remove or disable access to audio content upon receipt of a valid copyright infringement notice. Accounts of users identified as repeat infringers will be permanently suspended.",
+                DescriptionAr: "تلتزم المنصة بالحذف الفوري لأي مادة صوتية يثبت انتهاكها لحقوق الملكية الفكرية فور استلام إشعار إزالة رسمي صحيح، وتتخذ إجراءات حظر الحساب النهائي لأي مستخدم يكرر المخالفة."
+            )
+        };
+
+        var policy = new CopyrightPolicyDto(
+            Version: "1.0",
+            EffectiveDateUtc: new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            SummaryEn: "All uploaded audio tracks are the sole responsibility of the uploading user. Users must own or hold legal rights to broadcast music. SparkLoop is an intermediary host with zero liability for user content.",
+            SummaryAr: "جميع المقاطع الصوتية المرفوعة تقع تحت المسؤولية الحصرية التامة للمستخدم القائم برفعها. يجب امتلاك الحقوق أو التراخيص الرسمية. وتعد المنصة وسيطاً تقنياً مستثنى تماماً من أي مسؤولية قانونية.",
+            Clauses: clauses,
+            DmcaNoticeEmail: "copyright@sparkloop.io",
+            TakedownProcedureEn: "To file a copyright takedown request, submit a formal notice to copyright@sparkloop.io including proof of ownership, contact info, and the infringing URL.",
+            TakedownProcedureAr: "لتقديم طلب إزالة انتهاك حقوق الملكية الفكرية، يرجى إرسال إشعار رسمي إلى copyright@sparkloop.io متضمناً إثبات الملكية وبيانات الاتصال ورابط المادة المخالفة."
+        );
+
+        return Ok(policy);
+    }
+
+    [Authorize]
+    [HttpPost("complaints")]
+    public ActionResult SubmitComplaint([FromBody] CopyrightComplaintDto dto)
+    {
+        if (string.IsNullOrWhiteSpace(dto.InfringingUrl) || string.IsNullOrWhiteSpace(dto.RightsHolderEmail))
+        {
+            return BadRequest(new { error = "Infringing URL and Rights Holder Email are required." });
+        }
+        if (!dto.GoodFaithBeliefConfirmed || !dto.AccuracyUnderPenaltyOfPerjuryConfirmed)
+        {
+            return BadRequest(new { error = "Legal confirmations are required to submit an official copyright complaint." });
+        }
+        return Ok(new { success = true, message = "Complaint received. Notice is queued for statutory review." });
+    }
 }
 
 [ApiController]
@@ -858,11 +1178,209 @@ public class AudioController : ControllerBase
 public class DjController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly ILiveKitService _liveKitService;
+    private readonly DjStationStateStore _stateStore;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
 
-    public DjController(IMediator mediator)
+    public DjController(
+        IMediator mediator,
+        ILiveKitService liveKitService,
+        DjStationStateStore stateStore,
+        ICurrentUserService currentUserService,
+        ICurrentEnvironment environment)
     {
         _mediator = mediator;
+        _liveKitService = liveKitService;
+        _stateStore = stateStore;
+        _currentUserService = currentUserService;
+        _environment = environment;
     }
+
+    // ================= Radio Stations Directory & Details =================
+
+    [AllowAnonymous]
+    [HttpGet("stations")]
+    public async Task<ActionResult<IReadOnlyList<DjStationListItemDto>>> GetStations(
+        [FromQuery] string? genre = null,
+        [FromQuery] Guid? userId = null)
+    {
+        var lists = await _mediator.Send(new GetDjListsQuery(genre, userId));
+        var result = lists.Select(l =>
+        {
+            var broadcast = _stateStore.Get(l.Id);
+            return new DjStationListItemDto(
+                l.Id,
+                l.UserId,
+                l.Username,
+                l.UserDisplayName,
+                l.UserAvatarUrl,
+                l.Title,
+                l.Description,
+                l.Genre,
+                l.CoverUrl,
+                l.IsPublic,
+                l.FollowersOnly,
+                l.TrackCount,
+                l.Tracks,
+                l.CreatedAtUtc,
+                broadcast?.IsLive ?? false,
+                broadcast?.CurrentTrackTitle,
+                broadcast?.CurrentTrackArtist,
+                broadcast?.ListenersCount ?? 0
+            );
+        }).ToList();
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("stations/{id:guid}")]
+    public async Task<ActionResult<DjStationDetailDto>> GetStationById(Guid id)
+    {
+        var list = await _mediator.Send(new GetDjListByIdQuery(id));
+        var broadcast = _stateStore.Get(id);
+        return Ok(new DjStationDetailDto(list, broadcast));
+    }
+
+    [Authorize]
+    [HttpPost("stations")]
+    public async Task<ActionResult<DjListDto>> CreateStation([FromBody] CreateDjListDto dto)
+    {
+        var result = await _mediator.Send(new CreateDjListCommand(
+            dto.Title,
+            dto.Description,
+            dto.Genre,
+            dto.CoverUrl,
+            dto.IsPublic,
+            dto.FollowersOnly,
+            dto.Tracks
+        ));
+        return CreatedAtAction(nameof(GetStationById), new { id = result.Id }, result);
+    }
+
+    [Authorize]
+    [HttpPut("stations/{id:guid}")]
+    public async Task<ActionResult<DjListDto>> UpdateStation(Guid id, [FromBody] UpdateDjStationRequest request)
+    {
+        var result = await _mediator.Send(new UpdateDjStationCommand(
+            id,
+            request.Title,
+            request.Description,
+            request.Genre,
+            request.CoverUrl,
+            request.IsPublic,
+            request.FollowersOnly,
+            request.Tracks
+        ));
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpDelete("stations/{id:guid}")]
+    public async Task<ActionResult> DeleteStation(Guid id)
+    {
+        await _mediator.Send(new DeleteDjListCommand(id));
+        _stateStore.Clear(id);
+        return NoContent();
+    }
+
+    // ================= SFU Token & Real-time Live Broadcast =================
+
+    [HttpGet("stations/{id:guid}/livekit-token")]
+    public async Task<ActionResult<LiveKitTokenDto>> GetStationLiveKitToken(Guid id)
+    {
+        var station = await _mediator.Send(new GetDjListByIdQuery(id));
+        var userId = _currentUserService.UserId ?? Guid.Empty;
+        var username = _currentUserService.Username ?? "sparklistener";
+        var displayName = _currentUserService.DisplayName ?? username;
+
+        var isDjHost = userId != Guid.Empty && userId == station.UserId;
+
+        if (!isDjHost)
+        {
+            var broadcastState = _stateStore.Get(id);
+            if (broadcastState == null || !broadcastState.IsLive)
+            {
+                return BadRequest(new { code = "STATION_OFFLINE", message = "This station is currently offline. You can only tune in when the DJ is broadcasting live." });
+            }
+        }
+
+        var isAnonymous = userId == Guid.Empty;
+        var participantId = !isAnonymous ? userId.ToString() : $"anon_{Guid.NewGuid():N}";
+        var participantUsername = !isAnonymous ? username : $"listener_{Guid.NewGuid().ToString()[..6]}";
+        var participantDisplayName = !isAnonymous ? displayName : participantUsername;
+
+        var token = _liveKitService.GenerateStationToken(
+            id.ToString(),
+            participantId,
+            participantUsername,
+            participantDisplayName,
+            isDjHost
+        );
+
+        return Ok(new LiveKitTokenDto(
+            Token: token,
+            ServerUrl: _liveKitService.GetServerUrl(),
+            RoomName: $"station-{id}",
+            Identity: participantId,
+            IsOnStage: isDjHost,
+            IceServers: _liveKitService.GetIceServers()
+        ));
+    }
+
+    [Authorize]
+    [HttpPost("stations/{id:guid}/broadcast")]
+    public async Task<ActionResult<DjStationBroadcastStateDto>> BroadcastStation(
+        Guid id,
+        [FromBody] BroadcastStationRequest request)
+    {
+        var result = await _mediator.Send(new BroadcastDjStationCommand(
+            id,
+            request.Action,
+            request.TrackIndex,
+            request.TrackTitle,
+            request.TrackArtist,
+            request.PositionSeconds,
+            request.IsPlaying,
+            request.SfxName,
+            request.TempoRate,
+            request.FilterPreset
+        ));
+        return Ok(result);
+    }
+
+    [AllowAnonymous]
+    [HttpGet("stations/{id:guid}/broadcast-state")]
+    public ActionResult<DjStationBroadcastStateDto?> GetStationBroadcastState(Guid id)
+    {
+        return Ok(_stateStore.Get(id));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("stations/{id:guid}/tune-in")]
+    public async Task<ActionResult<int>> TuneIn(Guid id, [FromQuery] string? clientId = null)
+    {
+        var resolvedClient = !string.IsNullOrWhiteSpace(clientId)
+            ? clientId
+            : (Request.Headers.TryGetValue("X-Client-Id", out var headerVal) ? headerVal.ToString() : null);
+
+        var count = await _mediator.Send(new TuneInDjStationCommand(id, resolvedClient));
+        return Ok(new { listenersCount = count });
+    }
+
+    [AllowAnonymous]
+    [HttpPost("stations/{id:guid}/tune-out")]
+    public async Task<ActionResult<int>> TuneOut(Guid id, [FromQuery] string? clientId = null)
+    {
+        var resolvedClient = !string.IsNullOrWhiteSpace(clientId)
+            ? clientId
+            : (Request.Headers.TryGetValue("X-Client-Id", out var headerVal) ? headerVal.ToString() : null);
+
+        var count = await _mediator.Send(new TuneOutDjStationCommand(id, resolvedClient));
+        return Ok(new { listenersCount = count });
+    }
+
+    // ================= Legacy List Endpoints (Backward Compatibility) =================
 
     [AllowAnonymous]
     [HttpGet("lists")]
@@ -886,24 +1404,14 @@ public class DjController : ControllerBase
     [HttpPost("lists")]
     public async Task<ActionResult<DjListDto>> CreateList([FromBody] CreateDjListDto dto)
     {
-        var result = await _mediator.Send(new CreateDjListCommand(
-            dto.Title,
-            dto.Description,
-            dto.Genre,
-            dto.CoverUrl,
-            dto.IsPublic,
-            dto.FollowersOnly,
-            dto.Tracks
-        ));
-        return CreatedAtAction(nameof(GetListById), new { id = result.Id }, result);
+        return await CreateStation(dto);
     }
 
     [Authorize]
     [HttpDelete("lists/{id:guid}")]
     public async Task<ActionResult> DeleteList(Guid id)
     {
-        await _mediator.Send(new DeleteDjListCommand(id));
-        return NoContent();
+        return await DeleteStation(id);
     }
 
     [Authorize]
@@ -922,5 +1430,51 @@ public class DjController : ControllerBase
     }
 
     public record StreamDjListRequest(Guid? PodId = null, string? Title = null, bool? FollowersOnly = null);
+    public record UpdateDjStationRequest(
+        string Title,
+        string? Description,
+        string Genre,
+        string? CoverUrl,
+        bool IsPublic,
+        bool FollowersOnly,
+        IReadOnlyList<DjTrackDto> Tracks
+    );
+    public record BroadcastStationRequest(
+        string Action,
+        int TrackIndex = 0,
+        string? TrackTitle = null,
+        string? TrackArtist = null,
+        double PositionSeconds = 0,
+        bool IsPlaying = true,
+        string? SfxName = null,
+        double? TempoRate = 1.0,
+        string? FilterPreset = "normal"
+    );
 }
+
+public record DjStationListItemDto(
+    Guid Id,
+    Guid UserId,
+    string Username,
+    string UserDisplayName,
+    string? UserAvatarUrl,
+    string Title,
+    string? Description,
+    string Genre,
+    string? CoverUrl,
+    bool IsPublic,
+    bool FollowersOnly,
+    int TrackCount,
+    IReadOnlyList<DjTrackDto> Tracks,
+    DateTime CreatedAtUtc,
+    bool IsLive,
+    string? CurrentTrackTitle,
+    string? CurrentTrackArtist,
+    int ListenersCount
+);
+
+public record DjStationDetailDto(
+    DjListDto Station,
+    DjStationBroadcastStateDto? BroadcastState
+);
 

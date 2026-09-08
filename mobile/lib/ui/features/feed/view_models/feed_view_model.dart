@@ -68,6 +68,16 @@ class FeedViewModel extends ChangeNotifier {
             notifyListeners();
           }
         }
+      } else if (type == 'POST_COMMENT_ADDED' || type == 'POST_COMMENT_DELETED') {
+        final postId = event.data['postId'] as String?;
+        final commentCount = event.data['commentCount'] as int?;
+        if (postId != null && commentCount != null) {
+          final idx = _posts.indexWhere((p) => p.id == postId);
+          if (idx != -1) {
+            _posts[idx] = _posts[idx].copyWith(commentCount: commentCount);
+            notifyListeners();
+          }
+        }
       } else if (type == 'USER_UPDATED') {
         final userId = event.data['userId'] as String?;
         final username = event.data['username'] as String?;
@@ -218,6 +228,51 @@ class FeedViewModel extends ChangeNotifier {
       // Revert on failure
       _posts[idx] = currentPost;
       notifyListeners();
+    }
+  }
+
+  // ================= Post Comments =================
+  Future<List<PostCommentDto>> getComments(String postId) async {
+    try {
+      return await _feedRepository.getComments(postId);
+    } catch (e) {
+      debugPrint('Error fetching comments: $e');
+      return [];
+    }
+  }
+
+  Future<PostCommentDto?> addComment(String postId, String content) async {
+    try {
+      final comment = await _feedRepository.addComment(postId, content);
+      final idx = _posts.indexWhere((p) => p.id == postId);
+      if (idx != -1) {
+        _posts[idx] = _posts[idx].copyWith(
+          commentCount: _posts[idx].commentCount + 1,
+        );
+        notifyListeners();
+      }
+      return comment;
+    } catch (e) {
+      debugPrint('Error adding comment: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deleteComment(String postId, String commentId) async {
+    try {
+      final ok = await _feedRepository.deleteComment(postId, commentId);
+      if (ok) {
+        final idx = _posts.indexWhere((p) => p.id == postId);
+        if (idx != -1) {
+          final newCount = (_posts[idx].commentCount - 1).clamp(0, 999999);
+          _posts[idx] = _posts[idx].copyWith(commentCount: newCount);
+          notifyListeners();
+        }
+      }
+      return ok;
+    } catch (e) {
+      debugPrint('Error deleting comment: $e');
+      return false;
     }
   }
 }

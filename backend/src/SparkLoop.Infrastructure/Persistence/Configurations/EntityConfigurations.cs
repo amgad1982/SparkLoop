@@ -196,6 +196,8 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
             media.Property(m => m.AspectRatio).HasColumnName("media_aspect_ratio");
         });
 
+        builder.Property(p => p.CommentCount).HasDefaultValue(0);
+
         builder.HasMany(p => p.Reactions)
             .WithOne()
             .HasForeignKey(r => r.PostId)
@@ -204,11 +206,36 @@ public class PostConfiguration : IEntityTypeConfiguration<Post>
         builder.Navigation(p => p.Reactions)
             .UsePropertyAccessMode(PropertyAccessMode.Field);
 
+        builder.HasMany(p => p.Comments)
+            .WithOne()
+            .HasForeignKey(c => c.PostId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(p => p.Comments)
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+
         builder.HasIndex(p => p.CreatedAtUtc);
         // Composite keyset index: enables the cursor-paginated feed query to do an O(log n) seek
         // instead of an OFFSET scan. The DESC ordering matches the ORDER BY used by the handler.
         builder.HasIndex(p => new { p.CreatedAtUtc, p.Id }).IsDescending(false, true);
         builder.HasIndex(p => new { p.AuthorId, p.CreatedAtUtc });
+    }
+}
+
+public class PostCommentConfiguration : IEntityTypeConfiguration<PostComment>
+{
+    public void Configure(EntityTypeBuilder<PostComment> builder)
+    {
+        builder.ToTable("post_comments");
+        builder.HasKey(c => c.Id);
+
+        builder.Property(c => c.AuthorUsername).HasMaxLength(100).IsRequired();
+        builder.Property(c => c.AuthorDisplayName).HasMaxLength(100);
+        builder.Property(c => c.AuthorAvatarUrl).HasMaxLength(500);
+        builder.Property(c => c.Content).HasMaxLength(500).IsRequired();
+
+        builder.HasIndex(c => new { c.PostId, c.CreatedAtUtc });
+        builder.HasIndex(c => c.AuthorId);
     }
 }
 
@@ -393,5 +420,33 @@ public class UserFollowConfiguration : IEntityTypeConfiguration<UserFollow>
         builder.HasIndex(f => f.FollowingId);
         builder.HasIndex(f => f.FollowerId);
         builder.HasIndex(f => f.Status);
+    }
+}
+
+public class MusicCopyrightAttestationConfiguration : IEntityTypeConfiguration<MusicCopyrightAttestation>
+{
+    public void Configure(EntityTypeBuilder<MusicCopyrightAttestation> builder)
+    {
+        builder.ToTable("music_copyright_attestations");
+        builder.HasKey(a => a.Id);
+
+        builder.Property(a => a.Username).HasMaxLength(30).IsRequired();
+        builder.Property(a => a.TrackTitle).HasMaxLength(200).IsRequired();
+        builder.Property(a => a.TrackArtist).HasMaxLength(200).IsRequired();
+        builder.Property(a => a.MediaUrl).HasMaxLength(2000).IsRequired();
+        builder.Property(a => a.PolicyVersion).HasMaxLength(20).IsRequired();
+        builder.Property(a => a.LegalStatementEn).HasMaxLength(2000).IsRequired();
+        builder.Property(a => a.LegalStatementAr).HasMaxLength(2000).IsRequired();
+        builder.Property(a => a.FileChecksumSha256).HasMaxLength(100);
+        builder.Property(a => a.ClientIp).HasMaxLength(100);
+        builder.Property(a => a.UserAgent).HasMaxLength(500);
+
+        builder.Property(a => a.DurationSeconds).HasDefaultValue(180);
+        builder.Property(a => a.IsDeleted).HasDefaultValue(false);
+
+        builder.HasIndex(a => a.UserId);
+        builder.HasIndex(a => a.MediaUrl);
+        builder.HasIndex(a => a.AttestedAtUtc);
+        builder.HasIndex(a => new { a.UserId, a.IsDeleted });
     }
 }

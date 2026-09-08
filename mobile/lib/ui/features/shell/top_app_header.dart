@@ -140,10 +140,10 @@ class TopAppHeader extends StatelessWidget implements PreferredSizeWidget {
             ),
             const SizedBox(width: 4),
 
-            // DJ Lists Hub
+            // Radio Stations & DJ Deck Hub
             IconButton(
-              onPressed: () => context.push('/dj-lists'),
-              tooltip: isArabic ? 'قوائم الدي جي' : 'DJ Lists',
+              onPressed: () => context.push('/dj'),
+              tooltip: isArabic ? 'محطات الراديو واستوديو الدي جي' : 'Radio Stations & DJ Deck',
               icon: const Icon(Icons.radio, size: 18, color: AppColors.accentCyan),
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               padding: const EdgeInsets.all(6),

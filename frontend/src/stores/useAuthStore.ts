@@ -15,7 +15,7 @@ export const GUEST_USER: Persona = {
   id: '00000000-0000-0000-0000-000000000000',
   username: 'guest',
   displayName: 'Guest Explorer 👤',
-  avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=guest',
+  avatarUrl: 'https://api.dicebear.com/10.x/bottts/svg?seed=guest',
   role: 'Guest Visitor',
   isCustom: false,
 };
@@ -50,7 +50,7 @@ function userToPersona(user: UserDto | null): Persona {
     id: user.id,
     username: user.username,
     displayName: user.displayName || user.username,
-    avatarUrl: user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`,
+    avatarUrl: user.avatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${user.username}`,
     role: user.bio || 'SparkLoop Creator',
     isCustom: true,
   };
@@ -113,7 +113,7 @@ export const useAuthStore = create<AuthState>()(
         const token = useAuthStore.getState().refreshToken;
         if (token) {
           import('../services/apiClient').then(({ api }) => {
-            api.revokeToken(token).catch(() => {});
+            api.revokeToken(token).catch(() => { });
           });
         }
         import('./useFollowStore').then(({ useFollowStore }) => {
@@ -139,6 +139,13 @@ export const useAuthStore = create<AuthState>()(
         refreshTokenExpiresAtUtc: state.refreshTokenExpiresAtUtc,
         centrifugoToken: state.centrifugoToken,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          if (!state.currentPersona || !state.currentPersona.id) {
+            state.currentPersona = state.currentUser ? userToPersona(state.currentUser) : GUEST_USER;
+          }
+        }
+      },
     }
   )
 );

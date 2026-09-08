@@ -75,6 +75,7 @@ class PostDto {
   final int reactionCount;
   final List<ReactionDto> reactions;
   final DateTime createdAtUtc;
+  final int commentCount;
 
   const PostDto({
     required this.id,
@@ -87,6 +88,7 @@ class PostDto {
     this.reactionCount = 0,
     this.reactions = const [],
     required this.createdAtUtc,
+    this.commentCount = 0,
   });
 
   factory PostDto.fromJson(Map<String, dynamic> json) {
@@ -128,6 +130,7 @@ class PostDto {
       createdAtUtc: json['createdAtUtc'] != null
           ? DateTime.parse(json['createdAtUtc'] as String)
           : DateTime.now().toUtc(),
+      commentCount: json['commentCount'] as int? ?? 0,
     );
   }
 
@@ -138,6 +141,7 @@ class PostDto {
     MediaAttachmentDto? media,
     int? reactionCount,
     List<ReactionDto>? reactions,
+    int? commentCount,
   }) {
     return PostDto(
       id: id,
@@ -150,6 +154,59 @@ class PostDto {
       reactionCount: reactionCount ?? this.reactionCount,
       reactions: reactions ?? this.reactions,
       createdAtUtc: createdAtUtc,
+      commentCount: commentCount ?? this.commentCount,
     );
   }
 }
+
+class PostCommentDto {
+  final String id;
+  final String postId;
+  final String authorId;
+  final String authorUsername;
+  final String authorDisplayName;
+  final String? authorAvatarUrl;
+  final String content;
+  final DateTime createdAtUtc;
+
+  const PostCommentDto({
+    required this.id,
+    required this.postId,
+    required this.authorId,
+    required this.authorUsername,
+    required this.authorDisplayName,
+    this.authorAvatarUrl,
+    required this.content,
+    required this.createdAtUtc,
+  });
+
+  factory PostCommentDto.fromJson(Map<String, dynamic> json) {
+    final authorObj = json['author'] is Map<String, dynamic> ? json['author'] as Map<String, dynamic> : null;
+    return PostCommentDto(
+      id: json['id'] as String? ?? '',
+      postId: json['postId'] as String? ?? '',
+      authorId: json['authorId'] as String? ?? authorObj?['id'] as String? ?? '',
+      authorUsername: json['authorUsername'] as String? ?? authorObj?['username'] as String? ?? '',
+      authorDisplayName: json['authorDisplayName'] as String? ??
+          authorObj?['displayName'] as String? ??
+          (json['authorUsername'] as String? ?? 'User'),
+      authorAvatarUrl: json['authorAvatarUrl'] as String? ?? authorObj?['avatarUrl'] as String?,
+      content: json['content'] as String? ?? '',
+      createdAtUtc: json['createdAtUtc'] != null
+          ? DateTime.parse(json['createdAtUtc'] as String)
+          : DateTime.now().toUtc(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'postId': postId,
+        'authorId': authorId,
+        'authorUsername': authorUsername,
+        'authorDisplayName': authorDisplayName,
+        'authorAvatarUrl': authorAvatarUrl,
+        'content': content,
+        'createdAtUtc': createdAtUtc.toIso8601String(),
+      };
+}
+

@@ -7,7 +7,8 @@ import '../features/chains/views/chain_detail_screen.dart';
 import '../features/chains/views/chains_screen.dart';
 import '../features/feed/views/feed_screen.dart';
 import '../features/meme_canvas/views/meme_canvas_screen.dart';
-import '../features/pods/views/dj_lists_screen.dart';
+import '../features/dj_deck/views/dj_deck_screen.dart';
+import '../features/dj_deck/views/dj_stations_screen.dart';
 import '../features/pods/views/pod_room_screen.dart';
 import '../features/pods/views/pods_screen.dart';
 import '../features/profile/views/profile_screen.dart';
@@ -101,8 +102,20 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       parentNavigatorKey: _rootNavigatorKey,
+      path: '/dj',
+      builder: (context, state) => const DjStationsScreen(),
+    ),
+    GoRoute(
+      parentNavigatorKey: _rootNavigatorKey,
+      path: '/dj/deck/:id',
+      builder: (context, state) => DjDeckScreen(
+        stationId: state.pathParameters['id']!,
+      ),
+    ),
+    GoRoute(
+      parentNavigatorKey: _rootNavigatorKey,
       path: '/dj-lists',
-      builder: (context, state) => const DjListsScreen(),
+      builder: (context, state) => const DjStationsScreen(),
     ),
     GoRoute(
       parentNavigatorKey: _rootNavigatorKey,

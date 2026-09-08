@@ -25,6 +25,14 @@ import {
   AudioPresetDto,
   DjListDto,
   CreateDjListDto,
+  DjStationBroadcastState,
+  FeedPageDto,
+  MusicUploadResultDto,
+  CopyrightPolicyDto,
+  CopyrightComplaintDto,
+  UserMusicTrackDto,
+  UpdateMusicTrackRequest,
+  PostCommentDto,
 } from '../types/api';
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5195/api';
@@ -239,8 +247,15 @@ export const api = {
     fetchWithAuth<CentrifugoTokenDto>('/auth/centrifugo-token'),
 
   // User Profile & Creators
-  getTopCreators: () =>
-    fetchWithAuth<UserDto[]>('/users/top-creators'),
+  getTopCreators: async (): Promise<UserDto[]> => {
+    try {
+      const res = await fetchWithAuth<UserDto[]>('/users/top-creators');
+      return Array.isArray(res) ? res : [];
+    } catch (err) {
+      console.warn('[apiClient] getTopCreators error:', err);
+      return [];
+    }
+  },
   getUserProfile: (username?: string) =>
     fetchWithAuth<UserProfileDto>(username ? `/users/profile/${encodeURIComponent(username)}` : '/users/me'),
   updateProfile: (data: {
@@ -294,7 +309,15 @@ export const api = {
     fetchWithAuth<FollowStatusDto>(`/users/${encodeURIComponent(username)}/follow-status`),
 
   // Pass-the-Mic Chains
-  getActiveChains: () => fetchWithAuth<ChainDto[]>('/chains'),
+  getActiveChains: async (): Promise<ChainDto[]> => {
+    try {
+      const res = await fetchWithAuth<ChainDto[]>('/chains');
+      return Array.isArray(res) ? res : [];
+    } catch (err) {
+      console.warn('[apiClient] getActiveChains error:', err);
+      return [];
+    }
+  },
   getChainById: (id: string) => fetchWithAuth<ChainDto>(`/chains/${id}`),
   createChain: (
     titleOrData: string | { title: string; theme: string; maxSteps: number; firstStepContent?: string; firstStepAudioUrl?: string; firstStepDuration?: number },
@@ -356,14 +379,22 @@ export const api = {
   getCompletedChains: () => fetchWithAuth<ChainDto[]>('/chains/completed'),
 
   // Posts & Feed
-  getFeed: (page = 1, pageSize = 20, hashtag?: string, search?: string) => {
+  getFeed: async (page = 1, pageSize = 20, hashtag?: string, search?: string): Promise<PostDto[]> => {
     const params = new URLSearchParams({
       page: page.toString(),
       pageSize: pageSize.toString(),
     });
     if (hashtag) params.append('hashtag', hashtag);
     if (search) params.append('search', search);
-    return fetchWithAuth<PostDto[]>(`/posts?${params.toString()}`);
+    try {
+      const res = await fetchWithAuth<PostDto[] | FeedPageDto>(`/posts?${params.toString()}`);
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray((res as FeedPageDto).items)) return (res as FeedPageDto).items;
+      return [];
+    } catch (err) {
+      console.error('[apiClient] getFeed error:', err);
+      return [];
+    }
   },
   createPost: (
     contentOrData: string | {
@@ -397,6 +428,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ reactionType }),
     }),
+  getPostComments: (postId: string, limit = 50, offset = 0) =>
+    fetchWithAuth<PostCommentDto[]>(`/posts/${postId}/comments?limit=${limit}&offset=${offset}`),
+  addPostComment: (postId: string, content: string) =>
+    fetchWithAuth<PostCommentDto>(`/posts/${postId}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  deletePostComment: (postId: string, commentId: string) =>
+    fetchWithAuth<void>(`/posts/${postId}/comments/${commentId}`, {
+      method: 'DELETE',
+    }),
 
   // Hashtags
   getTrendingHashtags: (limit = 10) => fetchWithAuth<HashtagDto[]>(`/hashtags/trending?limit=${limit}`),
@@ -414,7 +456,15 @@ export const api = {
   globalSearch: (query: string, type?: string, limit = 20) => api.search(query, type, limit),
 
   // Ephemeral Mood Pods
-  getActivePods: () => fetchWithAuth<MoodPodDto[]>('/moodpods'),
+  getActivePods: async (): Promise<MoodPodDto[]> => {
+    try {
+      const res = await fetchWithAuth<MoodPodDto[]>('/moodpods');
+      return Array.isArray(res) ? res : [];
+    } catch (err) {
+      console.warn('[apiClient] getActivePods error:', err);
+      return [];
+    }
+  },
   getPodById: (id: string, inviteCode?: string) =>
     fetchWithAuth<MoodPodDto>(inviteCode ? `/moodpods/${id}?inviteCode=${encodeURIComponent(inviteCode)}` : `/moodpods/${id}`),
   createMoodPod: (data: {
@@ -558,7 +608,85 @@ export const api = {
   // Audio Presets API (Server Offline Royalty-Free Presets)
   getAudioPresets: () => fetchWithAuth<AudioPresetDto[]>('/audio/presets'),
 
-  // DJ Lists API
+  // DJ Radio Stations API
+  getDjStations: async (genre?: string, userId?: string): Promise<DjListDto[]> => {
+    const params = new URLSearchParams();
+    if (genre) params.append('genre', genre);
+    if (userId) params.append('userId', userId);
+    const query = params.toString();
+    try {
+      const res = await fetchWithAuth<DjListDto[]>(`/dj/stations${query ? `?${query}` : ''}`);
+      return Array.isArray(res) ? res : [];
+    } catch (err) {
+      console.warn('[apiClient] getDjStations error:', err);
+      return [];
+    }
+  },
+  getDjStationById: (id: string) => fetchWithAuth<DjListDto>(`/dj/stations/${id}`),
+  createDjStation: (data: CreateDjListDto) =>
+    fetchWithAuth<DjListDto>('/dj/stations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  updateDjStation: (id: string, data: Partial<CreateDjListDto>) =>
+    fetchWithAuth<DjListDto>(`/dj/stations/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+  deleteDjStation: (id: string) =>
+    fetchWithAuth<void>(`/dj/stations/${id}`, {
+      method: 'DELETE',
+    }),
+  getDjStationLiveKitToken: (id: string) =>
+    fetchWithAuth<LiveKitTokenDto>(`/dj/stations/${id}/livekit-token`),
+  broadcastDjStation: (
+    id: string,
+    data: {
+      action: string;
+      trackIndex?: number;
+      trackTitle?: string;
+      trackArtist?: string;
+      positionSeconds?: number;
+      isPlaying?: boolean;
+      sfxName?: string;
+      tempoRate?: number;
+      filterPreset?: string;
+    }
+  ) =>
+    fetchWithAuth<void>(`/dj/stations/${id}/broadcast`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  tuneInStation: async (id: string, clientId?: string): Promise<number> => {
+    try {
+      const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+      const res = await fetchWithAuth<{ listenersCount?: number } | number>(`/dj/stations/${id}/tune-in${query}`, {
+        method: 'POST',
+      });
+      if (typeof res === 'number') return res;
+      if (res && typeof res.listenersCount === 'number') return res.listenersCount;
+      return 0;
+    } catch {
+      return 0;
+    }
+  },
+  tuneOutStation: async (id: string, clientId?: string): Promise<number> => {
+    try {
+      const query = clientId ? `?clientId=${encodeURIComponent(clientId)}` : '';
+      const res = await fetchWithAuth<{ listenersCount?: number } | number>(`/dj/stations/${id}/tune-out${query}`, {
+        method: 'POST',
+      });
+      if (typeof res === 'number') return res;
+      if (res && typeof res.listenersCount === 'number') return res.listenersCount;
+      return 0;
+    } catch {
+      return 0;
+    }
+  },
+  getStationBroadcastState: (id: string) =>
+    fetchWithAuth<DjStationBroadcastState>(`/dj/stations/${id}/broadcast-state`),
+
+  // DJ Lists API (Aliases / Backwards compatibility)
   getDjLists: (genre?: string, userId?: string) => {
     const params = new URLSearchParams();
     if (genre) params.append('genre', genre);
@@ -612,5 +740,81 @@ export const api = {
     return response.json();
   },
 
+  // Music Upload with Mandatory Copyright Attestation
+  uploadMusicTrack: async (
+    file: File | Blob,
+    filename: string,
+    metadata: {
+      title?: string;
+      artist?: string;
+      durationSeconds?: number;
+      acceptCopyrightPolicy: boolean;
+      policyVersion?: string;
+    }
+  ): Promise<MusicUploadResultDto> => {
+    const accessToken = useAuthStore.getState().accessToken;
+    const locale = useThemeStore.getState().locale;
+    const formData = new FormData();
+    formData.append('file', file, filename);
+    if (metadata.title) formData.append('title', metadata.title);
+    if (metadata.artist) formData.append('artist', metadata.artist);
+    if (metadata.durationSeconds !== undefined) {
+      formData.append('durationSeconds', metadata.durationSeconds.toString());
+    }
+    formData.append('acceptCopyrightPolicy', metadata.acceptCopyrightPolicy ? 'true' : 'false');
+    formData.append('policyVersion', metadata.policyVersion || '1.0');
+
+    const headers: Record<string, string> = {
+      'X-App-Locale': safeHeaderValue(locale),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    };
+
+    const response = await fetch(`${BASE_URL}/media/upload-music`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let errorMsg = 'Music upload failed';
+      try {
+        const errorJson = await response.json();
+        errorMsg = errorJson.error || errorJson.detail || errorJson.title || errorMsg;
+      } catch {}
+      throw new Error(errorMsg);
+    }
+
+    return response.json();
+  },
+
+  getCopyrightPolicy: async (): Promise<CopyrightPolicyDto> => {
+    return fetchWithAuth<CopyrightPolicyDto>('/copyright/policy', { method: 'GET' });
+  },
+
+  reportCopyrightComplaint: async (complaint: CopyrightComplaintDto): Promise<{ message: string; complaintId: string }> => {
+    return fetchWithAuth<{ message: string; complaintId: string }>('/copyright/complaints', {
+      method: 'POST',
+      body: JSON.stringify(complaint),
+    });
+  },
+
+  getMyMusicTracks: async (): Promise<UserMusicTrackDto[]> => {
+    return fetchWithAuth<UserMusicTrackDto[]>('/media/my-tracks', { method: 'GET' });
+  },
+
+  deleteMyMusicTrack: async (id: string): Promise<void> => {
+    return fetchWithAuth<void>(`/media/my-tracks/${id}`, { method: 'DELETE' });
+  },
+
+  updateMyMusicTrack: async (id: string, req: UpdateMusicTrackRequest): Promise<UserMusicTrackDto> => {
+    return fetchWithAuth<UserMusicTrackDto>(`/media/my-tracks/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(req),
+    });
+  },
+
   getMediaUrl,
 };
+
+export const apiClient = api;
+

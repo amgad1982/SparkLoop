@@ -27,9 +27,11 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<MoodPod> MoodPods => Set<MoodPod>();
     public DbSet<PodMessage> PodMessages => Set<PodMessage>();
     public DbSet<DjList> DjLists => Set<DjList>();
+    public DbSet<MusicCopyrightAttestation> MusicCopyrightAttestations => Set<MusicCopyrightAttestation>();
     public DbSet<UserFollow> UserFollows => Set<UserFollow>();
     public DbSet<UserDeviceSession> UserDeviceSessions => Set<UserDeviceSession>();
     public DbSet<UserSocialAccount> UserSocialAccounts => Set<UserSocialAccount>();
+    public DbSet<PostComment> PostComments => Set<PostComment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

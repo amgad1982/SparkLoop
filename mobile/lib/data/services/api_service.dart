@@ -26,19 +26,35 @@ class ApiService {
     if (url == null || url.trim().isEmpty) return '';
     var trimmed = url.trim();
     if (!kIsWeb && Platform.isAndroid) {
+      final hostUri = Uri.tryParse(defaultBaseUrl);
+      final androidHost = (hostUri != null && hostUri.host.isNotEmpty && hostUri.host != 'localhost' && hostUri.host != '127.0.0.1')
+          ? hostUri.host
+          : '10.0.2.2';
       trimmed = trimmed
-          .replaceAll('http://localhost:', 'http://10.0.2.2:')
-          .replaceAll('http://127.0.0.1:', 'http://10.0.2.2:');
+          .replaceAll('http://localhost:', 'http://$androidHost:')
+          .replaceAll('http://127.0.0.1:', 'http://$androidHost:')
+          .replaceAll('http://localhost/', 'http://$androidHost/')
+          .replaceAll('http://127.0.0.1/', 'http://$androidHost/');
     }
     if (trimmed.startsWith('http://') ||
         trimmed.startsWith('https://') ||
         trimmed.startsWith('data:') ||
         trimmed.startsWith('blob:')) {
-      return trimmed;
+      return Uri.encodeFull(trimmed);
     }
     final effectiveBase = (baseUrl ?? defaultBaseUrl).replaceAll(RegExp(r'/api/?$'), '');
     final separator = trimmed.startsWith('/') ? '' : '/';
-    return '$effectiveBase$separator$trimmed';
+    return Uri.encodeFull('$effectiveBase$separator$trimmed');
+  }
+
+  static String? inferMimeType(String url) {
+    final lower = url.toLowerCase();
+    if (lower.contains('.mp3')) return 'audio/mpeg';
+    if (lower.contains('.wav')) return 'audio/wav';
+    if (lower.contains('.m4a') || lower.contains('.aac')) return 'audio/aac';
+    if (lower.contains('.ogg')) return 'audio/ogg';
+    if (lower.contains('.flac')) return 'audio/flac';
+    return null;
   }
 
   late final Dio _dio;
@@ -219,6 +235,26 @@ class ApiService {
     return PostDto.fromJson(res.data as Map<String, dynamic>);
   }
 
+  // ================= Post Comments =================
+  Future<List<PostCommentDto>> getPostComments(String postId) async {
+    final res = await _dio.get('/posts/$postId/comments');
+    return (res.data as List<dynamic>)
+        .map((e) => PostCommentDto.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<PostCommentDto> addPostComment(String postId, String content) async {
+    final res = await _dio.post('/posts/$postId/comments', data: {
+      'content': content,
+    });
+    return PostCommentDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<bool> deletePostComment(String postId, String commentId) async {
+    final res = await _dio.delete('/posts/$postId/comments/$commentId');
+    return res.statusCode == 200 || res.statusCode == 204;
+  }
+
   // ================= Story Chains =================
   Future<List<ChainDto>> getChains() async {
     final res = await _dio.get('/chains');
@@ -378,8 +414,8 @@ class ApiService {
     return [];
   }
 
-  Future<List<DjListDto>> getDjLists({String? genre, String? userId}) async {
-    final res = await _dio.get('/dj/lists', queryParameters: {
+  Future<List<DjListDto>> getDjStations({String? genre, String? userId}) async {
+    final res = await _dio.get('/dj/stations', queryParameters: {
       if (genre != null && genre.isNotEmpty && genre != 'All') 'genre': genre,
       if (userId != null && userId.isNotEmpty) 'userId': userId,
     });
@@ -391,18 +427,77 @@ class ApiService {
     return [];
   }
 
-  Future<DjListDto> getDjListById(String id) async {
-    final res = await _dio.get('/dj/lists/$id');
+  Future<DjListDto> getDjStationById(String id) async {
+    final res = await _dio.get('/dj/stations/$id');
+    if (res.data is Map && (res.data as Map).containsKey('station')) {
+      return DjListDto.fromJson(res.data['station'] as Map<String, dynamic>);
+    }
     return DjListDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<DjListDto> createDjStation(CreateDjListDto dto) async {
+    final res = await _dio.post('/dj/stations', data: dto.toJson());
+    return DjListDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<DjListDto> updateDjStation(String id, Map<String, dynamic> data) async {
+    final res = await _dio.put('/dj/stations/$id', data: data);
+    return DjListDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<void> deleteDjStation(String id) async {
+    await _dio.delete('/dj/stations/$id');
+  }
+
+  Future<LiveKitTokenDto> getDjStationLiveKitToken(String id) async {
+    final res = await _dio.get('/dj/stations/$id/livekit-token');
+    return LiveKitTokenDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  Future<void> broadcastDjStation(String id, Map<String, dynamic> data) async {
+    await _dio.post('/dj/stations/$id/broadcast', data: data);
+  }
+
+  Future<int> tuneInStation(String id, {String? clientId}) async {
+    final res = await _dio.post(
+      '/dj/stations/$id/tune-in',
+      queryParameters: clientId != null ? {'clientId': clientId} : null,
+    );
+    return (res.data as Map<String, dynamic>)['listenersCount'] as int? ?? 0;
+  }
+
+  Future<int> tuneOutStation(String id, {String? clientId}) async {
+    final res = await _dio.post(
+      '/dj/stations/$id/tune-out',
+      queryParameters: clientId != null ? {'clientId': clientId} : null,
+    );
+    return (res.data as Map<String, dynamic>)['listenersCount'] as int? ?? 0;
+  }
+
+  Future<DjStationBroadcastState?> getStationBroadcastState(String id) async {
+    try {
+      final res = await _dio.get('/dj/stations/$id/broadcast-state');
+      if (res.data != null && res.data is Map<String, dynamic>) {
+        return DjStationBroadcastState.fromJson(res.data as Map<String, dynamic>);
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<List<DjListDto>> getDjLists({String? genre, String? userId}) async {
+    return getDjStations(genre: genre, userId: userId);
+  }
+
+  Future<DjListDto> getDjListById(String id) async {
+    return getDjStationById(id);
   }
 
   Future<DjListDto> createDjList(CreateDjListDto dto) async {
-    final res = await _dio.post('/dj/lists', data: dto.toJson());
-    return DjListDto.fromJson(res.data as Map<String, dynamic>);
+    return createDjStation(dto);
   }
 
   Future<void> deleteDjList(String id) async {
-    await _dio.delete('/dj/lists/$id');
+    return deleteDjStation(id);
   }
 
   Future<MoodPodDto> streamDjList(
@@ -443,12 +538,23 @@ class ApiService {
     }
   }
 
-  Future<PodChatMessageDto> sendPodChatMessage(String podId, String content) async {
-    final res = await _dio.post('/moodpods/$podId/message', data: {
+  Future<PodChatMessageDto> sendPodChatMessage(
+    String podId,
+    String content, {
+    String? audioUrl,
+    int? durationSeconds,
+    String? emojiReaction,
+  }) async {
+    final payload = <String, dynamic>{
       'podId': podId,
       'text': content,
       'content': content,
-    });
+    };
+    if (audioUrl != null) payload['audioUrl'] = audioUrl;
+    if (durationSeconds != null) payload['durationSeconds'] = durationSeconds;
+    if (emojiReaction != null) payload['emojiReaction'] = emojiReaction;
+
+    final res = await _dio.post('/moodpods/$podId/message', data: payload);
     return PodChatMessageDto.fromJson(res.data as Map<String, dynamic>);
   }
 
@@ -705,6 +811,70 @@ class ApiService {
     });
     final res = await _dio.post('/media/upload', data: formData);
     return res.data['url'] as String? ?? '';
+  }
+
+  // ================= Music Upload with Copyright Attestation =================
+  Future<MusicUploadResultDto> uploadMusicTrack({
+    required File file,
+    String? title,
+    String? artist,
+    double? durationSeconds,
+    required bool acceptCopyrightPolicy,
+    String policyVersion = '1.0',
+  }) async {
+    final fileName = file.path.split(Platform.pathSeparator).last;
+    final map = <String, dynamic>{
+      'file': await MultipartFile.fromFile(file.path, filename: fileName),
+      'acceptCopyrightPolicy': acceptCopyrightPolicy.toString(),
+      'policyVersion': policyVersion,
+    };
+    if (title != null && title.isNotEmpty) {
+      map['title'] = title;
+    }
+    if (artist != null && artist.isNotEmpty) {
+      map['artist'] = artist;
+    }
+    if (durationSeconds != null) {
+      map['durationSeconds'] = durationSeconds.toString();
+    }
+
+    final formData = FormData.fromMap(map);
+    final res = await _dio.post('/media/upload-music', data: formData);
+    return MusicUploadResultDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  // ================= Copyright Policy & Takedown =================
+  Future<CopyrightPolicyDto> getCopyrightPolicy() async {
+    final res = await _dio.get('/copyright/policy');
+    return CopyrightPolicyDto.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  // ================= User Cloud Music Library =================
+  Future<List<UserMusicTrackDto>> getMyMusicTracks() async {
+    final res = await _dio.get('/media/my-tracks');
+    final list = res.data as List<dynamic>? ?? [];
+    return list.map((e) => UserMusicTrackDto.fromJson(e as Map<String, dynamic>)).toList();
+  }
+
+  Future<bool> deleteMyMusicTrack(String id) async {
+    try {
+      final res = await _dio.delete('/media/my-tracks/$id');
+      return res.statusCode == 204 || res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<UserMusicTrackDto?> updateMyMusicTrack(String id, {String? title, String? artist}) async {
+    try {
+      final body = <String, dynamic>{};
+      if (title != null) body['title'] = title;
+      if (artist != null) body['artist'] = artist;
+      final res = await _dio.patch('/media/my-tracks/$id', data: body);
+      return UserMusicTrackDto.fromJson(res.data as Map<String, dynamic>);
+    } catch (_) {
+      return null;
+    }
   }
 
   // ================= Search =================

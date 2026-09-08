@@ -276,3 +276,309 @@ public class StreamDjListCommandHandler : IRequestHandler<StreamDjListCommand, M
         return MoodPodQueries.MapToDto(pod, avatarUrl);
     }
 }
+
+public record UpdateDjStationCommand(
+    Guid StationId,
+    string Title,
+    string? Description,
+    string Genre,
+    string? CoverUrl,
+    bool IsPublic,
+    bool FollowersOnly,
+    IReadOnlyList<DjTrackDto> Tracks
+) : IRequest<DjListDto>;
+
+public class UpdateDjStationCommandHandler : IRequestHandler<UpdateDjStationCommand, DjListDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
+
+    public UpdateDjStationCommandHandler(IAppDbContext dbContext, ICurrentUserService currentUserService, ICurrentEnvironment environment)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _environment = environment;
+    }
+
+    public async Task<DjListDto> Handle(UpdateDjStationCommand request, CancellationToken cancellationToken)
+    {
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.AliceId, "update DJ station");
+        var station = await _dbContext.DjLists.FirstOrDefaultAsync(d => d.Id == request.StationId, cancellationToken)
+            ?? throw new NotFoundException("DjList", request.StationId);
+
+        if (station.UserId != userId)
+        {
+            throw new UnauthorizedDomainException("You can only edit your own radio stations.");
+        }
+
+        var tracksJson = JsonSerializer.Serialize(request.Tracks);
+        station.Update(
+            request.Title,
+            request.Description,
+            request.Genre,
+            request.CoverUrl,
+            request.IsPublic,
+            request.FollowersOnly,
+            tracksJson,
+            request.Tracks.Count
+        );
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return DjListQueries.MapToDto(station);
+    }
+}
+
+public record BroadcastDjStationCommand(
+    Guid StationId,
+    string Action,
+    int TrackIndex = 0,
+    string? TrackTitle = null,
+    string? TrackArtist = null,
+    double PositionSeconds = 0,
+    bool IsPlaying = true,
+    string? SfxName = null,
+    double? TempoRate = 1.0,
+    string? FilterPreset = "normal"
+) : IRequest<DjStationBroadcastStateDto>;
+
+public class BroadcastDjStationCommandHandler : IRequestHandler<BroadcastDjStationCommand, DjStationBroadcastStateDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICurrentEnvironment _environment;
+    private readonly ICentrifugoService _centrifugoService;
+    private readonly DjStationStateStore _stateStore;
+
+    public BroadcastDjStationCommandHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICurrentEnvironment environment,
+        ICentrifugoService centrifugoService,
+        DjStationStateStore stateStore)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _environment = environment;
+        _centrifugoService = centrifugoService;
+        _stateStore = stateStore;
+    }
+
+    public async Task<DjStationBroadcastStateDto> Handle(BroadcastDjStationCommand request, CancellationToken cancellationToken)
+    {
+        var userId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.AliceId, "broadcast station");
+        var station = await _dbContext.DjLists.FirstOrDefaultAsync(d => d.Id == request.StationId, cancellationToken)
+            ?? throw new NotFoundException("DjList", request.StationId);
+
+        if (station.UserId != userId)
+        {
+            throw new UnauthorizedDomainException("Only the station creator can broadcast on this station.");
+        }
+
+        var username = _currentUserService.Username ?? station.Username;
+        var displayName = _currentUserService.DisplayName ?? station.UserDisplayName;
+        var avatarUrl = _currentUserService.AvatarUrl ?? station.UserAvatarUrl;
+
+        var isLive = request.Action.ToLowerInvariant() != "stop";
+        var existingState = _stateStore.Get(request.StationId);
+        var listenerCount = _stateStore.GetListenerCount(request.StationId);
+        if (!isLive)
+        {
+            _stateStore.ClearListeners(request.StationId);
+            listenerCount = 0;
+        }
+        var tempoRate = request.TempoRate ?? existingState?.TempoRate ?? 1.0;
+        var filterPreset = request.FilterPreset ?? existingState?.FilterPreset ?? "normal";
+
+        var newState = new DjStationBroadcastStateDto(
+            StationId: request.StationId,
+            IsLive: isLive,
+            CurrentTrackIndex: request.TrackIndex,
+            CurrentTrackTitle: request.TrackTitle,
+            CurrentTrackArtist: request.TrackArtist,
+            PositionSeconds: request.PositionSeconds,
+            IsPlaying: request.IsPlaying,
+            DjUserId: userId.ToString(),
+            DjUsername: username,
+            DjDisplayName: displayName,
+            DjAvatarUrl: avatarUrl,
+            ListenersCount: listenerCount,
+            UpdatedAtUtc: DateTime.UtcNow,
+            TempoRate: tempoRate,
+            FilterPreset: filterPreset
+        );
+
+        _stateStore.Set(request.StationId, newState);
+
+        // Broadcast over Centrifugo to all listeners
+        var broadcastEvent = new
+        {
+            type = "DJ_BROADCAST_UPDATE",
+            stationId = request.StationId,
+            action = request.Action,
+            isLive = isLive,
+            trackIndex = request.TrackIndex,
+            trackTitle = request.TrackTitle,
+            trackArtist = request.TrackArtist,
+            positionSeconds = request.PositionSeconds,
+            isPlaying = request.IsPlaying,
+            sfxName = request.SfxName,
+            tempoRate = tempoRate,
+            filterPreset = filterPreset,
+            djUserId = userId.ToString(),
+            djUsername = username,
+            djDisplayName = displayName,
+            djAvatarUrl = avatarUrl,
+            listenersCount = listenerCount,
+            timestamp = DateTime.UtcNow
+        };
+
+        // Publish to global sparks namespace channel
+        await _centrifugoService.PublishAsync("sparks:global", broadcastEvent, cancellationToken);
+        // Also publish to direct station channel
+        await _centrifugoService.PublishAsync($"station:{request.StationId}", broadcastEvent, cancellationToken);
+
+        // If newly started broadcasting, notify followers
+        if (request.Action.Equals("start", StringComparison.OrdinalIgnoreCase))
+        {
+            var followers = await _dbContext.UserFollows
+                .Where(f => f.FollowingId == userId && f.Status == FollowStatus.Accepted)
+                .Select(f => f.FollowerId)
+                .ToListAsync(cancellationToken);
+
+            if (followers.Count > 0)
+            {
+                var followerChannels = followers.Select(fId => $"user:{fId}").ToList();
+                var startNotice = new
+                {
+                    type = "DJ_STREAM_STARTED",
+                    stationId = request.StationId,
+                    stationTitle = station.Title,
+                    djUserId = userId,
+                    djUsername = username,
+                    djDisplayName = displayName,
+                    djAvatarUrl = avatarUrl,
+                    trackTitle = request.TrackTitle ?? station.Title,
+                    genre = station.Genre,
+                    isPublic = station.IsPublic,
+                    timestamp = DateTime.UtcNow
+                };
+                await _centrifugoService.BroadcastAsync(followerChannels, startNotice, cancellationToken);
+            }
+        }
+
+        return newState;
+    }
+}
+
+public record TuneInDjStationCommand(Guid StationId, string? ClientIdentifier = null) : IRequest<int>;
+
+public class TuneInDjStationCommandHandler : IRequestHandler<TuneInDjStationCommand, int>
+{
+    private readonly DjStationStateStore _stateStore;
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICentrifugoService _centrifugoService;
+
+    public TuneInDjStationCommandHandler(
+        DjStationStateStore stateStore,
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICentrifugoService centrifugoService)
+    {
+        _stateStore = stateStore;
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _centrifugoService = centrifugoService;
+    }
+
+    public async Task<int> Handle(TuneInDjStationCommand request, CancellationToken cancellationToken)
+    {
+        var station = await _dbContext.DjLists
+            .AsNoTracking()
+            .FirstOrDefaultAsync(d => d.Id == request.StationId, cancellationToken)
+            ?? throw new NotFoundException("DjList", request.StationId);
+
+        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        var isOwner = currentUserId != Guid.Empty && currentUserId == station.UserId;
+
+        if (isOwner)
+        {
+            // Broadcaster is the DJ host, not counted as a listener
+            return _stateStore.GetListenerCount(request.StationId);
+        }
+
+        var state = _stateStore.Get(request.StationId);
+        if (state == null || !state.IsLive)
+        {
+            throw new DomainRuleException("This radio station is currently offline.", "STATION_OFFLINE");
+        }
+
+        var listenerKey = !string.IsNullOrWhiteSpace(request.ClientIdentifier)
+            ? request.ClientIdentifier
+            : (currentUserId != Guid.Empty ? currentUserId.ToString() : $"guest_{Guid.NewGuid():N}");
+
+        var count = _stateStore.AddOrUpdateListener(request.StationId, listenerKey);
+
+        // Publish live listener update over Centrifugo so DJ and all listeners see the exact count immediately
+        var broadcastEvent = new
+        {
+            type = "DJ_BROADCAST_UPDATE",
+            stationId = request.StationId,
+            action = "listeners_update",
+            isLive = state.IsLive,
+            listenersCount = count,
+            timestamp = DateTime.UtcNow
+        };
+        await _centrifugoService.PublishAsync($"station:{request.StationId}", broadcastEvent, cancellationToken);
+        await _centrifugoService.PublishAsync("sparks:global", broadcastEvent, cancellationToken);
+
+        return count;
+    }
+}
+
+public record TuneOutDjStationCommand(Guid StationId, string? ClientIdentifier = null) : IRequest<int>;
+
+public class TuneOutDjStationCommandHandler : IRequestHandler<TuneOutDjStationCommand, int>
+{
+    private readonly DjStationStateStore _stateStore;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICentrifugoService _centrifugoService;
+
+    public TuneOutDjStationCommandHandler(
+        DjStationStateStore stateStore,
+        ICurrentUserService currentUserService,
+        ICentrifugoService centrifugoService)
+    {
+        _stateStore = stateStore;
+        _currentUserService = currentUserService;
+        _centrifugoService = centrifugoService;
+    }
+
+    public async Task<int> Handle(TuneOutDjStationCommand request, CancellationToken cancellationToken)
+    {
+        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        var listenerKey = !string.IsNullOrWhiteSpace(request.ClientIdentifier)
+            ? request.ClientIdentifier
+            : (currentUserId != Guid.Empty ? currentUserId.ToString() : null);
+
+        var count = _stateStore.RemoveListener(request.StationId, listenerKey);
+        var state = _stateStore.Get(request.StationId);
+
+        // Publish live listener update over Centrifugo so DJ and all listeners see the exact count immediately
+        var broadcastEvent = new
+        {
+            type = "DJ_BROADCAST_UPDATE",
+            stationId = request.StationId,
+            action = "listeners_update",
+            isLive = state?.IsLive ?? true,
+            listenersCount = count,
+            timestamp = DateTime.UtcNow
+        };
+        await _centrifugoService.PublishAsync($"station:{request.StationId}", broadcastEvent, cancellationToken);
+        await _centrifugoService.PublishAsync("sparks:global", broadcastEvent, cancellationToken);
+
+        return count;
+    }
+}
+

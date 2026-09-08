@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
+import 'package:record/record.dart';
 import '../../../../data/models/pod_models.dart';
+import '../../../../data/services/api_service.dart';
 import '../../../../data/services/livekit_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_network_image.dart';
@@ -11,6 +15,7 @@ import '../../../core/widgets/avatar_badge.dart';
 import '../../../core/widgets/glass_container.dart';
 import '../../auth/view_models/auth_view_model.dart';
 import '../view_models/pod_view_model.dart';
+import '../widgets/pod_audio_player_widget.dart';
 import 'create_pod_dialog.dart';
 import 'pod_bg_music_player.dart';
 import 'pod_moderation_sheet.dart';
@@ -115,6 +120,12 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   bool _showAllSpeakers = false;
   int _lastMessageCount = 0;
 
+  final AudioRecorder _audioRecorder = AudioRecorder();
+  bool _isRecordingVoice = false;
+  int _recordingSeconds = 0;
+  Timer? _voiceRecordingTimer;
+  bool _isSendingVoice = false;
+
   void _scrollToBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_scrollController.hasClients) return;
@@ -197,9 +208,114 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _voiceRecordingTimer?.cancel();
+    _audioRecorder.dispose();
     _chatController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  Future<void> _startVoiceRecording() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        final tempDir = await getTemporaryDirectory();
+        final path = '${tempDir.path}/pod_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        await _audioRecorder.start(
+          const RecordConfig(encoder: AudioEncoder.aacLc),
+          path: path,
+        );
+        setState(() {
+          _isRecordingVoice = true;
+          _recordingSeconds = 0;
+        });
+        _voiceRecordingTimer?.cancel();
+        _voiceRecordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (mounted) {
+            setState(() {
+              _recordingSeconds++;
+            });
+          }
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Microphone permission is required to record voice notes.')),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error starting voice recording: $e');
+    }
+  }
+
+  Future<void> _cancelVoiceRecording() async {
+    try {
+      _voiceRecordingTimer?.cancel();
+      final path = await _audioRecorder.stop();
+      if (path != null) {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error canceling voice recording: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRecordingVoice = false;
+          _recordingSeconds = 0;
+        });
+      }
+    }
+  }
+
+  Future<void> _stopAndSendVoiceRecording(bool isArabic) async {
+    try {
+      _voiceRecordingTimer?.cancel();
+      final duration = _recordingSeconds;
+      final path = await _audioRecorder.stop();
+
+      setState(() {
+        _isRecordingVoice = false;
+        _recordingSeconds = 0;
+        _isSendingVoice = true;
+      });
+
+      if (path != null && File(path).existsSync()) {
+        if (!mounted) return;
+        final apiService = context.read<ApiService>();
+        final podVm = context.read<PodViewModel>();
+        final authVm = context.read<AuthViewModel>();
+
+        String audioUrl = '';
+        try {
+          audioUrl = await apiService.uploadMedia(File(path));
+        } catch (uploadErr) {
+          debugPrint('Failed to upload voice recording: $uploadErr');
+          audioUrl = path;
+        }
+
+        await podVm.sendChatMessage(
+          isArabic ? '🎙️ رسالة صوتية' : '🎙️ Voice note',
+          currentUserId: authVm.currentUser?.id ?? authVm.currentPersona.id,
+          currentUsername: authVm.currentUser?.username ?? authVm.currentPersona.username,
+          currentDisplayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
+          currentAvatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
+          audioUrl: audioUrl,
+          durationSeconds: duration > 0 ? duration : 1,
+        );
+        _scrollToBottom(animate: true);
+      }
+    } catch (e) {
+      debugPrint('Error sending voice recording: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSendingVoice = false;
+        });
+      }
+    }
   }
 
   void _leave() {
@@ -936,34 +1052,132 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
 
   Widget _buildChatInputBar(BuildContext context, bool isArabic) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final boxBg = isDark ? AppColors.surfaceDarkElevated : AppColors.surfaceLightElevated;
+    final boxBg = isDark ? AppColors.surfaceDark : const Color(0xFFF1F5F9);
     final boxBorder = isDark ? AppColors.borderDark : AppColors.borderLight;
-    final hintColor = isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B);
     final textColor = isDark ? Colors.white : const Color(0xFF0F172A);
 
+    if (_isRecordingVoice) {
+      final minutes = (_recordingSeconds ~/ 60).toString().padLeft(2, '0');
+      final seconds = (_recordingSeconds % 60).toString().padLeft(2, '0');
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E1B2E) : const Color(0xFFFEE2E2),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: AppColors.accentRose.withValues(alpha: 0.5),
+              width: 1.2,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                decoration: BoxDecoration(
+                  color: AppColors.accentRose.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Center(
+                  child: Icon(
+                    Icons.mic_rounded,
+                    color: AppColors.accentRose,
+                    size: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                isArabic ? 'جاري التسجيل...' : 'Recording...',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.accentRose,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.accentRose.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  '$minutes:$seconds',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accentRose,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              IconButton(
+                onPressed: _cancelVoiceRecording,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: Color(0xFF94A3B8),
+                  size: 20,
+                ),
+                tooltip: isArabic ? 'إلغاء' : 'Cancel',
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              ),
+              const SizedBox(width: 4),
+              Container(
+                width: 34,
+                height: 34,
+                decoration: const BoxDecoration(
+                  color: AppColors.accentRose,
+                  shape: BoxShape.circle,
+                ),
+                child: IconButton(
+                  onPressed: () => _stopAndSendVoiceRecording(isArabic),
+                  icon: const Icon(
+                    Icons.arrow_upward_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                  tooltip: isArabic ? 'إرسال التسجيل الصوتي' : 'Send voice note',
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(10, 4, 10, 8),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
             child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
               decoration: BoxDecoration(
                 color: boxBg,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: boxBorder, width: 1),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: boxBorder,
+                  width: 1,
+                ),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
               child: TextField(
                 controller: _chatController,
                 maxLines: 4,
                 minLines: 1,
                 textInputAction: TextInputAction.send,
-                style: TextStyle(fontSize: 14, color: textColor),
+                style: TextStyle(fontSize: 12.5, color: textColor),
                 onTap: () => _scrollToBottom(animate: true),
                 decoration: InputDecoration(
-                  hintText: isArabic ? 'اكتب رسالة للغرفة...' : 'Send room message...',
-                  hintStyle: TextStyle(fontSize: 13.5, color: hintColor),
+                  hintText: isArabic
+                      ? 'ماذا في بالك؟ اكتب رسالة...'
+                      : 'Share a thought or story beat...',
+                  hintStyle: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
@@ -975,27 +1189,59 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              gradient: AppColors.primaryGradient,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.35),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+          if (_isSendingVoice) ...[
+            const SizedBox(
+              width: 38,
+              height: 38,
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
                 ),
-              ],
+              ),
             ),
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              onPressed: () => _sendCurrentChat(context),
-              icon: const Icon(Icons.send_rounded, color: Colors.white, size: 19),
-              tooltip: isArabic ? 'إرسال' : 'Send',
+          ] else ...[
+            ValueListenableBuilder<TextEditingValue>(
+              valueListenable: _chatController,
+              builder: (context, value, _) {
+                final hasText = value.text.trim().isNotEmpty;
+                return AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: hasText
+                        ? AppColors.primary
+                        : (isDark ? const Color(0xFF1E293B) : const Color(0xFFEEF2F6)),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: hasText
+                          ? AppColors.primary
+                          : (isDark ? AppColors.borderDark : AppColors.borderLight),
+                      width: 1,
+                    ),
+                  ),
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    onPressed: hasText
+                        ? () => _sendCurrentChat(context)
+                        : _startVoiceRecording,
+                    icon: Icon(
+                      hasText ? Icons.send_rounded : Icons.mic_rounded,
+                      size: 18,
+                      color: hasText
+                          ? Colors.white
+                          : (isDark ? AppColors.accentCyan : AppColors.primary),
+                    ),
+                    tooltip: hasText
+                        ? (isArabic ? 'إرسال' : 'Send')
+                        : (isArabic ? 'تسجيل رسالة صوتية' : 'Record voice note'),
+                  ),
+                );
+              },
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1084,11 +1330,20 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                 ),
                 const SizedBox(height: 2),
               ],
-              Text(
-                msg.content,
-                style: TextStyle(fontSize: 14.5, height: 1.25, color: textColor),
-              ),
-              const SizedBox(height: 2),
+              if (msg.audioUrl != null && msg.audioUrl!.isNotEmpty) ...[
+                PodAudioPlayerWidget(
+                  audioUrl: msg.audioUrl!,
+                  durationSeconds: msg.durationSeconds,
+                  isSelf: isSelf,
+                ),
+                const SizedBox(height: 2),
+              ] else ...[
+                Text(
+                  msg.content,
+                  style: TextStyle(fontSize: 14.5, height: 1.25, color: textColor),
+                ),
+                const SizedBox(height: 2),
+              ],
               Row(
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.end,

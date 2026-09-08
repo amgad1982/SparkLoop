@@ -177,38 +177,20 @@ class PodsScreen extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _showJoinByCodeDialog(context),
-                            icon: const Icon(Icons.key, size: 16, color: AppColors.accentEmerald),
-                            label: Text(
-                              isArabic ? 'رمز دعوة' : 'Invite Code',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentEmerald),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: AppColors.accentEmerald.withValues(alpha: 0.4)),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: () => _showJoinByCodeDialog(context),
+                        icon: const Icon(Icons.key, size: 16, color: AppColors.accentEmerald),
+                        label: Text(
+                          isArabic ? 'الدخول عبر رمز دعوة' : 'Join via Invite Code',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentEmerald),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => context.push('/dj-lists'),
-                            icon: const Icon(Icons.radio, size: 16, color: AppColors.accentCyan),
-                            label: Text(
-                              isArabic ? 'قوائم الدي جي 🎧' : 'DJ Lists 🎧',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentCyan),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: BorderSide(color: AppColors.accentCyan.withValues(alpha: 0.4)),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                            ),
-                          ),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: AppColors.accentEmerald.withValues(alpha: 0.4)),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),

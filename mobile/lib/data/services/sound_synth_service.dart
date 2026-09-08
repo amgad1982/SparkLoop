@@ -17,6 +17,12 @@ class SoundSynthService {
 
     Uint8List wav;
     switch (key) {
+      case 'scratch':
+        wav = _synthDjScratch();
+        break;
+      case 'drop':
+        wav = _synthBassDrop();
+        break;
       case 'airhorn':
         wav = _synthAirhorn();
         break;
@@ -352,6 +358,41 @@ class SoundSynthService {
       final s1 = math.sin(2 * math.pi * 880.0 * t);
       final s2 = 0.4 * math.sin(2 * math.pi * 1760.0 * t);
       samples[i] = (s1 + s2) * env * 0.55;
+    }
+    return _buildWavFromSamples(samples);
+  }
+
+  // 12. DJ Vinyl Scratch Sound
+  static Uint8List _synthDjScratch() {
+    const duration = 0.35;
+    final totalSamples = (sampleRate * duration).round();
+    final samples = List<double>.filled(totalSamples, 0.0);
+
+    for (int i = 0; i < totalSamples; i++) {
+      final t = i / sampleRate;
+      final env = math.sin((t / duration) * math.pi);
+      // Pitch sweeps up then down
+      final freq = 200.0 + 800.0 * math.sin((t / duration) * math.pi);
+      final wave = math.sin(2 * math.pi * freq * t);
+      final friction = (math.Random(i).nextDouble() * 2.0 - 1.0) * 0.25;
+      samples[i] = (wave + friction) * env * 0.7;
+    }
+    return _buildWavFromSamples(samples);
+  }
+
+  // 13. Sub-Bass 808 Drop
+  static Uint8List _synthBassDrop() {
+    const duration = 0.8;
+    final totalSamples = (sampleRate * duration).round();
+    final samples = List<double>.filled(totalSamples, 0.0);
+
+    for (int i = 0; i < totalSamples; i++) {
+      final t = i / sampleRate;
+      final env = math.exp(-3.5 * t);
+      // Sweeps from 140Hz down to 40Hz
+      final freq = 40.0 + 100.0 * math.exp(-5.0 * t);
+      final wave = math.sin(2 * math.pi * freq * t);
+      samples[i] = wave * env * 0.85;
     }
     return _buildWavFromSamples(samples);
   }

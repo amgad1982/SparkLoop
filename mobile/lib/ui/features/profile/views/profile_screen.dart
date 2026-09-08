@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+
 import '../../../../data/models/auth_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/app_network_image.dart';
@@ -20,49 +22,84 @@ const List<Map<String, dynamic>> bannerPresets = [
     'id': 'gradient:cosmic-indigo',
     'name': 'Cosmic Indigo',
     'nameAr': 'كوني نيلي',
-    'gradient': [Color(0xFF4F46E5), Color(0xFF7C3AED), Color(0xFFC026D3), Color(0xFFEC4899)],
+    'gradient': [
+      Color(0xFF4F46E5),
+      Color(0xFF7C3AED),
+      Color(0xFFC026D3),
+      Color(0xFFEC4899),
+    ],
     'accent': AppColors.primaryLight,
   },
   {
     'id': 'gradient:cyber-neon',
     'name': 'Cyber Neon',
     'nameAr': 'سايبر نيون',
-    'gradient': [Color(0xFF0284C7), Color(0xFF06B6D4), Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+    'gradient': [
+      Color(0xFF0284C7),
+      Color(0xFF06B6D4),
+      Color(0xFF3B82F6),
+      Color(0xFF8B5CF6),
+    ],
     'accent': AppColors.accentCyan,
   },
   {
     'id': 'gradient:sunset-rose',
     'name': 'Sunset Rose',
     'nameAr': 'غروب وردي',
-    'gradient': [Color(0xFFEA580C), Color(0xFFF43F5E), Color(0xFFBE185D), Color(0xFF831843)],
+    'gradient': [
+      Color(0xFFEA580C),
+      Color(0xFFF43F5E),
+      Color(0xFFBE185D),
+      Color(0xFF831843),
+    ],
     'accent': Color(0xFFFB7185),
   },
   {
     'id': 'gradient:nordic-aurora',
     'name': 'Nordic Aurora',
     'nameAr': 'شفق نورديك',
-    'gradient': [Color(0xFF059669), Color(0xFF0D9488), Color(0xFF0284C7), Color(0xFF4338CA)],
+    'gradient': [
+      Color(0xFF059669),
+      Color(0xFF0D9488),
+      Color(0xFF0284C7),
+      Color(0xFF4338CA),
+    ],
     'accent': AppColors.accentEmerald,
   },
   {
     'id': 'gradient:amethyst-glow',
     'name': 'Amethyst Glow',
     'nameAr': 'توهج الجمشت',
-    'gradient': [Color(0xFF9333EA), Color(0xFFC026D3), Color(0xFF6366F1), Color(0xFF3B82F6)],
+    'gradient': [
+      Color(0xFF9333EA),
+      Color(0xFFC026D3),
+      Color(0xFF6366F1),
+      Color(0xFF3B82F6),
+    ],
     'accent': Color(0xFFE879F9),
   },
   {
     'id': 'gradient:ocean-depths',
     'name': 'Ocean Depths',
     'nameAr': 'أعماق المحيط',
-    'gradient': [Color(0xFF0369A1), Color(0xFF0284C7), Color(0xFF0D9488), Color(0xFF1E40AF)],
+    'gradient': [
+      Color(0xFF0369A1),
+      Color(0xFF0284C7),
+      Color(0xFF0D9488),
+      Color(0xFF1E40AF),
+    ],
     'accent': AppColors.accentSky,
   },
   {
     'id': 'gradient:solar-flare',
     'name': 'Solar Flare',
     'nameAr': 'توهج شمسي',
-    'gradient': [Color(0xFFF59E0B), Color(0xFFEA580C), Color(0xFFDC2626), Color(0xFF991B1B)],
+    'gradient': [
+      Color(0xFFF59E0B),
+      Color(0xFFEA580C),
+      Color(0xFFDC2626),
+      Color(0xFF991B1B),
+    ],
     'accent': AppColors.accentAmber,
   },
   {
@@ -81,7 +118,8 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProviderStateMixin {
+class _ProfileScreenState extends State<ProfileScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   // Edit Tab State
@@ -127,7 +165,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       _bioController.text = p.bio ?? '';
       _avatarUrlController.text = p.avatarUrl ?? '';
       _bannerUrlController.text = p.bannerUrl ?? '';
-      _selectedBannerPreset = (p.bannerUrl != null && p.bannerUrl!.startsWith('gradient:'))
+      _selectedBannerPreset =
+          (p.bannerUrl != null && p.bannerUrl!.startsWith('gradient:'))
           ? p.bannerUrl!
           : 'gradient:cosmic-indigo';
       _selectedTheme = p.preferredTheme;
@@ -164,7 +203,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     const styles = ['bottts', 'adventurer', 'fun-emoji', 'micah', 'thumbs'];
     final randomStyle = styles[Random().nextInt(styles.length)];
     final randomSeed = 'spark_${Random().nextInt(9999999)}';
-    final url = 'https://api.dicebear.com/7.x/$randomStyle/svg?seed=$randomSeed';
+    final url =
+        'https://api.dicebear.com/10.x/$randomStyle/svg?seed=$randomSeed';
     setState(() {
       _avatarUrlController.text = url;
     });
@@ -207,20 +247,41 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 ),
                 Text(
                   isArabic ? 'تغيير الصورة الشخصية' : 'Change Profile Picture',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 ListTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
-                  title: Text(isArabic ? 'اختيار من المعرض (صور أو GIF)' : 'Choose from Gallery (Photos or GIFs)'),
-                  onTap: () => Navigator.pop(bottomSheetCtx, ImageSource.gallery),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  leading: const Icon(
+                    Icons.photo_library_outlined,
+                    color: AppColors.primary,
+                  ),
+                  title: Text(
+                    isArabic
+                        ? 'اختيار من المعرض (صور أو GIF)'
+                        : 'Choose from Gallery (Photos or GIFs)',
+                  ),
+                  onTap: () =>
+                      Navigator.pop(bottomSheetCtx, ImageSource.gallery),
                 ),
                 ListTile(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  leading: const Icon(Icons.camera_alt_outlined, color: AppColors.accentCyan),
-                  title: Text(isArabic ? 'التقاط صورة بالكاميرا' : 'Take a Photo'),
-                  onTap: () => Navigator.pop(bottomSheetCtx, ImageSource.camera),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  leading: const Icon(
+                    Icons.camera_alt_outlined,
+                    color: AppColors.accentCyan,
+                  ),
+                  title: Text(
+                    isArabic ? 'التقاط صورة بالكاميرا' : 'Take a Photo',
+                  ),
+                  onTap: () =>
+                      Navigator.pop(bottomSheetCtx, ImageSource.camera),
                 ),
               ],
             ),
@@ -250,9 +311,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           setState(() {});
           messenger.showSnackBar(
             SnackBar(
-              content: Text(isArabic
-                  ? 'تم تحديث الصورة الشخصية بنجاح!'
-                  : 'Profile picture updated successfully!'),
+              content: Text(
+                isArabic
+                    ? 'تم تحديث الصورة الشخصية بنجاح!'
+                    : 'Profile picture updated successfully!',
+              ),
               backgroundColor: AppColors.accentEmerald,
             ),
           );
@@ -265,7 +328,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       setState(() => _isUploadingAvatar = false);
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isArabic ? 'فشل رفع الصورة الشخصية: $e' : 'Failed to upload photo: $e'),
+          content: Text(
+            isArabic
+                ? 'فشل رفع الصورة الشخصية: $e'
+                : 'Failed to upload photo: $e',
+          ),
           backgroundColor: AppColors.error,
         ),
       );
@@ -300,9 +367,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           setState(() {});
           messenger.showSnackBar(
             SnackBar(
-              content: Text(isArabic
-                  ? 'تم تحديث صورة الغلاف بنجاح!'
-                  : 'Cover banner updated successfully!'),
+              content: Text(
+                isArabic
+                    ? 'تم تحديث صورة الغلاف بنجاح!'
+                    : 'Cover banner updated successfully!',
+              ),
               backgroundColor: AppColors.accentEmerald,
             ),
           );
@@ -315,7 +384,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       setState(() => _isUploadingBanner = false);
       messenger.showSnackBar(
         SnackBar(
-          content: Text(isArabic ? 'فشل رفع صورة الغلاف: $e' : 'Failed to upload banner: $e'),
+          content: Text(
+            isArabic
+                ? 'فشل رفع صورة الغلاف: $e'
+                : 'Failed to upload banner: $e',
+          ),
           backgroundColor: AppColors.error,
         ),
       );
@@ -338,11 +411,20 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.person_outline, size: 64, color: AppColors.primary),
+                const Icon(
+                  Icons.person_outline,
+                  size: 64,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(height: 16),
                 Text(
-                  isArabic ? 'أنت تتصفح كزائر استكشافي' : 'You are currently browsing as a Guest',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  isArabic
+                      ? 'أنت تتصفح كزائر استكشافي'
+                      : 'You are currently browsing as a Guest',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -350,7 +432,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       ? 'سجل دخولك لعرض ملفك الشخصي وإعدادات الحساب والمشاركات'
                       : 'Sign in to access your profile, XP, privacy, and active sessions',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF94A3B8),
+                  ),
                 ),
                 const SizedBox(height: 20),
                 ElevatedButton.icon(
@@ -383,7 +468,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               automaticallyImplyLeading: false,
               backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
               flexibleSpace: FlexibleSpaceBar(
-                background: _buildBannerHeader(context, p, isArabic, isDark, topInset, bannerHeight),
+                background: _buildBannerHeader(
+                  context,
+                  p,
+                  isArabic,
+                  isDark,
+                  topInset,
+                  bannerHeight,
+                ),
               ),
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(48),
@@ -392,7 +484,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   child: Container(
                     decoration: const BoxDecoration(
                       border: Border(
-                        bottom: BorderSide(color: AppColors.borderDark, width: 0.8),
+                        bottom: BorderSide(
+                          color: AppColors.borderDark,
+                          width: 0.8,
+                        ),
                       ),
                     ),
                     child: TabBar(
@@ -458,11 +553,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     final rawBanner = (p?.bannerUrl != null && p!.bannerUrl!.trim().isNotEmpty)
         ? p.bannerUrl!.trim()
         : (_bannerUrlController.text.trim().isNotEmpty
-            ? _bannerUrlController.text.trim()
-            : _selectedBannerPreset);
+              ? _bannerUrlController.text.trim()
+              : _selectedBannerPreset);
 
-    final bannerId = rawBanner.isNotEmpty ? rawBanner : 'gradient:cosmic-indigo';
-    final isCustomImage = bannerId.startsWith('http://') ||
+    final bannerId = rawBanner.isNotEmpty
+        ? rawBanner
+        : 'gradient:cosmic-indigo';
+    final isCustomImage =
+        bannerId.startsWith('http://') ||
         bannerId.startsWith('https://') ||
         bannerId.startsWith('/') ||
         bannerId.startsWith('uploads/') ||
@@ -488,10 +586,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             right: 0,
             height: bannerHeight,
             child: isCustomImage
-                ? AppNetworkImage(
-                    imageUrl: bannerId,
-                    fit: BoxFit.cover,
-                  )
+                ? AppNetworkImage(imageUrl: bannerId, fit: BoxFit.cover)
                 : Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -541,7 +636,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white24),
                   ),
-                  child: const Icon(Icons.arrow_back, color: Colors.white, size: 18),
+                  child: const Icon(
+                    Icons.arrow_back,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
             ),
@@ -552,10 +651,15 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             right: isArabic ? null : 16,
             left: isArabic ? 16 : null,
             child: InkWell(
-              onTap: _isUploadingBanner ? null : () => _pickAndUploadBanner(context),
+              onTap: _isUploadingBanner
+                  ? null
+                  : () => _pickAndUploadBanner(context),
               borderRadius: BorderRadius.circular(12),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.black54,
                   borderRadius: BorderRadius.circular(12),
@@ -568,14 +672,25 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       const SizedBox(
                         width: 12,
                         height: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     else
-                      const Icon(Icons.add_photo_alternate_outlined, size: 14, color: Colors.white),
+                      const Icon(
+                        Icons.add_photo_alternate_outlined,
+                        size: 14,
+                        color: Colors.white,
+                      ),
                     const SizedBox(width: 4),
                     Text(
                       isArabic ? 'تغيير الغلاف' : 'Edit Banner',
-                      style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -598,16 +713,24 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     GestureDetector(
-                      onTap: _isUploadingAvatar ? null : () => _pickAndUploadAvatar(context),
+                      onTap: _isUploadingAvatar
+                          ? null
+                          : () => _pickAndUploadAvatar(context),
                       child: Stack(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(3.5),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isDark ? AppColors.surfaceDark : Colors.white,
+                              color: isDark
+                                  ? AppColors.surfaceDark
+                                  : Colors.white,
                               boxShadow: const [
-                                BoxShadow(color: Colors.black45, blurRadius: 8, offset: Offset(0, 2)),
+                                BoxShadow(
+                                  color: Colors.black45,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 2),
+                                ),
                               ],
                             ),
                             child: AvatarBadge(
@@ -629,7 +752,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                   child: SizedBox(
                                     width: 22,
                                     height: 22,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryLight),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.primaryLight,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -643,9 +769,18 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                 decoration: BoxDecoration(
                                   color: AppColors.primary,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: isDark ? AppColors.surfaceDark : Colors.white, width: 2),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? AppColors.surfaceDark
+                                        : Colors.white,
+                                    width: 2,
+                                  ),
                                 ),
-                                child: const Icon(Icons.camera_alt, size: 12, color: Colors.white),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  size: 12,
+                                  color: Colors.white,
+                                ),
                               ),
                             ),
                         ],
@@ -655,11 +790,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     // XP Pill Badge
                     Container(
                       margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         gradient: AppColors.primaryGradient,
                         borderRadius: BorderRadius.circular(14),
-                        boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black26, blurRadius: 4),
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -687,7 +827,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   children: [
                     Flexible(
                       child: Text(
-                        p?.displayName.isNotEmpty == true ? p!.displayName : (p?.username ?? 'Creator'),
+                        p?.displayName.isNotEmpty == true
+                            ? p!.displayName
+                            : (p?.username ?? 'Creator'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 19,
@@ -699,7 +841,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     ),
                     if (p?.isEmailConfirmed == true) ...[
                       const SizedBox(width: 6),
-                      const Icon(Icons.verified, size: 16, color: AppColors.accentCyan),
+                      const Icon(
+                        Icons.verified,
+                        size: 16,
+                        color: AppColors.accentCyan,
+                      ),
                     ],
                   ],
                 ),
@@ -751,17 +897,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             children: [
               GestureDetector(
                 onTap: () {
-                  if (p != null) FollowListDialog.showForUser(context, username: p.username, isFollowers: true);
+                  if (p != null) {
+                    FollowListDialog.showForUser(
+                      context,
+                      username: p.username,
+                      isFollowers: true,
+                    );
+                  }
                 },
                 child: Column(
                   children: [
                     Text(
                       '${p?.followersCount ?? 0}',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
                     ),
                     Text(
                       isArabic ? 'المتابعون' : 'Followers',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ],
                 ),
@@ -769,17 +927,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               Container(width: 1, height: 28, color: AppColors.borderDark),
               GestureDetector(
                 onTap: () {
-                  if (p != null) FollowListDialog.showForUser(context, username: p.username, isFollowers: false);
+                  if (p != null) {
+                    FollowListDialog.showForUser(
+                      context,
+                      username: p.username,
+                      isFollowers: false,
+                    );
+                  }
                 },
                 child: Column(
                   children: [
                     Text(
                       '${p?.followingCount ?? 0}',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
                     ),
                     Text(
                       isArabic ? 'يتابع' : 'Following',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ],
                 ),
@@ -789,11 +959,17 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 children: [
                   Text(
                     '${p?.postsCount ?? 0}',
-                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
+                    ),
                   ),
                   Text(
                     isArabic ? 'المنشورات' : 'Posts',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
                   ),
                 ],
               ),
@@ -827,11 +1003,16 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             runSpacing: 8,
             children: p.badges.map((b) {
               return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
@@ -840,7 +1021,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     const SizedBox(width: 4),
                     Text(
                       b.name,
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryLight,
+                      ),
                     ),
                   ],
                 ),
@@ -872,18 +1057,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildEditTab(BuildContext context, ProfileViewModel profileVm, bool isArabic, bool isDark) {
+  Widget _buildEditTab(
+    BuildContext context,
+    ProfileViewModel profileVm,
+    bool isArabic,
+    bool isDark,
+  ) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
         // Display Name Input
-        Text(isArabic ? 'الاسم الظاهر' : 'Display Name', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(
+          isArabic ? 'الاسم الظاهر' : 'Display Name',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
         const SizedBox(height: 6),
         TextField(controller: _displayNameController),
         const SizedBox(height: 16),
 
         // Bio Input
-        Text(isArabic ? 'النبذة التعريفية (Bio)' : 'Bio', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(
+          isArabic ? 'النبذة التعريفية (Bio)' : 'Bio',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
         const SizedBox(height: 6),
         TextField(controller: _bioController, maxLines: 3),
         const SizedBox(height: 16),
@@ -894,18 +1090,27 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           decoration: BoxDecoration(
             color: isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.account_circle_outlined, color: AppColors.primary, size: 20),
+                  const Icon(
+                    Icons.account_circle_outlined,
+                    color: AppColors.primary,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     isArabic ? 'الصورة الشخصية (Avatar)' : 'Profile Avatar',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
@@ -940,7 +1145,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                             child: SizedBox(
                               width: 24,
                               height: 24,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primaryLight),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryLight,
+                              ),
                             ),
                           ),
                         ),
@@ -956,16 +1164,28 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           runSpacing: 8,
                           children: [
                             ElevatedButton.icon(
-                              onPressed: _isUploadingAvatar ? null : () => _pickAndUploadAvatar(context),
+                              onPressed: _isUploadingAvatar
+                                  ? null
+                                  : () => _pickAndUploadAvatar(context),
                               icon: const Icon(Icons.upload_file, size: 15),
                               label: Text(
                                 _isUploadingAvatar
-                                    ? (isArabic ? 'جاري الرفع...' : 'Uploading...')
-                                    : (isArabic ? 'رفع صورة / GIF' : 'Upload Image'),
-                                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                    ? (isArabic
+                                          ? 'جاري الرفع...'
+                                          : 'Uploading...')
+                                    : (isArabic
+                                          ? 'رفع صورة / GIF'
+                                          : 'Upload Image'),
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                               style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                               ),
                             ),
                             OutlinedButton.icon(
@@ -976,7 +1196,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                                 style: const TextStyle(fontSize: 11.5),
                               ),
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
                               ),
                             ),
                           ],
@@ -990,7 +1213,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               TextField(
                 controller: _avatarUrlController,
                 decoration: InputDecoration(
-                  labelText: isArabic ? 'رابط الصورة المخصص (URL)' : 'Custom Avatar Image / GIF URL',
+                  labelText: isArabic
+                      ? 'رابط الصورة المخصص (URL)'
+                      : 'Custom Avatar Image / GIF URL',
                   hintText: 'https://... or /uploads/...',
                   prefixIcon: const Icon(Icons.link, size: 18),
                   isDense: true,
@@ -1008,7 +1233,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           decoration: BoxDecoration(
             color: isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1018,22 +1245,39 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.palette_outlined, color: AppColors.accentCyan, size: 20),
+                      const Icon(
+                        Icons.palette_outlined,
+                        color: AppColors.accentCyan,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Text(
-                        isArabic ? 'غلاف الملف الشخصي (Banner)' : 'Profile Cover Banner',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                        isArabic
+                            ? 'غلاف الملف الشخصي (Banner)'
+                            : 'Profile Cover Banner',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ],
                   ),
                   TextButton.icon(
-                    onPressed: _isUploadingBanner ? null : () => _pickAndUploadBanner(context),
-                    icon: const Icon(Icons.add_photo_alternate_outlined, size: 15),
+                    onPressed: _isUploadingBanner
+                        ? null
+                        : () => _pickAndUploadBanner(context),
+                    icon: const Icon(
+                      Icons.add_photo_alternate_outlined,
+                      size: 15,
+                    ),
                     label: Text(
                       _isUploadingBanner
                           ? (isArabic ? 'جاري الرفع...' : 'Uploading...')
                           : (isArabic ? 'رفع غلاف مخصص' : 'Upload Cover'),
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -1053,7 +1297,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 child: SizedBox(
                   height: 60,
                   width: double.infinity,
-                  child: (_selectedBannerPreset.startsWith('http') ||
+                  child:
+                      (_selectedBannerPreset.startsWith('http') ||
                           _selectedBannerPreset.startsWith('/') ||
                           _selectedBannerPreset.startsWith('uploads/') ||
                           _selectedBannerPreset.contains('.png') ||
@@ -1061,14 +1306,19 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           _selectedBannerPreset.contains('.jpeg') ||
                           _selectedBannerPreset.contains('.gif') ||
                           _selectedBannerPreset.contains('.webp'))
-                      ? AppNetworkImage(imageUrl: _selectedBannerPreset, fit: BoxFit.cover)
+                      ? AppNetworkImage(
+                          imageUrl: _selectedBannerPreset,
+                          fit: BoxFit.cover,
+                        )
                       : Container(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: (bannerPresets.firstWhere(
-                                (b) => b['id'] == _selectedBannerPreset,
-                                orElse: () => bannerPresets[0],
-                              )['gradient'] as List<Color>),
+                              colors:
+                                  (bannerPresets.firstWhere(
+                                        (b) => b['id'] == _selectedBannerPreset,
+                                        orElse: () => bannerPresets[0],
+                                      )['gradient']
+                                      as List<Color>),
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                             ),
@@ -1102,28 +1352,43 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       },
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(colors: b['gradient'] as List<Color>),
+                          gradient: LinearGradient(
+                            colors: b['gradient'] as List<Color>,
+                          ),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isSelected ? (b['accent'] as Color) : Colors.white24,
+                            color: isSelected
+                                ? (b['accent'] as Color)
+                                : Colors.white24,
                             width: isSelected ? 2 : 1,
                           ),
                         ),
                         child: Row(
                           children: [
                             Text(
-                              isArabic ? (b['nameAr'] as String) : (b['name'] as String),
+                              isArabic
+                                  ? (b['nameAr'] as String)
+                                  : (b['name'] as String),
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : const Color(0xFFCBD5E1),
+                                color: isSelected
+                                    ? Colors.white
+                                    : const Color(0xFFCBD5E1),
                               ),
                             ),
                             if (isSelected) ...[
                               const SizedBox(width: 4),
-                              Icon(Icons.check_circle, size: 13, color: b['accent'] as Color),
+                              Icon(
+                                Icons.check_circle,
+                                size: 13,
+                                color: b['accent'] as Color,
+                              ),
                             ],
                           ],
                         ),
@@ -1138,7 +1403,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         const SizedBox(height: 18),
 
         // Theme Preference
-        Text(isArabic ? 'المظهر المفضل' : 'Theme Preference', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(
+          isArabic ? 'المظهر المفضل' : 'Theme Preference',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
         const SizedBox(height: 8),
         SegmentedButton<String>(
           segments: const [
@@ -1154,7 +1422,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
         const SizedBox(height: 20),
 
         // Language Preference
-        Text(isArabic ? 'اللغة المفضلة' : 'Language Preference', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+        Text(
+          isArabic ? 'اللغة المفضلة' : 'Language Preference',
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
         const SizedBox(height: 8),
         SegmentedButton<String>(
           segments: const [
@@ -1209,7 +1480,11 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       if (success) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text(isArabic ? 'تم حفظ التغييرات بنجاح!' : 'Profile updated successfully!'),
+                            content: Text(
+                              isArabic
+                                  ? 'تم حفظ التغييرات بنجاح!'
+                                  : 'Profile updated successfully!',
+                            ),
                             backgroundColor: AppColors.accentEmerald,
                           ),
                         );
@@ -1217,7 +1492,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     }
                   },
             child: profileVm.isSaving
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
                 : Text(isArabic ? 'حفظ التغييرات' : 'Save Profile Changes'),
           ),
         ),
@@ -1225,7 +1507,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     );
   }
 
-  Widget _buildPrivacyTab(BuildContext context, ProfileViewModel profileVm, bool isArabic, bool isDark) {
+  Widget _buildPrivacyTab(
+    BuildContext context,
+    ProfileViewModel profileVm,
+    bool isArabic,
+    bool isDark,
+  ) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
@@ -1234,48 +1521,72 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           decoration: BoxDecoration(
             color: isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+            border: Border.all(
+              color: isDark ? AppColors.borderDark : AppColors.borderLight,
+            ),
           ),
           child: Column(
             children: [
               _buildPrivacySwitch(
-                title: isArabic ? 'حساب خاص (Private Account)' : 'Private Account',
-                subtitle: isArabic ? 'يلزم قبولك لأي طلب متابعة جديد' : 'New followers must request approval',
+                title: isArabic
+                    ? 'حساب خاص (Private Account)'
+                    : 'Private Account',
+                subtitle: isArabic
+                    ? 'يلزم قبولك لأي طلب متابعة جديد'
+                    : 'New followers must request approval',
                 value: _isPrivate,
                 onChanged: (v) => setState(() => _isPrivate = v),
               ),
               const Divider(height: 16),
               _buildPrivacySwitch(
-                title: isArabic ? 'إمكانية الظهور في نتائج البحث' : 'Search Discoverable',
-                subtitle: isArabic ? 'السماح للآخرين بالوصول لملفك عبر البحث' : 'Allow others to find your profile in global search',
+                title: isArabic
+                    ? 'إمكانية الظهور في نتائج البحث'
+                    : 'Search Discoverable',
+                subtitle: isArabic
+                    ? 'السماح للآخرين بالوصول لملفك عبر البحث'
+                    : 'Allow others to find your profile in global search',
                 value: _isSearchDiscoverable,
                 onChanged: (v) => setState(() => _isSearchDiscoverable = v),
               ),
               const Divider(height: 16),
               _buildPrivacySwitch(
                 title: isArabic ? 'إظهار النبذة التعريفية (Bio)' : 'Show Bio',
-                subtitle: isArabic ? 'عرض نبذتك في ملفك العام' : 'Display your bio on your public profile',
+                subtitle: isArabic
+                    ? 'عرض نبذتك في ملفك العام'
+                    : 'Display your bio on your public profile',
                 value: _showBio,
                 onChanged: (v) => setState(() => _showBio = v),
               ),
               const Divider(height: 16),
               _buildPrivacySwitch(
-                title: isArabic ? 'إظهار عدد المتابعين' : 'Show Follower Counts',
-                subtitle: isArabic ? 'إظهار أرقام المتابعين في ملفك' : 'Display followers and following counts',
+                title: isArabic
+                    ? 'إظهار عدد المتابعين'
+                    : 'Show Follower Counts',
+                subtitle: isArabic
+                    ? 'إظهار أرقام المتابعين في ملفك'
+                    : 'Display followers and following counts',
                 value: _showFollowersCount,
                 onChanged: (v) => setState(() => _showFollowersCount = v),
               ),
               const Divider(height: 16),
               _buildPrivacySwitch(
-                title: isArabic ? 'إظهار الأوسمة المكتسبة' : 'Show Earned Badges',
-                subtitle: isArabic ? 'عرض أوسمتك في ملفك الشخصي' : 'Display your badges publicly',
+                title: isArabic
+                    ? 'إظهار الأوسمة المكتسبة'
+                    : 'Show Earned Badges',
+                subtitle: isArabic
+                    ? 'عرض أوسمتك في ملفك الشخصي'
+                    : 'Display your badges publicly',
                 value: _showBadges,
                 onChanged: (v) => setState(() => _showBadges = v),
               ),
               const Divider(height: 16),
               _buildPrivacySwitch(
-                title: isArabic ? 'إظهار إحصائيات النشاط' : 'Show Activity Stats',
-                subtitle: isArabic ? 'عرض نقاط XP والتفاعلات والمشاركات' : 'Display XP, reactions, and posts',
+                title: isArabic
+                    ? 'إظهار إحصائيات النشاط'
+                    : 'Show Activity Stats',
+                subtitle: isArabic
+                    ? 'عرض نقاط XP والتفاعلات والمشاركات'
+                    : 'Display XP, reactions, and posts',
                 value: _showActivityStats,
                 onChanged: (v) => setState(() => _showActivityStats = v),
               ),
@@ -1301,13 +1612,25 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     );
                     if (context.mounted && success) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Privacy settings updated!'), backgroundColor: AppColors.accentEmerald),
+                        const SnackBar(
+                          content: Text('Privacy settings updated!'),
+                          backgroundColor: AppColors.accentEmerald,
+                        ),
                       );
                     }
                   },
             child: profileVm.isSaving
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text(isArabic ? 'حفظ إعدادات الخصوصية' : 'Save Privacy Settings'),
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    isArabic ? 'حفظ إعدادات الخصوصية' : 'Save Privacy Settings',
+                  ),
           ),
         ),
       ],
@@ -1341,8 +1664,12 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           child: Row(
             children: [
               Icon(
-                authVm.currentUser?.isEmailVerified == true ? Icons.verified : Icons.warning_amber,
-                color: authVm.currentUser?.isEmailVerified == true ? AppColors.accentEmerald : AppColors.accentAmber,
+                authVm.currentUser?.isEmailVerified == true
+                    ? Icons.verified
+                    : Icons.warning_amber,
+                color: authVm.currentUser?.isEmailVerified == true
+                    ? AppColors.accentEmerald
+                    : AppColors.accentAmber,
                 size: 24,
               ),
               const SizedBox(width: 10),
@@ -1352,13 +1679,23 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   children: [
                     Text(
                       authVm.currentUser?.isEmailVerified == true
-                          ? (isArabic ? 'البريد الإلكتروني موثق' : 'Email Verified')
-                          : (isArabic ? 'البريد الإلكتروني غير موثق' : 'Email Not Verified'),
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ? (isArabic
+                                ? 'البريد الإلكتروني موثق'
+                                : 'Email Verified')
+                          : (isArabic
+                                ? 'البريد الإلكتروني غير موثق'
+                                : 'Email Not Verified'),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
                     ),
                     Text(
                       authVm.currentUser?.email ?? '',
-                      style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ],
                 ),
@@ -1373,7 +1710,9 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              isArabic ? 'الأجهزة والجلسات النشطة 💻📱' : 'Active Device Sessions 💻📱',
+              isArabic
+                  ? 'الأجهزة والجلسات النشطة 💻📱'
+                  : 'Active Device Sessions 💻📱',
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
             ),
             if (profileVm.sessions.length > 1)
@@ -1392,7 +1731,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             child: Row(
               children: [
                 Icon(
-                  session.deviceType.toLowerCase().contains('mobile') || session.deviceType.toLowerCase().contains('flutter')
+                  session.deviceType.toLowerCase().contains('mobile') ||
+                          session.deviceType.toLowerCase().contains('flutter')
                       ? Icons.smartphone
                       : Icons.laptop,
                   color: AppColors.primary,
@@ -1403,16 +1743,29 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(session.deviceName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5)),
+                      Text(
+                        session.deviceName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5,
+                        ),
+                      ),
                       Text(
                         '${session.deviceType} • ${(session.ipAddress != null && session.ipAddress!.isNotEmpty) ? session.ipAddress! : "Local"}',
-                        style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B)),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: Color(0xFF64748B),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 18),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.error,
+                    size: 18,
+                  ),
                   onPressed: () => profileVm.revokeSession(session.id),
                 ),
               ],
@@ -1464,8 +1817,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 _newPasswordController.clear();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(success ? 'Password changed successfully!' : 'Failed to change password'),
-                    backgroundColor: success ? AppColors.accentEmerald : AppColors.error,
+                    content: Text(
+                      success
+                          ? 'Password changed successfully!'
+                          : 'Failed to change password',
+                    ),
+                    backgroundColor: success
+                        ? AppColors.accentEmerald
+                        : AppColors.error,
                   ),
                 );
               }
@@ -1487,7 +1846,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             icon: const Icon(Icons.logout, color: AppColors.error, size: 18),
             label: Text(
               isArabic ? 'تسجيل الخروج' : 'Log Out',
-              style: const TextStyle(color: AppColors.error, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: AppColors.error,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             style: OutlinedButton.styleFrom(
               side: const BorderSide(color: AppColors.error),
@@ -1510,8 +1872,20 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold)),
-              Text(subtitle, style: const TextStyle(fontSize: 10.5, color: Color(0xFF64748B))),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: Color(0xFF64748B),
+                ),
+              ),
             ],
           ),
         ),

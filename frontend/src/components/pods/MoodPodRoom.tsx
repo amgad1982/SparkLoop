@@ -502,11 +502,10 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
           <Tooltip content={isArabic ? 'لوحة المؤثرات الصوتية التفاعلية المباشرة' : 'Live Interactive DJ Soundboard'} position="bottom">
             <button
               onClick={() => setShowSoundboard(!showSoundboard)}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
-                showSoundboard
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${showSoundboard
                   ? 'bg-fuchsia-600/20 text-fuchsia-600 dark:text-fuchsia-300 border-fuchsia-500/50 shadow-md'
                   : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:text-zinc-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               <Music className="w-3.5 h-3.5 text-fuchsia-500 dark:text-fuchsia-400" />
               <span className="hidden md:inline">
@@ -524,8 +523,8 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
                     ? 'إعدادات وإشراف الحجرة'
                     : 'Pod Settings & Moderation'
                   : isArabic
-                  ? 'إعدادات الحجرة المتاحة'
-                  : 'Pod Settings'
+                    ? 'إعدادات الحجرة المتاحة'
+                    : 'Pod Settings'
               }
               position="bottom"
             >
@@ -659,17 +658,16 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
                 <img
                   src={
                     msg.senderAvatarUrl ||
-                    `https://api.dicebear.com/7.x/bottts/svg?seed=${msg.senderUsername}`
+                    `https://api.dicebear.com/10.x/bottts/svg?seed=${msg.senderUsername}`
                   }
                   alt={msg.senderUsername}
                   className="w-7 h-7 rounded-xl border border-zinc-300 dark:border-zinc-700 object-cover flex-shrink-0"
                 />
                 <div
-                  className={`max-w-[80%] p-3 rounded-2xl text-xs space-y-1.5 shadow-sm ${
-                    isMe
+                  className={`max-w-[80%] p-3 rounded-2xl text-xs space-y-1.5 shadow-sm ${isMe
                       ? 'bg-indigo-600 text-white rounded-tr-none'
                       : 'bg-white/95 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none'
-                  }`}
+                    }`}
                 >
                   {!isMe && (
                     <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 block">
@@ -769,8 +767,8 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
               onChange={(e) => setInputText(e.target.value)}
               placeholder={
                 isArabic
-                  ? 'اكتب رسالة أو افتح المايك للتحدث...'
-                  : 'Drop a thought or open mic to talk live...'
+                  ? 'ماذا في بالك؟ اكتب رسالة...'
+                  : 'Share a thought or story beat...'
               }
               className="flex-1 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:border-indigo-500 transition-colors"
             />

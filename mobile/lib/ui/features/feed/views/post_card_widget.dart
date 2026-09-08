@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../../../../data/models/post_models.dart';
@@ -9,8 +10,10 @@ import '../../../core/widgets/follow_button.dart';
 import '../../../core/widgets/glass_container.dart';
 import '../../../core/widgets/hashtag_text.dart';
 import '../../../core/widgets/reaction_bar.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../auth/view_models/auth_view_model.dart';
 import '../view_models/feed_view_model.dart';
+import 'post_comments_sheet.dart';
 
 class PostCardWidget extends StatelessWidget {
   const PostCardWidget({
@@ -103,6 +106,49 @@ class PostCardWidget extends StatelessWidget {
                 targetUsername: post.authorUsername,
                 size: FollowButtonSize.small,
               ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, size: 18, color: Color(0xFF94A3B8)),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                onSelected: (value) {
+                  if (value == 'copy_text') {
+                    Clipboard.setData(ClipboardData(text: post.content));
+                    HapticFeedback.lightImpact();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Post content copied! 📋')),
+                    );
+                  } else if (value == 'copy_link') {
+                    final url = 'https://sparkloop.app/posts/${post.id}';
+                    Clipboard.setData(ClipboardData(text: url));
+                    HapticFeedback.lightImpact();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Post link copied to clipboard! 🔗')),
+                    );
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'copy_text',
+                    child: Row(
+                      children: [
+                        Icon(Icons.copy_rounded, size: 16),
+                        SizedBox(width: 8),
+                        Text('Copy text', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'copy_link',
+                    child: Row(
+                      children: [
+                        Icon(Icons.link_rounded, size: 16),
+                        SizedBox(width: 8),
+                        Text('Copy link', style: TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -183,6 +229,171 @@ class PostCardWidget extends StatelessWidget {
                 username: currentUsername,
               );
             },
+          ),
+          const SizedBox(height: 10),
+
+          // Secondary Action Controls: Comments, Share, Total Reactions Flame
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Comments Button with count
+              InkWell(
+                onTap: () => PostCommentsSheet.show(context, post),
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppColors.surfaceDark
+                        : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppColors.borderDark
+                          : AppColors.borderLight,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.chat_bubble_outline_rounded,
+                        size: 14,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF94A3B8)
+                            : const Color(0xFF64748B),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(
+                        '${post.commentCount}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Share post button with default mobile share sheet behavior
+                  Builder(
+                    builder: (btnContext) {
+                      return InkWell(
+                        onTap: () async {
+                          HapticFeedback.lightImpact();
+                          final url = 'https://sparkloop.app/posts/${post.id}';
+                          try {
+                            final box = btnContext.findRenderObject() as RenderBox?;
+                            final origin = (box != null && box.hasSize)
+                                ? (box.localToGlobal(Offset.zero) & box.size)
+                                : null;
+                            final snippet = post.content.trim().isNotEmpty
+                                ? (post.content.length > 90 ? '${post.content.substring(0, 90)}...' : post.content)
+                                : '';
+                            final shareText = snippet.isNotEmpty ? '$snippet\n$url' : url;
+
+                            await SharePlus.instance.share(
+                              ShareParams(
+                                text: shareText,
+                                subject: 'Post by @${post.authorUsername} on SparkLoop',
+                                sharePositionOrigin: origin,
+                              ),
+                            );
+                          } catch (_) {
+                            // Fallback to clipboard if native share sheet is unavailable
+                            await Clipboard.setData(ClipboardData(text: url));
+                            if (btnContext.mounted) {
+                              ScaffoldMessenger.of(btnContext).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Post link copied to clipboard! 🔗'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        onLongPress: () {
+                          // Quick copy link shortcut on long press
+                          final url = 'https://sparkloop.app/posts/${post.id}';
+                          Clipboard.setData(ClipboardData(text: url));
+                          HapticFeedback.mediumImpact();
+                          ScaffoldMessenger.of(btnContext).showSnackBar(
+                            const SnackBar(
+                              content: Text('Post link copied to clipboard! 🔗'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Tooltip(
+                          message: 'Share post',
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? AppColors.surfaceDark
+                                  : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? AppColors.borderDark
+                                    : AppColors.borderLight,
+                                width: 1,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.share_outlined,
+                              size: 14,
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? const Color(0xFF94A3B8)
+                                  : const Color(0xFF64748B),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+
+                  // Total reactions flame badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentAmber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.accentAmber.withValues(alpha: 0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.local_fire_department_rounded,
+                          size: 14,
+                          color: AppColors.accentAmber,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${post.reactionCount}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.accentAmber,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ),

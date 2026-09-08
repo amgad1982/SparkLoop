@@ -378,17 +378,28 @@ class LiveKitService extends ChangeNotifier {
         _syncParticipantFromLiveKit(participant);
       }
 
+      // Ensure speaker output is preferred for room audio
+      try {
+        await AudioManager.instance.setSpeakerOutputPreferred(true);
+      } catch (_) {}
+
       // If user is on stage, acquire mic
       if (asSpeaker && !_isMicMuted) {
         final granted = await requestMicPermission();
         if (granted) {
-          await room.localParticipant?.setMicrophoneEnabled(true);
+          try {
+            await room.localParticipant?.setMicrophoneEnabled(true);
+          } catch (micErr) {
+            debugPrint('Failed to enable microphone in LiveKit: $micErr');
+            _isMicMuted = true;
+          }
         } else {
           _isMicMuted = true;
         }
       }
     } catch (e) {
       debugPrint('LiveKit connection error: $e');
+      _isInRoom = false;
     }
 
     notifyListeners();
@@ -561,7 +572,8 @@ class LiveKitService extends ChangeNotifier {
 
       await audioPlayer.stop();
       final effectiveUrl = ApiService.getMediaUrl(url);
-      await audioPlayer.play(UrlSource(effectiveUrl));
+      final mimeType = ApiService.inferMimeType(effectiveUrl);
+      await audioPlayer.play(UrlSource(effectiveUrl, mimeType: mimeType));
       await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
       notifyListeners();
     } catch (e) {
@@ -585,7 +597,8 @@ class LiveKitService extends ChangeNotifier {
 
       await audioPlayer.stop();
       final effectiveUrl = ApiService.getMediaUrl(vibe.url);
-      await audioPlayer.play(UrlSource(effectiveUrl));
+      final mimeType = ApiService.inferMimeType(effectiveUrl);
+      await audioPlayer.play(UrlSource(effectiveUrl, mimeType: mimeType));
       await audioPlayer.setVolume(_isBgMusicMuted ? 0.0 : _bgMusicVolume);
       notifyListeners();
     } catch (e) {

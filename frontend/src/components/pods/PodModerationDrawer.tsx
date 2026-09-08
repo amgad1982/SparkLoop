@@ -263,11 +263,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('settings')}
-              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                activeTab === 'settings'
+              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${activeTab === 'settings'
                   ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border-zinc-200 dark:border-zinc-700'
                   : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               <Palette className="w-3.5 h-3.5" />
               <span>{isArabic ? 'الإعدادات' : 'Settings'}</span>
@@ -276,11 +275,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('participants')}
-              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                activeTab === 'participants'
+              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${activeTab === 'participants'
                   ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border-zinc-200 dark:border-zinc-700'
                   : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               <Shield className="w-3.5 h-3.5" />
               <span>{isArabic ? 'المشاركون' : 'Moderation'}</span>
@@ -289,11 +287,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
             <button
               type="button"
               onClick={() => setActiveTab('invites')}
-              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
-                activeTab === 'invites'
+              className={`flex-1 py-2 px-2.5 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${activeTab === 'invites'
                   ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-sm border-zinc-200 dark:border-zinc-700'
                   : 'border-transparent text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
-              }`}
+                }`}
             >
               <UserPlus className="w-3.5 h-3.5" />
               <span>{isArabic ? 'الدعوات' : 'Invites'}</span>
@@ -316,11 +313,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                         key={t.id}
                         type="button"
                         onClick={() => setTheme(t.id)}
-                        className={`p-2.5 rounded-2xl border text-left rtl:text-right transition-all flex items-center justify-between cursor-pointer ${
-                          theme === t.id
+                        className={`p-2.5 rounded-2xl border text-left rtl:text-right transition-all flex items-center justify-between cursor-pointer ${theme === t.id
                             ? 'bg-cyan-500/10 border-cyan-500 text-cyan-700 dark:text-cyan-300 ring-2 ring-cyan-500/30'
                             : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
-                        }`}
+                          }`}
                       >
                         <span className="text-xs font-bold">{isArabic ? t.nameAr : t.name}</span>
                         {theme === t.id && <Sparkles className="w-3.5 h-3.5 text-cyan-500" />}
@@ -397,11 +393,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                           key={opt.value}
                           type="button"
                           onClick={() => setSelectedDuration(selectedDuration === opt.value ? null : opt.value)}
-                          className={`py-1.5 px-1.5 rounded-xl text-[10px] font-bold border transition-all text-center cursor-pointer ${
-                            selectedDuration === opt.value
+                          className={`py-1.5 px-1.5 rounded-xl text-[10px] font-bold border transition-all text-center cursor-pointer ${selectedDuration === opt.value
                               ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500 shadow-sm'
                               : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300'
-                          }`}
+                            }`}
                         >
                           {isArabic ? opt.labelAr : opt.labelEn}
                         </button>
@@ -420,11 +415,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsPrivate(false)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          !isPrivate
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${!isPrivate
                             ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300'
                             : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
-                        }`}
+                          }`}
                       >
                         <Globe className="w-3.5 h-3.5 text-emerald-500" />
                         <span>{isArabic ? 'عامة 🌐' : 'Public 🌐'}</span>
@@ -432,11 +426,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsPrivate(true)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          isPrivate
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${isPrivate
                             ? 'bg-purple-500/15 border-purple-500 text-purple-700 dark:text-purple-300'
                             : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
-                        }`}
+                          }`}
                       >
                         <Lock className="w-3.5 h-3.5 text-purple-500" />
                         <span>{isArabic ? 'خاصة 🔒' : 'Private 🔒'}</span>
@@ -456,11 +449,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                       <button
                         type="button"
                         onClick={() => setAllowOpenMic(false)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all cursor-pointer ${
-                          !allowOpenMic
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all cursor-pointer ${!allowOpenMic
                             ? 'bg-amber-500/15 border-amber-500 text-amber-700 dark:text-amber-300 shadow-sm'
                             : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-1">
                           <Hand className="w-3.5 h-3.5 text-amber-500" />
@@ -474,11 +466,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                       <button
                         type="button"
                         onClick={() => setAllowOpenMic(true)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all cursor-pointer ${
-                          allowOpenMic
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center text-center gap-1 transition-all cursor-pointer ${allowOpenMic
                             ? 'bg-emerald-500/15 border-emerald-500 text-emerald-700 dark:text-emerald-300 shadow-sm'
                             : 'bg-zinc-50 dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-1">
                           <Mic className="w-3.5 h-3.5 text-emerald-500" />
@@ -604,7 +595,7 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
                         <img
-                          src={sp.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${sp.username}`}
+                          src={sp.avatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${sp.username}`}
                           alt={sp.username}
                           className="w-9 h-9 rounded-xl bg-zinc-200 dark:bg-zinc-800 object-cover shrink-0"
                         />
@@ -675,8 +666,8 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                                     ? 'إلغاء صلاحية المشرف'
                                     : 'Demote Moderator'
                                   : isArabic
-                                  ? 'ترقية إلى مشرف'
-                                  : 'Promote to Moderator'
+                                    ? 'ترقية إلى مشرف'
+                                    : 'Promote to Moderator'
                               }
                               position="top"
                             >
@@ -689,11 +680,10 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                                     isUserMod ? 'demote_moderator' : 'promote_moderator'
                                   )
                                 }
-                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                                  isUserMod
+                                className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isUserMod
                                     ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400'
                                     : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-cyan-500/10 hover:text-cyan-500'
-                                }`}
+                                  }`}
                               >
                                 <Crown className="w-3.5 h-3.5" />
                               </button>
@@ -718,7 +708,7 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <img
-                            src={ls.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${ls.username}`}
+                            src={ls.avatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${ls.username}`}
                             alt={ls.username}
                             className="w-7 h-7 rounded-lg object-cover"
                           />
@@ -793,8 +783,8 @@ export const PodModerationDrawer: React.FC<PodModerationDrawerProps> = ({
                           ? 'تم نسخ الرابط للحافظة! 📋'
                           : 'Link copied to clipboard! 📋'
                         : isArabic
-                        ? 'نسخ رابط الحجرة ومشاركته'
-                        : 'Copy Shareable Link'}
+                          ? 'نسخ رابط الحجرة ومشاركته'
+                          : 'Copy Shareable Link'}
                     </span>
                   </button>
                 </div>

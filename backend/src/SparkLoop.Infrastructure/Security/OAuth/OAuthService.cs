@@ -312,7 +312,7 @@ public class OAuthService : IOAuthService
         var username = $"{provider}_creator_{suffix}";
         var email = $"{username}@sparkloop.app";
         var displayName = $"{char.ToUpper(provider[0])}{provider[1..]} Creator #{suffix}";
-        var avatarUrl = $"https://api.dicebear.com/7.x/bottts/svg?seed={provider}_{suffix}";
+        var avatarUrl = $"https://api.dicebear.com/10.x/bottts/svg?seed={provider}_{suffix}";
 
         return new OAuthUserProfile(provider, $"{provider}_uid_{suffix}", email, displayName, avatarUrl);
     }

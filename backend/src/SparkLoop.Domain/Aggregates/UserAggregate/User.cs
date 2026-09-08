@@ -118,7 +118,7 @@ public class User : AggregateRoot<Guid>
             Email = email.Trim().ToLowerInvariant(),
             IsEmailConfirmed = isEmailConfirmed,
             DisplayName = string.IsNullOrWhiteSpace(displayName) ? username : displayName.Trim(),
-            AvatarUrl = avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={username}",
+            AvatarUrl = avatarUrl ?? $"https://api.dicebear.com/10.x/bottts/svg?seed={username}",
             BannerUrl = bannerUrl,
             Bio = bio,
             PasswordHash = passwordHash,

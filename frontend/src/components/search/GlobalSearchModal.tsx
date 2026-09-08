@@ -79,7 +79,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       // Load trending tags
       api.getTrendingHashtags(6)
         .then((tags) => setTrendingTags(tags || []))
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [isOpen]);
 
@@ -123,7 +123,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             const next = [clean, ...filtered].slice(0, 8);
             try {
               localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
-            } catch {}
+            } catch { }
             return next;
           });
         }
@@ -141,7 +141,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     setRecentSearches([]);
     try {
       localStorage.removeItem(RECENT_SEARCHES_KEY);
-    } catch {}
+    } catch { }
   };
 
   const handleRemoveRecentItem = (item: string) => {
@@ -149,7 +149,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       const next = prev.filter((s) => s !== item);
       try {
         localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
-      } catch {}
+      } catch { }
       return next;
     });
   };
@@ -237,19 +237,17 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors ${
-                  isActive
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 shrink-0 transition-colors ${isActive
                     ? 'bg-indigo-600 text-white shadow-sm'
                     : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white'
-                }`}
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{isArabic ? cat.labelAr : cat.labelEn}</span>
                 {cat.count !== undefined && cat.count > 0 && (
                   <span
-                    className={`px-1.5 py-0.2 text-[10px] rounded-full ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
+                    className={`px-1.5 py-0.2 text-[10px] rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      }`}
                   >
                     {cat.count}
                   </span>
@@ -377,7 +375,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                           className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1"
                         >
                           <img
-                            src={user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+                            src={user.avatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${user.username}`}
                             alt={user.username}
                             className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 object-cover shrink-0"
                           />
@@ -440,7 +438,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
                             <img
-                              src={post.authorAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${post.authorUsername}`}
+                              src={post.authorAvatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${post.authorUsername}`}
                               alt={post.authorUsername}
                               className="w-6 h-6 rounded-lg object-cover"
                             />

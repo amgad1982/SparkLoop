@@ -7,7 +7,9 @@ import { BottomNavBar, TabType } from './BottomNavBar';
 import { RTLProvider } from './RTLProvider';
 import { MoodPodDto, UserDto } from '../../types/api';
 import { api } from '../../services/apiClient';
-import { DjListsModal } from '../pods/DjListsModal';
+import { DjDeckModal } from '../dj/DjDeckModal';
+import { DjMiniPlayer } from '../dj/DjMiniPlayer';
+import { useDjRadioStore } from '../../stores/useDjRadioStore';
 import { SettingsModal } from '../profile/SettingsModal';
 
 interface MobileAppShellProps {
@@ -30,8 +32,8 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
   children,
 }) => {
   const [topCreators, setTopCreators] = useState<UserDto[]>([]);
-  const [isDjListsOpen, setIsDjListsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const openDjModal = useDjRadioStore((s) => s.openModal);
 
   useEffect(() => {
     api.getTopCreators()
@@ -58,7 +60,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
               isConnected={isConnected}
               onNavigateTab={onTabChange}
               onOpenSearch={onOpenSearch}
-              onOpenDjLists={() => setIsDjListsOpen(true)}
+              onOpenDjLists={() => openDjModal()}
               onOpenSettings={() => setIsSettingsOpen(true)}
             />
 
@@ -68,7 +70,7 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
               onNavigateTab={onTabChange}
               isConnected={isConnected}
               onOpenSearch={onOpenSearch}
-              onOpenDjLists={() => setIsDjListsOpen(true)}
+              onOpenDjLists={() => openDjModal()}
               onOpenSettings={() => setIsSettingsOpen(true)}
             />
 
@@ -90,11 +92,11 @@ export const MobileAppShell: React.FC<MobileAppShellProps> = ({
           />
         </div>
 
-        {/* Global DJ Studio & Broadcast Modal */}
-        <DjListsModal
-          isOpen={isDjListsOpen}
-          onClose={() => setIsDjListsOpen(false)}
-        />
+        {/* Global DJ Deck & Radio Stations Modal */}
+        <DjDeckModal />
+
+        {/* Global Persistent Floating DJ Mini Player */}
+        <DjMiniPlayer />
 
         {/* Global User Settings Modal */}
         <SettingsModal

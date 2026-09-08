@@ -42,6 +42,8 @@ class PodChatMessageDto {
   final String displayName;
   final String? avatarUrl;
   final String content;
+  final String? audioUrl;
+  final int? durationSeconds;
   final DateTime createdAtUtc;
 
   const PodChatMessageDto({
@@ -52,6 +54,8 @@ class PodChatMessageDto {
     required this.displayName,
     this.avatarUrl,
     required this.content,
+    this.audioUrl,
+    this.durationSeconds,
     required this.createdAtUtc,
   });
 
@@ -65,6 +69,8 @@ class PodChatMessageDto {
         (uName.isNotEmpty ? uName : 'Guest');
     final avUrl = json['avatarUrl'] as String? ?? json['senderAvatarUrl'] as String? ?? senderObj?['avatarUrl'] as String?;
     final txt = json['content'] as String? ?? json['text'] as String? ?? json['message'] as String? ?? '';
+    final audUrl = json['audioUrl'] as String? ?? json['audio_url'] as String?;
+    final durSec = (json['durationSeconds'] as num?)?.toInt() ?? (json['duration_seconds'] as num?)?.toInt();
 
     return PodChatMessageDto(
       id: json['id'] as String? ?? json['messageId'] as String? ?? 'msg_${DateTime.now().millisecondsSinceEpoch}',
@@ -74,11 +80,26 @@ class PodChatMessageDto {
       displayName: dName,
       avatarUrl: avUrl,
       content: txt,
+      audioUrl: audUrl,
+      durationSeconds: durSec,
       createdAtUtc: json['createdAtUtc'] != null
           ? DateTime.parse(json['createdAtUtc'] as String)
           : DateTime.now().toUtc(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'podId': podId,
+        'userId': userId,
+        'username': username,
+        'displayName': displayName,
+        'avatarUrl': avatarUrl,
+        'content': content,
+        'audioUrl': audioUrl,
+        'durationSeconds': durationSeconds,
+        'createdAtUtc': createdAtUtc.toIso8601String(),
+      };
 }
 
 class MoodPodDto {

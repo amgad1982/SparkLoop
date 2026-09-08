@@ -194,9 +194,8 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
     <motion.div
       layout
       transition={{ duration: 0.25, ease: 'easeInOut' }}
-      className={`rounded-3xl bg-white/85 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800/80 backdrop-blur-xl shadow-lg transition-colors overflow-hidden ${
-        !hasSpeakers || isCollapsed ? 'p-2.5 sm:p-3 space-y-0' : 'p-3 sm:p-3.5 space-y-2.5'
-      }`}
+      className={`rounded-3xl bg-white/85 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800/80 backdrop-blur-xl shadow-lg transition-colors overflow-hidden ${!hasSpeakers || isCollapsed ? 'p-2.5 sm:p-3 space-y-0' : 'p-3 sm:p-3.5 space-y-2.5'
+        }`}
     >
       {/* 1. Header Row */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -212,11 +211,10 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
 
           {/* Mode Indicator Badge */}
           <span
-            className={`px-2 py-0.5 rounded-md text-[9px] font-bold border hidden sm:inline-block ${
-              allowOpenMic
+            className={`px-2 py-0.5 rounded-md text-[9px] font-bold border hidden sm:inline-block ${allowOpenMic
                 ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20'
                 : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'
-            }`}
+              }`}
           >
             {allowOpenMic
               ? isArabic ? '🎙️ المايك مفتوح' : '🎙️ Open Mic'
@@ -229,11 +227,10 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
               {speakers.slice(0, 5).map((sp) => (
                 <img
                   key={sp.userId}
-                  src={sp.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${sp.username}`}
+                  src={sp.avatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${sp.username}`}
                   alt={sp.username}
-                  className={`w-5 h-5 rounded-full border-2 border-white dark:border-zinc-950 object-cover ${
-                    sp.isSpeaking ? 'ring-2 ring-emerald-500 scale-105' : ''
-                  }`}
+                  className={`w-5 h-5 rounded-full border-2 border-white dark:border-zinc-950 object-cover ${sp.isSpeaking ? 'ring-2 ring-emerald-500 scale-105' : ''
+                    }`}
                   title={`${sp.displayName || sp.username} ${sp.isSpeaking ? '🎙️ Speaking' : ''}`}
                 />
               ))}
@@ -284,8 +281,8 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
                     ? 'توسيع مسرح المتحدثين'
                     : 'Expand speaker stage'
                   : isArabic
-                  ? 'طي مسرح المتحدثين'
-                  : 'Minimize stage view'
+                    ? 'طي مسرح المتحدثين'
+                    : 'Minimize stage view'
               }
               position="bottom"
             >
@@ -314,19 +311,18 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
                       ? 'يدك مرفوعة (إلغاء الطلب)'
                       : 'Hand raised (Cancel request)'
                     : isArabic
-                    ? 'رفع اليد لطلب التحدث ✋'
-                    : 'Raise hand to speak ✋'
+                      ? 'رفع اليد لطلب التحدث ✋'
+                      : 'Raise hand to speak ✋'
                 }
                 position="bottom"
               >
                 <button
                   type="button"
                   onClick={onToggleHandRaise}
-                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
-                    isHandRaised
+                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${isHandRaised
                       ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40 shadow-md animate-pulse'
                       : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-800 hover:text-amber-600 dark:hover:text-amber-400'
-                  }`}
+                    }`}
                 >
                   <Hand className="w-3.5 h-3.5 text-amber-500" />
                   <span className="text-[11px]">
@@ -358,11 +354,10 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
                 <button
                   type="button"
                   onClick={onToggleMute}
-                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${
-                    isMuted
+                  className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer ${isMuted
                       ? 'bg-rose-500/10 dark:bg-rose-500/20 border-rose-400 dark:border-rose-500/40 text-rose-600 dark:text-rose-400'
                       : 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-400 dark:border-emerald-500/40 text-emerald-600 dark:text-emerald-400 animate-pulse'
-                  }`}
+                    }`}
                 >
                   {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
                   <span>{isMuted ? (isArabic ? 'صامت' : 'Muted') : (isArabic ? 'مباشر' : 'Live')}</span>
@@ -484,20 +479,19 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
                       )}
 
                       <div
-                        className={`${sizeConfig.avatarClass} p-0.5 transition-all duration-150 ${
-                          speaker.isSpeaking
+                        className={`${sizeConfig.avatarClass} p-0.5 transition-all duration-150 ${speaker.isSpeaking
                             ? 'ring-2 ring-emerald-400 bg-gradient-to-tr from-emerald-500 via-teal-400 to-cyan-400 shadow-xl shadow-emerald-500/40 scale-105'
                             : speaker.isMuted
-                            ? 'ring-1 ring-zinc-300 dark:ring-zinc-800 bg-zinc-100 dark:bg-zinc-900 opacity-60'
-                            : 'ring-1 ring-zinc-300 dark:ring-zinc-700 bg-zinc-100 dark:bg-zinc-800'
-                        }`}
+                              ? 'ring-1 ring-zinc-300 dark:ring-zinc-800 bg-zinc-100 dark:bg-zinc-900 opacity-60'
+                              : 'ring-1 ring-zinc-300 dark:ring-zinc-700 bg-zinc-100 dark:bg-zinc-800'
+                          }`}
                       >
                         <img
                           src={
                             speaker.avatarUrl ||
                             (speaker.username && speaker.username.toLowerCase() === hostUsername.toLowerCase() && hostAvatarUrl
                               ? hostAvatarUrl
-                              : `https://api.dicebear.com/7.x/bottts/svg?seed=${speaker.username}`)
+                              : `https://api.dicebear.com/10.x/bottts/svg?seed=${speaker.username}`)
                           }
                           alt={speaker.username}
                           className={`w-full h-full ${sizeConfig.innerRadius} object-cover bg-white dark:bg-zinc-950`}
@@ -506,13 +500,12 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
 
                       {/* Mic Status Pill */}
                       <div
-                        className={`absolute ${sizeConfig.micBadge} rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-950 shadow-md ${
-                          speaker.isMuted
+                        className={`absolute ${sizeConfig.micBadge} rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-950 shadow-md ${speaker.isMuted
                             ? 'bg-rose-600 text-white'
                             : speaker.isSpeaking
-                            ? 'bg-emerald-500 text-zinc-950 animate-pulse'
-                            : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
-                        }`}
+                              ? 'bg-emerald-500 text-zinc-950 animate-pulse'
+                              : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300'
+                          }`}
                       >
                         {speaker.isMuted ? (
                           <MicOff className={sizeConfig.micIcon} />

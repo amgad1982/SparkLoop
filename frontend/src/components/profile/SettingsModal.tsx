@@ -15,6 +15,8 @@ import {
   Check,
   Loader2,
   Sparkles,
+  ShieldAlert,
+  FileCheck2,
 } from 'lucide-react';
 import { useThemeStore } from '../../stores/useThemeStore';
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -34,7 +36,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeTab, setActiveTab] = useState<'general' | 'privacy' | 'notifications' | 'audio'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'privacy' | 'notifications' | 'audio' | 'copyright'>('general');
 
   const [settings, setSettings] = useState<UserSettingsDto>({
     preferredTheme: theme,
@@ -209,6 +211,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             >
               <Volume2 className="w-3.5 h-3.5" />
               <span>{isArabic ? 'الصوتيات' : 'Audio'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('copyright')}
+              className={`flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                activeTab === 'copyright'
+                  ? 'bg-white dark:bg-zinc-900 text-amber-500 dark:text-amber-400 shadow-sm'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>{isArabic ? 'حقوق الموسيقى' : 'Music Policy'}</span>
             </button>
           </div>
 
@@ -518,6 +533,60 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
                         }
                         className="w-full accent-fuchsia-600 cursor-pointer"
                       />
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. Music Copyright Policy Tab */}
+                {activeTab === 'copyright' && (
+                  <div className="space-y-3.5 text-xs text-zinc-600 dark:text-zinc-300">
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-start gap-3">
+                      <ShieldAlert className="w-5 h-5 text-amber-500 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-zinc-900 dark:text-white text-xs mb-1">
+                          {isArabic ? 'سياسة حقوق الملكية الفكرية للموسيقى (DMCA)' : 'SparkLoop Music Copyright & DMCA Policy'}
+                        </h4>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                          {isArabic
+                            ? 'المستخدم وحده هو المالك والمتحمل لكامل المسؤولية القانونية والجنائية عن المقاطع المرفوعة إلى خوادمنا. تطبيق SparkLoop وسيط تقني معفى من المسؤولية وفق قوانين الملاذ الآمن.'
+                            : 'Users bear 100% full civil and criminal liability for audio recordings hosted on SparkLoop servers. SparkLoop operates strictly as an exempt intermediary technical hosting provider under safe harbor provisions.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                        <p className="font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
+                          {isArabic ? '١. إقرار الملكية الصريح' : '1. Explicit Ownership Warranty'}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {isArabic
+                            ? 'يتعهد المستخدم بأنه صاحب الحقوق الحصرية أو مرخص له قانونياً بنشر وتوزيع المحتوى الصوتي.'
+                            : 'The user represents and warrants that they are the copyright owner or authorized licensee.'}
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                        <p className="font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
+                          {isArabic ? '٢. الإعفاء والتعويض القانوني' : '2. Complete Indemnification'}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {isArabic
+                            ? 'يلتزم المستخدم بتعويض المنصة عن أي مطالبات أو أضرار تنشأ عن انتهاك حقوق الملكية الفكرية.'
+                            : 'The user agrees to fully indemnify and hold harmless SparkLoop against any third-party claims or damages.'}
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/40 border border-zinc-200 dark:border-zinc-800">
+                        <p className="font-bold text-zinc-800 dark:text-zinc-200 mb-0.5">
+                          {isArabic ? '٣. إجراءات الإخطار والإزالة (DMCA Notice)' : '3. DMCA Takedown Contact'}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                          {isArabic
+                            ? 'لإرسال إخطار بانتهاك حقوق النشر، يرجى مراسلة الوكيل المعتمد عبر: dmca@sparkloop.io'
+                            : 'To submit a copyright infringement notice, please contact our designated agent at: dmca@sparkloop.io'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 )}

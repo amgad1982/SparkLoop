@@ -53,13 +53,21 @@ export interface StickerLayer {
 const TEMPLATE_CATEGORIES = [
   {
     id: 'viral',
-    name: 'Viral Memes',
+    name: 'Classic Viral Memes',
     nameAr: 'ميمز مشهورة',
     templates: [
-      { id: 'v1', name: 'Cyber Cat', url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80' },
-      { id: 'v2', name: 'Shocked Doge', url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?w=600&auto=format&fit=crop&q=80' },
-      { id: 'v3', name: 'Neon City Night', url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=600&auto=format&fit=crop&q=80' },
-      { id: 'v4', name: 'Space Explorer', url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80' },
+      { id: 'v_drake', name: 'Drake Hotline Bling', url: 'https://api.memegen.link/images/drake.png' },
+      { id: 'v_db', name: 'Distracted Boyfriend', url: 'https://api.memegen.link/images/db.png' },
+      { id: 'v_buttons', name: 'Two Buttons', url: 'https://api.memegen.link/images/two-buttons.png' },
+      { id: 'v_cmm', name: 'Change My Mind', url: 'https://api.memegen.link/images/cmm.png' },
+      { id: 'v_brain', name: 'Expanding Brain', url: 'https://api.memegen.link/images/brain.png' },
+      { id: 'v_cat', name: 'Woman Yelling At Cat', url: 'https://api.memegen.link/images/woman-cat.png' },
+      { id: 'v_doge', name: 'Doge', url: 'https://api.memegen.link/images/doge.png' },
+      { id: 'v_fine', name: 'This Is Fine', url: 'https://api.memegen.link/images/fine.png' },
+      { id: 'v_pooh', name: 'Tuxedo Winnie', url: 'https://api.memegen.link/images/pooh.png' },
+      { id: 'v_fry', name: 'Futurama Fry', url: 'https://api.memegen.link/images/fry.png' },
+      { id: 'v_gru', name: 'Gru Plan', url: 'https://api.memegen.link/images/gru.png' },
+      { id: 'v_rollsafe', name: 'Roll Safe Think', url: 'https://api.memegen.link/images/rollsafe.png' },
     ],
   },
   {
@@ -70,6 +78,7 @@ const TEMPLATE_CATEGORIES = [
       { id: 'c1', name: 'Matrix Rain', url: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80' },
       { id: 'c2', name: 'Cyberpunk Glitch', url: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&auto=format&fit=crop&q=80' },
       { id: 'c3', name: 'Retro Grid Synth', url: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=600&auto=format&fit=crop&q=80' },
+      { id: 'c4', name: 'Cyber Cat', url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80' },
     ],
   },
   {
@@ -79,6 +88,8 @@ const TEMPLATE_CATEGORIES = [
     templates: [
       { id: 'a1', name: 'Deep Cosmos', url: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?w=600&auto=format&fit=crop&q=80' },
       { id: 'a2', name: 'Sunset Waves', url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80' },
+      { id: 'a3', name: 'Neon City Night', url: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=600&auto=format&fit=crop&q=80' },
+      { id: 'a4', name: 'Space Explorer', url: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600&auto=format&fit=crop&q=80' },
     ],
   },
 ];

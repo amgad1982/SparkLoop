@@ -57,8 +57,8 @@ export const FollowListModal: React.FC<FollowListModalProps> = ({
         ? `متابعو @${username}`
         : `@${username}'s Followers`
       : isArabic
-      ? `الحسابات التي يتابعها @${username}`
-      : `Following by @${username}`;
+        ? `الحسابات التي يتابعها @${username}`
+        : `Following by @${username}`;
 
   return createPortal(
     <AnimatePresence>
@@ -112,8 +112,8 @@ export const FollowListModal: React.FC<FollowListModalProps> = ({
                       ? 'لا يوجد متابعون حتى الآن.'
                       : 'No followers yet.'
                     : isArabic
-                    ? 'لا يتابع أي مستخدم بعد.'
-                    : 'Not following anyone yet.'}
+                      ? 'لا يتابع أي مستخدم بعد.'
+                      : 'Not following anyone yet.'}
                 </p>
               </div>
             ) : (
@@ -136,7 +136,7 @@ export const FollowListModal: React.FC<FollowListModalProps> = ({
                       className="flex items-center gap-3 cursor-pointer min-w-0"
                     >
                       <img
-                        src={getMediaUrl(targetAvatar) || `https://api.dicebear.com/7.x/bottts/svg?seed=${targetUname}`}
+                        src={getMediaUrl(targetAvatar) || `https://api.dicebear.com/10.x/bottts/svg?seed=${targetUname}`}
                         alt={targetUname}
                         className="w-10 h-10 rounded-2xl bg-slate-200 dark:bg-slate-800 object-cover shrink-0"
                       />

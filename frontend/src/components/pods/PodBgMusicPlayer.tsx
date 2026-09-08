@@ -132,11 +132,10 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
       <button
         type="button"
         onClick={() => setIsShareModalOpen(true)}
-        className={`px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 ${
-          bgMusic.isActive
+        className={`px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer shrink-0 ${bgMusic.isActive
             ? 'border-fuchsia-500 bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-300 shadow-fuchsia-500/20'
             : 'border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
-        }`}
+          }`}
         title={
           bgMusic.isActive
             ? isArabic ? 'إعدادات البث الصوتي المباشر' : 'DJ Audio Settings'
@@ -144,9 +143,8 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
         }
       >
         <Disc3
-          className={`w-3.5 h-3.5 text-fuchsia-500 dark:text-fuchsia-400 ${
-            bgMusic.isActive && bgMusic.isPlaying ? 'animate-spin' : ''
-          }`}
+          className={`w-3.5 h-3.5 text-fuchsia-500 dark:text-fuchsia-400 ${bgMusic.isActive && bgMusic.isPlaying ? 'animate-spin' : ''
+            }`}
         />
         <span className="hidden sm:inline">
           {bgMusic.isActive
@@ -215,7 +213,7 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 min-w-0">
                           <img
-                            src={bgMusic.djAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${bgMusic.djUsername}`}
+                            src={bgMusic.djAvatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${bgMusic.djUsername}`}
                             alt={bgMusic.djUsername || 'DJ'}
                             className="w-7 h-7 rounded-full border border-fuchsia-400 shrink-0 object-cover"
                           />
@@ -299,7 +297,7 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2.5 min-w-0">
                           <img
-                            src={bgMusic.djAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${bgMusic.djUsername}`}
+                            src={bgMusic.djAvatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${bgMusic.djUsername}`}
                             alt={bgMusic.djUsername || 'DJ'}
                             className="w-8 h-8 rounded-full border border-amber-400 shrink-0 object-cover"
                           />
@@ -338,11 +336,10 @@ export const PodBgMusicPlayer: React.FC<PodBgMusicPlayerProps> = ({
                           type="button"
                           disabled={isRequestingTakeover}
                           onClick={() => onRequestDjTakeover?.()}
-                          className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer ${
-                            isRequestingTakeover
+                          className={`w-full py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md transition-all cursor-pointer ${isRequestingTakeover
                               ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 cursor-not-allowed'
                               : 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white active:scale-95'
-                          }`}
+                            }`}
                         >
                           <Radio className="w-3.5 h-3.5" />
                           <span>
@@ -495,7 +492,7 @@ export const PodBgMusicActiveBar: React.FC<PodBgMusicActiveBarProps> = ({
 
         {/* DJ Avatar */}
         <img
-          src={bgMusic.djAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${bgMusic.djUsername}`}
+          src={bgMusic.djAvatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${bgMusic.djUsername}`}
           alt={bgMusic.djUsername || 'DJ'}
           className="w-6 h-6 rounded-full border border-fuchsia-400 dark:border-fuchsia-500/50 shrink-0 object-cover"
         />

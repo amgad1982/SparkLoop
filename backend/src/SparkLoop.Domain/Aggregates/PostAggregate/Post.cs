@@ -71,6 +71,7 @@ public class Reaction : Entity<Guid>
 public class Post : AggregateRoot<Guid>
 {
     private readonly List<Reaction> _reactions = [];
+    private readonly List<PostComment> _comments = [];
 
     public Guid AuthorId { get; private set; }
     public string AuthorUsername { get; private set; } = string.Empty;
@@ -79,8 +80,10 @@ public class Post : AggregateRoot<Guid>
     public PostText Content { get; private set; } = null!;
     public MediaAttachment? Media { get; private set; }
     public int ReactionCount { get; private set; }
+    public int CommentCount { get; private set; }
     public DateTime CreatedAtUtc { get; private set; }
     public IReadOnlyCollection<Reaction> Reactions => _reactions.AsReadOnly();
+    public IReadOnlyCollection<PostComment> Comments => _comments.AsReadOnly();
 
     private Post() : base() { }
 
@@ -105,6 +108,7 @@ public class Post : AggregateRoot<Guid>
             Content = postText,
             Media = media,
             ReactionCount = 0,
+            CommentCount = 0,
             CreatedAtUtc = DateTime.UtcNow
         };
 
@@ -162,5 +166,40 @@ public class Post : AggregateRoot<Guid>
     public void AddReaction(Guid userId, string username, string reactionType)
     {
         ToggleOrAddReaction(userId, username, reactionType, out _, out _);
+    }
+
+    public PostComment AddComment(Guid authorId, string authorUsername, string authorDisplayName, string? authorAvatarUrl, string content)
+    {
+        var comment = new PostComment(
+            Guid.NewGuid(),
+            Id,
+            authorId,
+            authorUsername,
+            authorDisplayName,
+            authorAvatarUrl,
+            content);
+
+        _comments.Add(comment);
+        CommentCount = _comments.Count;
+        return comment;
+    }
+
+    public PostComment RemoveComment(Guid commentId, Guid requestingUserId)
+    {
+        var comment = _comments.FirstOrDefault(c => c.Id == commentId)
+            ?? throw new DomainRuleException("Comment not found.", "COMMENT_NOT_FOUND");
+
+        // Allowed if caller is either the comment author OR the post owner
+        if (comment.AuthorId != requestingUserId && AuthorId != requestingUserId)
+            throw new DomainRuleException("You do not have permission to delete this comment.", "UNAUTHORIZED_COMMENT_DELETION");
+
+        _comments.Remove(comment);
+        CommentCount = Math.Max(0, _comments.Count);
+        return comment;
+    }
+
+    public void SyncCommentCount(int count)
+    {
+        CommentCount = Math.Max(0, count);
     }
 }

@@ -35,7 +35,7 @@ const DEFAULT_CREATORS: UserDto[] = [
     username: 'alice',
     email: 'alice@sparkloop.app',
     displayName: 'Alice Wonder 🎨',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=alice',
+    avatarUrl: 'https://api.dicebear.com/10.x/bottts/svg?seed=alice',
     repScore: 360,
     badges: [],
     createdAtUtc: new Date().toISOString(),
@@ -45,7 +45,7 @@ const DEFAULT_CREATORS: UserDto[] = [
     username: 'noor',
     email: 'noor@sparkloop.app',
     displayName: 'نور العرّاف 🌟',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=noor',
+    avatarUrl: 'https://api.dicebear.com/10.x/bottts/svg?seed=noor',
     repScore: 345,
     badges: [],
     createdAtUtc: new Date().toISOString(),
@@ -55,7 +55,7 @@ const DEFAULT_CREATORS: UserDto[] = [
     username: 'tariq',
     email: 'tariq@sparkloop.app',
     displayName: 'طارق صانع الميمز ⚡',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=tariq',
+    avatarUrl: 'https://api.dicebear.com/10.x/bottts/svg?seed=tariq',
     repScore: 310,
     badges: [],
     createdAtUtc: new Date().toISOString(),
@@ -65,7 +65,7 @@ const DEFAULT_CREATORS: UserDto[] = [
     username: 'bob',
     email: 'bob@sparkloop.app',
     displayName: 'Bob The Bard 🎸',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/svg?seed=bob',
+    avatarUrl: 'https://api.dicebear.com/10.x/bottts/svg?seed=bob',
     repScore: 230,
     badges: [],
     createdAtUtc: new Date().toISOString(),
@@ -232,7 +232,7 @@ export const RightWidgetPanel: React.FC<RightWidgetPanelProps> = ({
                   <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <span className="text-sm font-bold shrink-0 w-5 text-center">{medals[idx] || '✨'}</span>
                     <img
-                      src={user.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${user.username}`}
+                      src={user.avatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${user.username}`}
                       alt={user.username}
                       className="w-7 h-7 rounded-xl bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 object-cover shrink-0"
                     />

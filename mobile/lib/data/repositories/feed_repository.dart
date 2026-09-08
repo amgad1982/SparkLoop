@@ -31,4 +31,13 @@ class FeedRepository {
       _apiService.reactToPost(postId, reactionType);
 
   Future<String> uploadImage(File file) => _apiService.uploadMedia(file);
+
+  Future<List<PostCommentDto>> getComments(String postId) =>
+      _apiService.getPostComments(postId);
+
+  Future<PostCommentDto> addComment(String postId, String content) =>
+      _apiService.addPostComment(postId, content);
+
+  Future<bool> deleteComment(String postId, String commentId) =>
+      _apiService.deletePostComment(postId, commentId);
 }

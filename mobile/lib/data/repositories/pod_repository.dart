@@ -111,8 +111,18 @@ class PodRepository {
         followersOnly: followersOnly,
       );
 
-  Future<PodChatMessageDto> sendMessage(String podId, String content) =>
-      _apiService.sendPodChatMessage(podId, content);
+  Future<PodChatMessageDto> sendMessage(
+    String podId,
+    String content, {
+    String? audioUrl,
+    int? durationSeconds,
+  }) =>
+      _apiService.sendPodChatMessage(
+        podId,
+        content,
+        audioUrl: audioUrl,
+        durationSeconds: durationSeconds,
+      );
 
   Future<bool> sendReaction(String podId, String emoji, {int intensity = 1}) =>
       _apiService.sendPodReaction(podId, emoji, intensity: intensity);

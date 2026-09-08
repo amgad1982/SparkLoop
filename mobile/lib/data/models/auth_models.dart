@@ -117,16 +117,16 @@ class UserSettingsDto {
   }
 
   Map<String, dynamic> toJson() => {
-        'preferredTheme': preferredTheme,
-        'preferredLanguage': preferredLanguage,
-        'notifyStageInvites': notifyStageInvites,
-        'notifyChainTurns': notifyChainTurns,
-        'notifyFollows': notifyFollows,
-        'hapticFeedback': hapticFeedback,
-        'voiceRoomVolume': voiceRoomVolume,
-        'bgMusicVolume': bgMusicVolume,
-        'joinMicMuted': joinMicMuted,
-      };
+    'preferredTheme': preferredTheme,
+    'preferredLanguage': preferredLanguage,
+    'notifyStageInvites': notifyStageInvites,
+    'notifyChainTurns': notifyChainTurns,
+    'notifyFollows': notifyFollows,
+    'hapticFeedback': hapticFeedback,
+    'voiceRoomVolume': voiceRoomVolume,
+    'bgMusicVolume': bgMusicVolume,
+    'joinMicMuted': joinMicMuted,
+  };
 
   UserSettingsDto copyWith({
     String? preferredTheme,
@@ -221,13 +221,17 @@ class UserDto {
       id: json['id'] as String? ?? '',
       email: json['email'] as String? ?? '',
       username: json['username'] as String? ?? '',
-      displayName: json['displayName'] as String? ?? (json['username'] as String? ?? ''),
+      displayName:
+          json['displayName'] as String? ?? (json['username'] as String? ?? ''),
       avatarUrl: json['avatarUrl'] as String?,
       bannerUrl: json['bannerUrl'] as String?,
       bio: json['bio'] as String?,
       role: json['role'] as String? ?? 'Creator',
-      isEmailVerified: (json['isEmailConfirmed'] ?? json['isEmailVerified']) as bool? ?? false,
-      isPrivateProfile: (json['isPrivate'] ?? json['isPrivateProfile']) as bool? ?? false,
+      isEmailVerified:
+          (json['isEmailConfirmed'] ?? json['isEmailVerified']) as bool? ??
+          false,
+      isPrivateProfile:
+          (json['isPrivate'] ?? json['isPrivateProfile']) as bool? ?? false,
       isSearchDiscoverable: json['isSearchDiscoverable'] as bool? ?? true,
       showBio: json['showBio'] as bool? ?? true,
       showFollowersCount: json['showFollowersCount'] as bool? ?? true,
@@ -245,7 +249,8 @@ class UserDto {
       followersCount: json['followersCount'] as int? ?? 0,
       followingCount: json['followingCount'] as int? ?? 0,
       repScore: json['repScore'] as int? ?? 0,
-      badges: (json['badges'] as List<dynamic>?)
+      badges:
+          (json['badges'] as List<dynamic>?)
               ?.map((e) => BadgeDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -320,35 +325,35 @@ class UserDto {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'email': email,
-        'username': username,
-        'displayName': displayName,
-        'avatarUrl': avatarUrl,
-        'bannerUrl': bannerUrl,
-        'bio': bio,
-        'role': role,
-        'isEmailVerified': isEmailVerified,
-        'isPrivateProfile': isPrivateProfile,
-        'isSearchDiscoverable': isSearchDiscoverable,
-        'showBio': showBio,
-        'showFollowersCount': showFollowersCount,
-        'showBadges': showBadges,
-        'showActivityStats': showActivityStats,
-        'preferredTheme': preferredTheme,
-        'preferredLanguage': preferredLanguage,
-        'notifyStageInvites': notifyStageInvites,
-        'notifyChainTurns': notifyChainTurns,
-        'notifyFollows': notifyFollows,
-        'hapticFeedback': hapticFeedback,
-        'voiceRoomVolume': voiceRoomVolume,
-        'bgMusicVolume': bgMusicVolume,
-        'joinMicMuted': joinMicMuted,
-        'followersCount': followersCount,
-        'followingCount': followingCount,
-        'repScore': repScore,
-        'createdAtUtc': createdAtUtc.toIso8601String(),
-      };
+    'id': id,
+    'email': email,
+    'username': username,
+    'displayName': displayName,
+    'avatarUrl': avatarUrl,
+    'bannerUrl': bannerUrl,
+    'bio': bio,
+    'role': role,
+    'isEmailVerified': isEmailVerified,
+    'isPrivateProfile': isPrivateProfile,
+    'isSearchDiscoverable': isSearchDiscoverable,
+    'showBio': showBio,
+    'showFollowersCount': showFollowersCount,
+    'showBadges': showBadges,
+    'showActivityStats': showActivityStats,
+    'preferredTheme': preferredTheme,
+    'preferredLanguage': preferredLanguage,
+    'notifyStageInvites': notifyStageInvites,
+    'notifyChainTurns': notifyChainTurns,
+    'notifyFollows': notifyFollows,
+    'hapticFeedback': hapticFeedback,
+    'voiceRoomVolume': voiceRoomVolume,
+    'bgMusicVolume': bgMusicVolume,
+    'joinMicMuted': joinMicMuted,
+    'followersCount': followersCount,
+    'followingCount': followingCount,
+    'repScore': repScore,
+    'createdAtUtc': createdAtUtc.toIso8601String(),
+  };
 }
 
 class UserProfileDto {
@@ -417,12 +422,14 @@ class UserProfileDto {
       id: json['id'] as String? ?? '',
       username: json['username'] as String? ?? '',
       email: json['email'] as String? ?? '',
-      displayName: json['displayName'] as String? ?? (json['username'] as String? ?? ''),
+      displayName:
+          json['displayName'] as String? ?? (json['username'] as String? ?? ''),
       avatarUrl: json['avatarUrl'] as String?,
       bannerUrl: json['bannerUrl'] as String?,
       bio: json['bio'] as String?,
       repScore: json['repScore'] as int? ?? 0,
-      badges: (json['badges'] as List<dynamic>?)
+      badges:
+          (json['badges'] as List<dynamic>?)
               ?.map((e) => BadgeDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -432,11 +439,13 @@ class UserProfileDto {
       postsCount: json['postsCount'] as int? ?? 0,
       totalReactionsReceived: json['totalReactionsReceived'] as int? ?? 0,
       chainsCount: json['chainsCount'] as int? ?? 0,
-      recentPosts: (json['recentPosts'] as List<dynamic>?)
+      recentPosts:
+          (json['recentPosts'] as List<dynamic>?)
               ?.map((e) => PostDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      recentChains: (json['recentChains'] as List<dynamic>?)
+      recentChains:
+          (json['recentChains'] as List<dynamic>?)
               ?.map((e) => ChainDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -445,8 +454,11 @@ class UserProfileDto {
       followersCount: json['followersCount'] as int? ?? 0,
       followingCount: json['followingCount'] as int? ?? 0,
       followStatus: json['followStatus'] as String? ?? 'none',
-      isEmailConfirmed: (json['isEmailConfirmed'] ?? json['isEmailVerified']) as bool? ?? false,
-      isPrivate: (json['isPrivate'] ?? json['isPrivateProfile']) as bool? ?? false,
+      isEmailConfirmed:
+          (json['isEmailConfirmed'] ?? json['isEmailVerified']) as bool? ??
+          false,
+      isPrivate:
+          (json['isPrivate'] ?? json['isPrivateProfile']) as bool? ?? false,
       canViewFullProfile: json['canViewFullProfile'] as bool? ?? true,
       isSearchDiscoverable: json['isSearchDiscoverable'] as bool? ?? true,
       showBio: json['showBio'] as bool? ?? true,
@@ -498,7 +510,8 @@ class UserProfileDto {
       badges: badges ?? this.badges,
       createdAtUtc: createdAtUtc ?? this.createdAtUtc,
       postsCount: postsCount ?? this.postsCount,
-      totalReactionsReceived: totalReactionsReceived ?? this.totalReactionsReceived,
+      totalReactionsReceived:
+          totalReactionsReceived ?? this.totalReactionsReceived,
       chainsCount: chainsCount ?? this.chainsCount,
       recentPosts: recentPosts ?? this.recentPosts,
       recentChains: recentChains ?? this.recentChains,
@@ -523,7 +536,9 @@ class UserProfileDto {
       id: user.id,
       username: user.username,
       email: user.email,
-      displayName: user.displayName.isNotEmpty ? user.displayName : user.username,
+      displayName: user.displayName.isNotEmpty
+          ? user.displayName
+          : user.username,
       avatarUrl: user.avatarUrl,
       bannerUrl: user.bannerUrl ?? 'gradient:cosmic-indigo',
       bio: user.bio ?? '',
@@ -623,7 +638,7 @@ class Persona {
     id: '00000000-0000-0000-0000-000000000000',
     username: 'guest',
     displayName: 'Guest Explorer 👤',
-    avatarUrl: 'https://api.dicebear.com/7.x/bottts/png?seed=guest',
+    avatarUrl: 'https://api.dicebear.com/10.x/bottts/png?seed=guest',
     role: 'Guest Visitor',
     isCustom: false,
   );
@@ -632,10 +647,12 @@ class Persona {
     return Persona(
       id: user.id,
       username: user.username,
-      displayName: user.displayName.isNotEmpty ? user.displayName : user.username,
+      displayName: user.displayName.isNotEmpty
+          ? user.displayName
+          : user.username,
       avatarUrl: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
           ? user.avatarUrl!
-          : 'https://api.dicebear.com/7.x/bottts/png?seed=${user.username}',
+          : 'https://api.dicebear.com/10.x/bottts/png?seed=${user.username}',
       role: user.bio ?? 'SparkLoop Creator',
       isCustom: true,
     );

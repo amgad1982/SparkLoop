@@ -536,7 +536,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
     const styles = ['bottts', 'adventurer', 'fun-emoji', 'micah', 'thumbs'];
     const randomStyle = styles[Math.floor(Math.random() * styles.length)];
     const randomSeed = Math.random().toString(36).substring(2, 9);
-    const newAvatar = `https://api.dicebear.com/7.x/${randomStyle}/svg?seed=${randomSeed}`;
+    const newAvatar = `https://api.dicebear.com/10.x/${randomStyle}/svg?seed=${randomSeed}`;
     setEditAvatarUrl(newAvatar);
   };
 
@@ -567,15 +567,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
       setProfile((prev) =>
         prev
           ? {
-              ...prev,
-              displayName: updated.displayName,
-              bio: updated.bio || '',
-              avatarUrl: updated.avatarUrl || editAvatarUrl,
-              bannerUrl: updated.bannerUrl !== undefined ? updated.bannerUrl : editBannerUrl,
-              email: updated.email || editEmail,
-              preferredTheme: updated.preferredTheme || editPreferredTheme,
-              preferredLanguage: updated.preferredLanguage || editPreferredLanguage,
-            }
+            ...prev,
+            displayName: updated.displayName,
+            bio: updated.bio || '',
+            avatarUrl: updated.avatarUrl || editAvatarUrl,
+            bannerUrl: updated.bannerUrl !== undefined ? updated.bannerUrl : editBannerUrl,
+            email: updated.email || editEmail,
+            preferredTheme: updated.preferredTheme || editPreferredTheme,
+            preferredLanguage: updated.preferredLanguage || editPreferredLanguage,
+          }
           : null
       );
 
@@ -624,14 +624,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
       setProfile((prev) =>
         prev
           ? {
-              ...prev,
-              isPrivate: updatedUser.isPrivateProfile,
-              isSearchDiscoverable: updatedUser.isSearchDiscoverable,
-              showBio: updatedUser.showBio,
-              showFollowersCount: updatedUser.showFollowersCount,
-              showBadges: updatedUser.showBadges,
-              showActivityStats: updatedUser.showActivityStats,
-            }
+            ...prev,
+            isPrivate: updatedUser.isPrivateProfile,
+            isSearchDiscoverable: updatedUser.isSearchDiscoverable,
+            showBio: updatedUser.showBio,
+            showFollowersCount: updatedUser.showFollowersCount,
+            showBadges: updatedUser.showBadges,
+            showActivityStats: updatedUser.showActivityStats,
+          }
           : null
       );
 
@@ -816,7 +816,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
             {/* Large Avatar with Online / Creator Status */}
             <div className="relative group">
               <img
-                src={getMediaUrl(profile.avatarUrl) || `https://api.dicebear.com/7.x/bottts/svg?seed=${profile.username}`}
+                src={getMediaUrl(profile.avatarUrl) || `https://api.dicebear.com/10.x/bottts/svg?seed=${profile.username}`}
                 alt={profile.username}
                 className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-slate-100 dark:bg-slate-900 border-4 border-white dark:border-[#131b28] object-cover shadow-sm transition-colors"
               />
@@ -844,11 +844,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 <Tooltip content={isArabic ? 'عرض الأوسمة والمشاركات' : 'View your badges and creations'} position="top">
                   <button
                     onClick={() => setActiveTab('portfolio')}
-                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${
-                      activeTab === 'portfolio'
+                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${activeTab === 'portfolio'
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                         : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
+                      }`}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>{isArabic ? 'الأعمال والأوسمة' : 'Portfolio'}</span>
@@ -873,11 +872,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 <Tooltip content={isArabic ? 'تعديل البيانات والمظهر واللغة' : 'Edit profile info, theme & language'} position="top">
                   <button
                     onClick={() => setActiveTab('edit')}
-                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${
-                      activeTab === 'edit'
+                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${activeTab === 'edit'
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                         : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
+                      }`}
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>{isArabic ? 'تعديل البيانات' : 'Edit Profile'}</span>
@@ -887,11 +885,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 <Tooltip content={isArabic ? 'الخصوصية والظهور في البحث ومشاركة الحساب' : 'Privacy, discoverability & visibility'} position="top">
                   <button
                     onClick={() => setActiveTab('privacy')}
-                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${
-                      activeTab === 'privacy'
+                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${activeTab === 'privacy'
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                         : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
+                      }`}
                   >
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
                     <span>{isArabic ? 'الخصوصية والظهور' : 'Privacy'}</span>
@@ -901,11 +898,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 <Tooltip content={isArabic ? 'تغيير كلمة المرور وإعدادات الأمان' : 'Change password & security'} position="top">
                   <button
                     onClick={() => setActiveTab('security')}
-                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${
-                      activeTab === 'security'
+                    className={`h-9 px-3.5 rounded-xl text-xs font-semibold transition-colors flex items-center gap-1.5 border ${activeTab === 'security'
                         ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                         : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
-                    }`}
+                      }`}
                   >
                     <Key className="w-3.5 h-3.5" />
                     <span>{isArabic ? 'الأمان وكلمة المرور' : 'Security'}</span>
@@ -945,13 +941,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                     setProfile((prev) =>
                       prev
                         ? {
-                            ...prev,
-                            followStatus: newStatus,
-                            followersCount:
-                              newStatus === 'following' || newStatus === 'mutual'
-                                ? (prev.followersCount || 0) + 1
-                                : Math.max(0, (prev.followersCount || 0) - 1),
-                          }
+                          ...prev,
+                          followStatus: newStatus,
+                          followersCount:
+                            newStatus === 'following' || newStatus === 'mutual'
+                              ? (prev.followersCount || 0) + 1
+                              : Math.max(0, (prev.followersCount || 0) - 1),
+                        }
                         : null
                     );
                   }}
@@ -1086,15 +1082,15 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 setProfile((prev) =>
                   prev
                     ? {
-                        ...prev,
-                        followStatus: newStatus,
-                        followersCount:
-                          newStatus === 'following' || newStatus === 'mutual'
-                            ? (prev.followersCount || 0) + 1
-                            : newStatus === 'none'
+                      ...prev,
+                      followStatus: newStatus,
+                      followersCount:
+                        newStatus === 'following' || newStatus === 'mutual'
+                          ? (prev.followersCount || 0) + 1
+                          : newStatus === 'none'
                             ? Math.max(0, (prev.followersCount || 0) - 1)
                             : prev.followersCount,
-                      }
+                    }
                     : null
                 );
               }}
@@ -1161,22 +1157,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
             <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
               <button
                 onClick={() => setPortfolioSubTab('posts')}
-                className={`h-8 px-3.5 rounded-xl text-xs font-semibold transition-colors border ${
-                  portfolioSubTab === 'posts'
+                className={`h-8 px-3.5 rounded-xl text-xs font-semibold transition-colors border ${portfolioSubTab === 'posts'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                     : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                  }`}
               >
                 {isArabic ? 'المشاركات' : 'Posts & Memes'} ({profile.recentPosts.length})
               </button>
 
               <button
                 onClick={() => setPortfolioSubTab('chains')}
-                className={`h-8 px-3.5 rounded-xl text-xs font-semibold transition-colors border ${
-                  portfolioSubTab === 'chains'
+                className={`h-8 px-3.5 rounded-xl text-xs font-semibold transition-colors border ${portfolioSubTab === 'chains'
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                     : 'border-transparent text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+                  }`}
               >
                 {isArabic ? 'سلاسل القصص' : 'Story Chains'} ({profile.recentChains.length})
               </button>
@@ -1405,11 +1399,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                     key={preset.id}
                     type="button"
                     onClick={() => setEditBannerUrl(preset.id)}
-                    className={`p-2 rounded-xl border text-left rtl:text-right transition-all flex items-center gap-2 ${
-                      isSelected
+                    className={`p-2 rounded-xl border text-left rtl:text-right transition-all flex items-center gap-2 ${isSelected
                         ? 'border-indigo-600 ring-2 ring-indigo-500/50 bg-indigo-50/50 dark:bg-indigo-950/30 font-bold'
                         : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-white dark:bg-slate-950/60'
-                    }`}
+                      }`}
                   >
                     <div className={`w-5 h-5 rounded-lg bg-gradient-to-r ${preset.previewClass} border border-white/20 shrink-0`} />
                     <span className="text-[11px] text-slate-800 dark:text-slate-200 truncate">
@@ -1442,11 +1435,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                       <button
                         type="button"
                         onClick={() => setEditPreferredTheme('dark')}
-                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-colors ${
-                          editPreferredTheme === 'dark'
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-colors ${editPreferredTheme === 'dark'
                             ? 'bg-[#131b28] text-white border-indigo-500 shadow-sm ring-1 ring-indigo-500/50'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <Moon className="w-3.5 h-3.5 text-indigo-400" />
                         <span>{isArabic ? 'داكن 🌙' : 'Dark 🌙'}</span>
@@ -1457,11 +1449,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                       <button
                         type="button"
                         onClick={() => setEditPreferredTheme('light')}
-                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-colors ${
-                          editPreferredTheme === 'light'
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-colors ${editPreferredTheme === 'light'
                             ? 'bg-white text-slate-900 border-amber-500 shadow-sm ring-1 ring-amber-500/50 font-bold'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <Sun className="w-3.5 h-3.5 text-amber-500" />
                         <span>{isArabic ? 'فاتح ☀️' : 'Light ☀️'}</span>
@@ -1480,11 +1471,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                       <button
                         type="button"
                         onClick={() => setEditPreferredLanguage('en')}
-                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-colors ${
-                          editPreferredLanguage === 'en'
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-colors ${editPreferredLanguage === 'en'
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <Globe className="w-3.5 h-3.5 text-white" />
                         <span>English (EN)</span>
@@ -1495,11 +1485,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                       <button
                         type="button"
                         onClick={() => setEditPreferredLanguage('ar')}
-                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-colors ${
-                          editPreferredLanguage === 'ar'
+                        className={`w-full py-2 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 border transition-colors ${editPreferredLanguage === 'ar'
                             ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
                             : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         <Globe className="w-3.5 h-3.5 text-white" />
                         <span>العربية (AR)</span>
@@ -1566,11 +1555,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
             {profileMessage && (
               <div
-                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                  profileMessage.type === 'success'
+                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${profileMessage.type === 'success'
                     ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
                     : 'bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300'
-                }`}
+                  }`}
               >
                 {profileMessage.type === 'success' ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
@@ -1632,11 +1620,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
           {/* Feedback message */}
           {privacyMessage && (
             <div
-              className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-2.5 ${
-                privacyMessage.type === 'success'
+              className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-2.5 ${privacyMessage.type === 'success'
                   ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20'
                   : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20'
-              }`}
+                }`}
             >
               {privacyMessage.type === 'success' ? <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" /> : <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />}
               <span>{privacyMessage.text}</span>
@@ -1672,14 +1659,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   role="switch"
                   aria-checked={privacyIsSearchDiscoverable}
                   onClick={() => setPrivacyIsSearchDiscoverable(!privacyIsSearchDiscoverable)}
-                  className={`w-12 h-6.5 rounded-full p-1 transition-colors relative shrink-0 ${
-                    privacyIsSearchDiscoverable ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
+                  className={`w-12 h-6.5 rounded-full p-1 transition-colors relative shrink-0 ${privacyIsSearchDiscoverable ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
                 >
                   <div
-                    className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${
-                      privacyIsSearchDiscoverable ? 'translate-x-5.5 rtl:-translate-x-5.5' : 'translate-x-0'
-                    }`}
+                    className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyIsSearchDiscoverable ? 'translate-x-5.5 rtl:-translate-x-5.5' : 'translate-x-0'
+                      }`}
                   />
                 </button>
               </div>
@@ -1705,14 +1690,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   role="switch"
                   aria-checked={privacyIsPrivate}
                   onClick={() => setPrivacyIsPrivate(!privacyIsPrivate)}
-                  className={`w-12 h-6.5 rounded-full p-1 transition-colors relative shrink-0 ${
-                    privacyIsPrivate ? 'bg-amber-600' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
+                  className={`w-12 h-6.5 rounded-full p-1 transition-colors relative shrink-0 ${privacyIsPrivate ? 'bg-amber-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
                 >
                   <div
-                    className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${
-                      privacyIsPrivate ? 'translate-x-5.5 rtl:-translate-x-5.5' : 'translate-x-0'
-                    }`}
+                    className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyIsPrivate ? 'translate-x-5.5 rtl:-translate-x-5.5' : 'translate-x-0'
+                      }`}
                   />
                 </button>
               </div>
@@ -1741,9 +1724,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 <button
                   type="button"
                   onClick={() => setPrivacyShowBio(!privacyShowBio)}
-                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${
-                    privacyShowBio ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${privacyShowBio ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
                 >
                   <div className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyShowBio ? 'translate-x-4.5 rtl:-translate-x-4.5' : 'translate-x-0'}`} />
                 </button>
@@ -1763,9 +1745,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 <button
                   type="button"
                   onClick={() => setPrivacyShowFollowersCount(!privacyShowFollowersCount)}
-                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${
-                    privacyShowFollowersCount ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${privacyShowFollowersCount ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
                 >
                   <div className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyShowFollowersCount ? 'translate-x-4.5 rtl:-translate-x-4.5' : 'translate-x-0'}`} />
                 </button>
@@ -1785,9 +1766,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 <button
                   type="button"
                   onClick={() => setPrivacyShowBadges(!privacyShowBadges)}
-                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${
-                    privacyShowBadges ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${privacyShowBadges ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
                 >
                   <div className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyShowBadges ? 'translate-x-4.5 rtl:-translate-x-4.5' : 'translate-x-0'}`} />
                 </button>
@@ -1807,9 +1787,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                 <button
                   type="button"
                   onClick={() => setPrivacyShowActivityStats(!privacyShowActivityStats)}
-                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${
-                    privacyShowActivityStats ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
-                  }`}
+                  className={`w-10 h-5.5 rounded-full p-0.5 transition-colors relative shrink-0 ${privacyShowActivityStats ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
                 >
                   <div className={`w-4.5 h-4.5 rounded-full bg-white transition-transform ${privacyShowActivityStats ? 'translate-x-4.5 rtl:-translate-x-4.5' : 'translate-x-0'}`} />
                 </button>
@@ -1822,15 +1801,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
       {/* 4. TAB: SECURITY & ACCOUNT SETTINGS */}
       {activeTab === 'security' && isOwnProfile && (
         <div className="glass-card rounded-3xl p-6 border border-slate-200 dark:border-slate-800 space-y-6 shadow-sm transition-colors duration-200">
-          
+
           {/* Section 1: Email Confirmation Status */}
           <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl border ${
-                profile?.isEmailConfirmed
+              <div className={`p-2.5 rounded-xl border ${profile?.isEmailConfirmed
                   ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
                   : 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
-              }`}>
+                }`}>
                 <Mail className="w-5 h-5" />
               </div>
               <div>
@@ -1897,11 +1875,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
             {socialActionMessage && (
               <div
-                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                  socialActionMessage.type === 'success'
+                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${socialActionMessage.type === 'success'
                     ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
                     : 'bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300'
-                }`}
+                  }`}
               >
                 {socialActionMessage.type === 'success' ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
@@ -1926,13 +1903,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs shadow-sm ${
-                          prov === 'google'
+                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center font-black text-xs shadow-sm ${prov === 'google'
                             ? 'bg-red-500/10 text-red-500 border border-red-500/20'
                             : prov === 'facebook'
-                            ? 'bg-blue-600/10 text-blue-600 border border-blue-600/20'
-                            : 'bg-slate-900/10 dark:bg-slate-100/10 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700'
-                        }`}>
+                              ? 'bg-blue-600/10 text-blue-600 border border-blue-600/20'
+                              : 'bg-slate-900/10 dark:bg-slate-100/10 text-slate-900 dark:text-white border border-slate-300 dark:border-slate-700'
+                          }`}>
                           {prov === 'google' ? 'G' : prov === 'facebook' ? 'f' : '𝕏'}
                         </span>
                         <span className="text-xs font-bold capitalize text-slate-900 dark:text-white">
@@ -2067,11 +2043,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
               {passwordMessage && (
                 <div
-                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                    passwordMessage.type === 'success'
+                  className={`p-3 rounded-xl text-xs flex items-center gap-2 ${passwordMessage.type === 'success'
                       ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
                       : 'bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300'
-                  }`}
+                    }`}
                 >
                   {passwordMessage.type === 'success' ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
@@ -2142,11 +2117,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
 
             {sessionActionMessage && (
               <div
-                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${
-                  sessionActionMessage.type === 'success'
+                className={`p-3 rounded-xl text-xs flex items-center gap-2 ${sessionActionMessage.type === 'success'
                     ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300'
                     : 'bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-300'
-                }`}
+                  }`}
               >
                 {sessionActionMessage.type === 'success' ? (
                   <CheckCircle2 className="w-4 h-4 text-emerald-500 dark:text-emerald-400 shrink-0" />
@@ -2205,11 +2179,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                           <button
                             type="button"
                             onClick={() => handleTrustSession(sess.id, sess.isTrusted)}
-                            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors flex items-center gap-1 ${
-                              sess.isTrusted
+                            className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-colors flex items-center gap-1 ${sess.isTrusted
                                 ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700'
                                 : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-200'
-                            }`}
+                              }`}
                           >
                             <ShieldCheck className="w-3.5 h-3.5" />
                             <span>{sess.isTrusted ? (isArabic ? 'موثوق' : 'Trusted') : (isArabic ? 'توثيق' : 'Trust')}</span>
@@ -2348,11 +2321,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({ username, onOpenCanvas
                       key={preset.id}
                       type="button"
                       onClick={() => setEditBannerUrl(preset.id)}
-                      className={`p-2.5 rounded-xl border text-left rtl:text-right transition-all group flex flex-col gap-1.5 ${
-                        isSelected
+                      className={`p-2.5 rounded-xl border text-left rtl:text-right transition-all group flex flex-col gap-1.5 ${isSelected
                           ? 'border-indigo-600 ring-2 ring-indigo-500/50 bg-indigo-50/50 dark:bg-indigo-950/30'
                           : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50 dark:bg-slate-900/60'
-                      }`}
+                        }`}
                     >
                       <div className={`h-8 w-full rounded-lg bg-gradient-to-r ${preset.previewClass} border border-white/10 shadow-sm relative overflow-hidden`}>
                         {isSelected && (

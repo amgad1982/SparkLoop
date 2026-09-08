@@ -616,6 +616,8 @@ class PodViewModel extends ChangeNotifier {
       final saved = await _podRepository.sendMessage(
         _activePod!.id,
         content.trim(),
+        audioUrl: audioUrl,
+        durationSeconds: durationSeconds,
       );
       final idx = _chatMessages.indexWhere((m) => m.id == tempId);
       if (idx >= 0) {

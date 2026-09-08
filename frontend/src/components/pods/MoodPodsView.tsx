@@ -109,11 +109,10 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
               <button
                 key={p.id}
                 onClick={() => setActivePodId(p.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-colors shrink-0 shadow-sm ${
-                  activePodId === p.id
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-colors shrink-0 shadow-sm ${activePodId === p.id
                     ? 'bg-indigo-600 text-white border-indigo-600'
                     : 'bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                }`}
+                  }`}
               >
                 <span>{p.moodEmoji}</span>
                 <span className="truncate max-w-[120px]">{p.title}</span>
@@ -236,7 +235,7 @@ export const MoodPodsView: React.FC<MoodPodsViewProps> = ({
                               pod.hostUsername.toLowerCase() === currentPersona.username.toLowerCase()) &&
                             currentPersona.avatarUrl) ||
                           pod.hostAvatarUrl ||
-                          `https://api.dicebear.com/7.x/bottts/svg?seed=${pod.hostUsername}`
+                          `https://api.dicebear.com/10.x/bottts/svg?seed=${pod.hostUsername}`
                         }
                         alt={pod.hostUsername}
                         className="w-5 h-5 rounded-full border border-slate-300 dark:border-slate-700 object-cover"

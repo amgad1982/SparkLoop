@@ -751,6 +751,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   trailing: const Icon(Icons.arrow_forward_ios, size: 14),
                   onTap: () => _showPrivacyDialog(context, isArabic),
                 ),
+                const Divider(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentAmber.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.shield_outlined, color: AppColors.accentAmber, size: 20),
+                  ),
+                  title: Text(
+                    isArabic ? 'حقوق الملكية للموسيقى (DMCA)' : 'Music Copyright & DMCA Policy',
+                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 14),
+                  onTap: () => _showCopyrightPolicyDialog(context, isArabic),
+                ),
               ],
             ),
           ),
@@ -1195,6 +1212,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(isArabic ? 'إغلاق' : 'Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCopyrightPolicyDialog(BuildContext context, bool isArabic) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.shield_outlined, color: AppColors.accentAmber, size: 22),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isArabic ? 'حقوق الملكية للموسيقى (DMCA)' : 'Music Copyright & DMCA Policy',
+                style: const TextStyle(fontSize: 15),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Text(
+            isArabic
+                ? 'سياسة حقوق الملكية الفكرية ومسؤولية المستخدم:\n\n'
+                  '1. يتحمل المستخدم وحده 100% من المسؤولية المدنية والجنائية والقانونية عن جميع المقاطع الصوتية المرفوعة لخوادم SparkLoop.\n\n'
+                  '2. يعتبر تطبيق SparkLoop مزود خدمة وسيطاً تقنياً معفى من المسؤولية وفق قوانين الملاذ الآمن (Safe Harbor / DMCA).\n\n'
+                  '3. يقر المستخدم ويتعهد بأنه المالك الحصري أو المرخص له قانونياً بنشر وتوزيع المحتوى.\n\n'
+                  '4. يتم تسجيل بصمة SHA-256 وسجل إقرار دائم لكل مقطع مرفوع لتقديمه للجهات القضائية حال حدوث نزاع.\n\n'
+                  '5. للشكاوى أو إخطارات الحذف (Takedown Notice)، يرجى التواصل مع الوكيل المعتمد عبر البريد الإلكتروني: dmca@sparkloop.io'
+                : 'Music Copyright & Safe Harbor Policy:\n\n'
+                  '1. Users assume 100% full civil and criminal liability for all music tracks hosted on SparkLoop servers.\n\n'
+                  '2. SparkLoop operates strictly as an exempt intermediary technical hosting provider under safe harbor provisions (DMCA).\n\n'
+                  '3. By uploading, you solemnly attest that you are the copyright owner or hold authorized distribution licenses.\n\n'
+                  '4. An immutable cryptographic SHA-256 fingerprint and audit record is preserved for legal compliance.\n\n'
+                  '5. To file a DMCA takedown complaint, contact our designated copyright agent at: dmca@sparkloop.io',
+            style: const TextStyle(fontSize: 12, height: 1.45),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(isArabic ? 'فهمت ذلك' : 'Understood'),
           ),
         ],
       ),

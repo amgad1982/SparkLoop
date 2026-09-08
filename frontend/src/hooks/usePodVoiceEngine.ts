@@ -146,7 +146,7 @@ export function usePodVoiceEngine({
       audioCtxRef.current = ctx;
     }
     if (audioCtxRef.current.state === 'suspended') {
-      audioCtxRef.current.resume().catch(() => {});
+      audioCtxRef.current.resume().catch(() => { });
     }
     return audioCtxRef.current;
   }, []);
@@ -156,26 +156,26 @@ export function usePodVoiceEngine({
     if (djSynthRef.current) {
       try {
         djSynthRef.current.stop();
-      } catch {}
+      } catch { }
       djSynthRef.current = null;
     }
     if (djBufferSourceRef.current) {
       try {
         djBufferSourceRef.current.stop();
-      } catch {}
+      } catch { }
       djBufferSourceRef.current = null;
     }
     if (djGainNodeRef.current) {
       try {
         djGainNodeRef.current.disconnect();
-      } catch {}
+      } catch { }
       djGainNodeRef.current = null;
     }
     if (djTrackRef.current && roomRef.current) {
       try {
         await roomRef.current.localParticipant.unpublishTrack(djTrackRef.current);
         djTrackRef.current.stop();
-      } catch {}
+      } catch { }
       djTrackRef.current = null;
     }
   }, []);
@@ -192,7 +192,7 @@ export function usePodVoiceEngine({
         await ctx.resume();
       }
       attachedAudioElementsRef.current.forEach(({ element }) => {
-        element.play().catch(() => {});
+        element.play().catch(() => { });
       });
     } catch (err) {
       console.warn('Unlock audio playback:', err);
@@ -225,7 +225,7 @@ export function usePodVoiceEngine({
           let meta: { username?: string; displayName?: string; isOnStage?: boolean } = {};
           try {
             if (p.metadata) meta = JSON.parse(p.metadata);
-          } catch {}
+          } catch { }
 
           const hasAudio = p.audioTrackPublications.size > 0;
           const isParticipantOnStage = hasAudio || meta.isOnStage || stagePresenceMapRef.current.has(p.identity);
@@ -236,7 +236,7 @@ export function usePodVoiceEngine({
               userId: p.identity,
               username: meta.username || p.name || p.identity,
               displayName: meta.displayName || p.name || meta.username || p.identity,
-              avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${meta.username || p.identity}`,
+              avatarUrl: `https://api.dicebear.com/10.x/bottts/svg?seed=${meta.username || p.identity}`,
               isMuted: !p.isMicrophoneEnabled,
               isSpeaking: p.isSpeaking,
               joinedAtUtc: Date.now(),
@@ -303,7 +303,7 @@ export function usePodVoiceEngine({
                   userId: currentPersona.id,
                   isSpeaking: true,
                   isMuted: isMutedRef.current,
-                }).catch(() => {});
+                }).catch(() => { });
               }
             }
           }
@@ -443,7 +443,7 @@ export function usePodVoiceEngine({
             setIsLiveKitConnected(true);
             setCanPlaybackAudio(roomInstance?.canPlaybackAudio ?? true);
           }
-          roomInstance?.startAudio().catch(() => {});
+          roomInstance?.startAudio().catch(() => { });
           syncSpeakerList(roomInstance);
 
           // If host on stage, acquire mic
@@ -474,28 +474,28 @@ export function usePodVoiceEngine({
         const dynamicIceServers =
           tokenDto.iceServers && tokenDto.iceServers.length > 0
             ? tokenDto.iceServers.map((s) => ({
-                urls: s.urls,
-                username: s.username,
-                credential: s.credential,
-              }))
+              urls: s.urls,
+              username: s.username,
+              credential: s.credential,
+            }))
             : [
-                { urls: ['stun:92.4.162.183:3478', 'stun:stun.l.google.com:19302'] },
-                {
-                  urls: [
-                    'turn:92.4.162.183:3478?transport=udp',
-                    'turn:92.4.162.183:3478?transport=tcp',
-                  ],
-                  username: 'sparkloop',
-                  credential: 'SparkLoopTurnSecret2026Secure!',
-                },
-              ];
+              { urls: ['stun:92.4.162.183:3478', 'stun:stun.l.google.com:19302'] },
+              {
+                urls: [
+                  'turn:92.4.162.183:3478?transport=udp',
+                  'turn:92.4.162.183:3478?transport=tcp',
+                ],
+                username: 'sparkloop',
+                credential: 'SparkLoopTurnSecret2026Secure!',
+              },
+            ];
 
         await roomInstance.connect(liveKitUrl, tokenDto.token, {
           rtcConfig: {
             iceServers: dynamicIceServers,
           },
         });
-        roomInstance.startAudio().catch(() => {});
+        roomInstance.startAudio().catch(() => { });
       } catch (err) {
         console.error('Failed to connect to LiveKit voice room:', err);
       }
@@ -506,14 +506,14 @@ export function usePodVoiceEngine({
     // Global interaction listener to unlock AudioContext autoplay
     const unlockAudio = () => {
       if (roomRef.current) {
-        roomRef.current.startAudio().catch(() => {});
+        roomRef.current.startAudio().catch(() => { });
         setCanPlaybackAudio(roomRef.current.canPlaybackAudio);
       }
       if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume().catch(() => {});
+        audioCtxRef.current.resume().catch(() => { });
       }
       if (remoteBgMusicAudioRef.current && remoteBgMusicAudioRef.current.paused) {
-        remoteBgMusicAudioRef.current.play().catch(() => {});
+        remoteBgMusicAudioRef.current.play().catch(() => { });
       }
     };
     window.addEventListener('click', unlockAudio, { once: true });
@@ -531,7 +531,7 @@ export function usePodVoiceEngine({
         try {
           remoteBgMusicAudioRef.current.pause();
           remoteBgMusicAudioRef.current.src = '';
-        } catch {}
+        } catch { }
         remoteBgMusicAudioRef.current = null;
       }
       if (roomInstance) {
@@ -550,7 +550,7 @@ export function usePodVoiceEngine({
       if (!isDjMusic) {
         try {
           element.volume = isAudioMutedRef.current ? 0 : clamped;
-        } catch {}
+        } catch { }
       }
     });
   }, []);
@@ -563,7 +563,7 @@ export function usePodVoiceEngine({
         try {
           element.muted = muted;
           element.volume = muted ? 0 : roomVolumeRef.current;
-        } catch {}
+        } catch { }
       }
     });
   }, []);
@@ -587,7 +587,7 @@ export function usePodVoiceEngine({
       if (isDjMusic) {
         try {
           element.volume = isBgMusicMutedRef.current ? 0 : clamped;
-        } catch {}
+        } catch { }
       }
     });
   }, []);
@@ -610,7 +610,7 @@ export function usePodVoiceEngine({
         try {
           element.muted = muted;
           element.volume = muted ? 0 : bgMusicVolumeRef.current;
-        } catch {}
+        } catch { }
       }
     });
   }, []);
@@ -645,7 +645,7 @@ export function usePodVoiceEngine({
     api.sendPodSignal(podId, 'STAGE_MUTE_STATUS', {
       userId: currentPersona.id,
       isMuted: newMuted,
-    }).catch(() => {});
+    }).catch(() => { });
   }, [isMuted, podId, currentPersona.id, attachVisualizerToStream, stopMicVisualizer, syncSpeakerList]);
 
   // 5. Stage Join / Leave
@@ -659,7 +659,7 @@ export function usePodVoiceEngine({
 
     const room = roomRef.current;
     if (room) {
-      room.startAudio().catch(() => {});
+      room.startAudio().catch(() => { });
       try {
         await room.localParticipant.setMicrophoneEnabled(true);
         const micPub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
@@ -707,7 +707,7 @@ export function usePodVoiceEngine({
             isOnStage: false,
           })
         );
-      } catch {}
+      } catch { }
       syncSpeakerList(room);
     }
 
@@ -1004,7 +1004,7 @@ export function usePodVoiceEngine({
     if (djTrackRef.current) {
       try {
         await djTrackRef.current.mute();
-      } catch {}
+      } catch { }
     }
     await sendBgMusicState('pause');
   }, [sendBgMusicState]);
@@ -1016,7 +1016,7 @@ export function usePodVoiceEngine({
     if (djTrackRef.current) {
       try {
         await djTrackRef.current.unmute();
-      } catch {}
+      } catch { }
     }
     await sendBgMusicState('play');
   }, [sendBgMusicState]);
@@ -1045,7 +1045,7 @@ export function usePodVoiceEngine({
         setIsMuted(true);
         isMutedRef.current = true;
         if (roomRef.current && roomRef.current.state === 'connected') {
-          roomRef.current.localParticipant.setMicrophoneEnabled(false).catch(() => {});
+          roomRef.current.localParticipant.setMicrophoneEnabled(false).catch(() => { });
         }
         stopMicVisualizer();
       }
@@ -1067,7 +1067,7 @@ export function usePodVoiceEngine({
             userId: uId,
             username: uName,
             displayName: dName,
-            avatarUrl: avUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${uName}`,
+            avatarUrl: avUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${uName}`,
             isMuted: false,
             isSpeaking: false,
             joinedAtUtc: Date.now(),
@@ -1093,10 +1093,10 @@ export function usePodVoiceEngine({
             prev.map((s) =>
               s.userId === uId
                 ? {
-                    ...s,
-                    isSpeaking: isSpk !== undefined ? isSpk : s.isSpeaking,
-                    isMuted: isMt !== undefined ? isMt : s.isMuted,
-                  }
+                  ...s,
+                  isSpeaking: isSpk !== undefined ? isSpk : s.isSpeaking,
+                  isMuted: isMt !== undefined ? isMt : s.isMuted,
+                }
                 : s
             )
           );
@@ -1165,7 +1165,7 @@ export function usePodVoiceEngine({
             if (typeof data.currentTime === 'number' && data.currentTime > 0) {
               try {
                 audio.currentTime = data.currentTime;
-              } catch {}
+              } catch { }
             }
             audio.play().catch((err) => {
               console.warn('Autoplay prevented for remote DJ background music:', err);

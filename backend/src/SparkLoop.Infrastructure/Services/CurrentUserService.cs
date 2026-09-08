@@ -86,7 +86,7 @@ public class CurrentUserService : ICurrentUserService
             }
 
             var username = Username;
-            return username != null ? $"https://api.dicebear.com/7.x/bottts/svg?seed={username}" : null;
+            return username != null ? $"https://api.dicebear.com/10.x/bottts/svg?seed={username}" : null;
         }
     }
 

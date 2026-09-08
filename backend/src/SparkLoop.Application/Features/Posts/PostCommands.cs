@@ -66,7 +66,7 @@ public class CreatePostCommandHandler : IRequestHandler<CreatePostCommand, PostD
                 norm,
                 $"{norm}@sparkloop.app",
                 displayName,
-                avatarUrl ?? $"https://api.dicebear.com/7.x/bottts/svg?seed={norm}",
+                avatarUrl ?? $"https://api.dicebear.com/10.x/bottts/svg?seed={norm}",
                 "SparkLoop Creator"
             );
             user.AwardBadge("Pioneer", "Early adopter on SparkLoop", "🚀");

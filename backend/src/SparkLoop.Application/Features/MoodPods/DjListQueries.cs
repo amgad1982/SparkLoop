@@ -31,7 +31,7 @@ public static class DjListQueries
         }
     }
 
-    public static DjListDto MapToDto(DjList list)
+    public static DjListDto MapToDto(DjList list, DjStationBroadcastStateDto? liveState = null)
     {
         return new DjListDto(
             list.Id,
@@ -48,7 +48,11 @@ public static class DjListQueries
             list.TrackCount,
             ParseTracks(list.TracksJson),
             list.CreatedAtUtc,
-            list.UpdatedAtUtc
+            list.UpdatedAtUtc,
+            IsLive: liveState?.IsLive ?? false,
+            CurrentTrackTitle: liveState?.CurrentTrackTitle,
+            CurrentTrackArtist: liveState?.CurrentTrackArtist,
+            ListenersCount: liveState?.ListenersCount ?? 0
         );
     }
 }
@@ -62,11 +66,16 @@ public class GetDjListsQueryHandler : IRequestHandler<GetDjListsQuery, IReadOnly
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly DjStationStateStore _stateStore;
 
-    public GetDjListsQueryHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public GetDjListsQueryHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        DjStationStateStore stateStore)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _stateStore = stateStore;
     }
 
     public async Task<IReadOnlyList<DjListDto>> Handle(GetDjListsQuery request, CancellationToken cancellationToken)
@@ -103,7 +112,7 @@ public class GetDjListsQueryHandler : IRequestHandler<GetDjListsQuery, IReadOnly
             .Take(50)
             .ToListAsync(cancellationToken);
 
-        return lists.Select(DjListQueries.MapToDto).ToList();
+        return lists.Select(l => DjListQueries.MapToDto(l, _stateStore.Get(l.Id))).ToList();
     }
 }
 
@@ -113,11 +122,16 @@ public class GetDjListByIdQueryHandler : IRequestHandler<GetDjListByIdQuery, DjL
 {
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
+    private readonly DjStationStateStore _stateStore;
 
-    public GetDjListByIdQueryHandler(IAppDbContext dbContext, ICurrentUserService currentUserService)
+    public GetDjListByIdQueryHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        DjStationStateStore stateStore)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
+        _stateStore = stateStore;
     }
 
     public async Task<DjListDto> Handle(GetDjListByIdQuery request, CancellationToken cancellationToken)
@@ -144,6 +158,7 @@ public class GetDjListByIdQueryHandler : IRequestHandler<GetDjListByIdQuery, DjL
             }
         }
 
-        return DjListQueries.MapToDto(djList);
+        var liveState = _stateStore.Get(djList.Id);
+        return DjListQueries.MapToDto(djList, liveState);
     }
 }

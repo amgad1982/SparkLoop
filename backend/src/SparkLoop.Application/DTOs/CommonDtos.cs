@@ -101,8 +101,23 @@ public record PostDto(
     MediaAttachmentDto? Media,
     int ReactionCount,
     IReadOnlyList<ReactionDto> Reactions,
+    DateTime CreatedAtUtc,
+    int CommentCount = 0
+);
+
+public record PostCommentDto(
+    Guid Id,
+    Guid PostId,
+    Guid AuthorId,
+    string AuthorUsername,
+    string AuthorDisplayName,
+    string? AuthorAvatarUrl,
+    string Content,
     DateTime CreatedAtUtc
 );
+
+public record CreatePostCommentRequest(string Content);
+
 
 public record ChainStepDto(
     Guid Id,
@@ -307,7 +322,49 @@ public record DjTrackDto(
     string Title,
     string Artist,
     string Url,
-    double DurationSeconds
+    double DurationSeconds,
+    bool IsServerHosted = false,
+    Guid? AttestationId = null
+);
+
+public record MusicUploadResultDto(
+    string Url,
+    string TrackId,
+    string Title,
+    string Artist,
+    double DurationSeconds,
+    long FileSizeBytes,
+    Guid AttestationId,
+    DateTime AttestedAtUtc
+);
+
+public record CopyrightPolicyClauseDto(
+    string TitleEn,
+    string TitleAr,
+    string DescriptionEn,
+    string DescriptionAr
+);
+
+public record CopyrightPolicyDto(
+    string Version,
+    DateTime EffectiveDateUtc,
+    string SummaryEn,
+    string SummaryAr,
+    IReadOnlyList<CopyrightPolicyClauseDto> Clauses,
+    string DmcaNoticeEmail,
+    string TakedownProcedureEn,
+    string TakedownProcedureAr
+);
+
+public record CopyrightComplaintDto(
+    string WorkTitle,
+    string InfringingUrl,
+    string RightsHolderName,
+    string RightsHolderEmail,
+    string? PhoneNumber,
+    string RepresentationStatement,
+    bool GoodFaithBeliefConfirmed,
+    bool AccuracyUnderPenaltyOfPerjuryConfirmed
 );
 
 public record DjListDto(
@@ -325,7 +382,11 @@ public record DjListDto(
     int TrackCount,
     IReadOnlyList<DjTrackDto> Tracks,
     DateTime CreatedAtUtc,
-    DateTime UpdatedAtUtc
+    DateTime UpdatedAtUtc,
+    bool IsLive = false,
+    string? CurrentTrackTitle = null,
+    string? CurrentTrackArtist = null,
+    int ListenersCount = 0
 );
 
 public record CreateDjListDto(
@@ -350,6 +411,25 @@ public record FeedPageDto(
     DateTime? NextCursorCreatedAtUtc,
     Guid? NextCursorId,
     bool HasMore
+);
+
+public record UserMusicTrackDto(
+    Guid Id,
+    Guid UserId,
+    string Username,
+    string TrackTitle,
+    string TrackArtist,
+    string MediaUrl,
+    double DurationSeconds,
+    long FileSizeBytes,
+    string? FileChecksumSha256,
+    string PolicyVersion,
+    DateTime AttestedAtUtc
+);
+
+public record UpdateMusicTrackRequest(
+    string? Title,
+    string? Artist
 );
 
 

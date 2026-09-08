@@ -102,5 +102,68 @@ public class LiveKitService : ILiveKitService
             throw;
         }
     }
+
+    public string GenerateStationToken(
+        string stationId,
+        string userId,
+        string username,
+        string displayName,
+        bool isDjHost,
+        TimeSpan? ttl = null)
+    {
+        try
+        {
+            var roomName = stationId.StartsWith("station-") ? stationId : $"station-{stationId}";
+            var keyBytes = Encoding.UTF8.GetBytes(_apiSecret);
+            var signingCredentials = new SigningCredentials(
+                new SymmetricSecurityKey(keyBytes),
+                SecurityAlgorithms.HmacSha256
+            );
+
+            var now = DateTimeOffset.UtcNow;
+            var expires = now.Add(ttl ?? TimeSpan.FromHours(8));
+
+            // DJ Host can publish audio track to SFU; Listeners subscribe only (downlink only)
+            var videoGrants = new Dictionary<string, object>
+            {
+                { "room", roomName },
+                { "roomJoin", true },
+                { "canPublish", isDjHost },
+                { "canSubscribe", true },
+                { "canPublishData", true }
+            };
+
+            var metadata = JsonSerializer.Serialize(new
+            {
+                userId,
+                username,
+                displayName,
+                isDjHost,
+                isStation = true
+            });
+
+            var payload = new JwtPayload
+            {
+                { "iss", _apiKey },
+                { "sub", userId },
+                { "name", string.IsNullOrWhiteSpace(displayName) ? username : displayName },
+                { "video", videoGrants },
+                { "metadata", metadata },
+                { "iat", now.ToUnixTimeSeconds() },
+                { "nbf", now.ToUnixTimeSeconds() },
+                { "exp", expires.ToUnixTimeSeconds() },
+                { "jti", Guid.NewGuid().ToString() }
+            };
+
+            var header = new JwtHeader(signingCredentials);
+            var token = new JwtSecurityToken(header, payload);
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to generate LiveKit station token for user {UserId} in station {StationId}", userId, stationId);
+            throw;
+        }
+    }
 }
 

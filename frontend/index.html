@@ -14,6 +14,11 @@
   </head>
   <body class="bg-zinc-950 text-zinc-100 antialiased overflow-x-hidden select-none touch-manipulation">
     <div id="root"></div>
+    <script>
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('[Unhandled Promise Rejection]:', e.reason);
+      });
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

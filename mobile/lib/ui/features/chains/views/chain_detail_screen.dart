@@ -2,6 +2,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import '../../../../data/services/api_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/widgets/avatar_badge.dart';
 import '../../../core/widgets/glass_container.dart';
@@ -40,7 +41,9 @@ class _ChainDetailScreenState extends State<ChainDetailScreen> {
       await _audioPlayer.stop();
       setState(() => _currentlyPlayingUrl = null);
     } else {
-      await _audioPlayer.play(UrlSource(url));
+      final effectiveUrl = ApiService.getMediaUrl(url);
+      final mimeType = ApiService.inferMimeType(effectiveUrl);
+      await _audioPlayer.play(UrlSource(effectiveUrl, mimeType: mimeType));
       setState(() => _currentlyPlayingUrl = url);
       _audioPlayer.onPlayerComplete.listen((_) {
         if (mounted) setState(() => _currentlyPlayingUrl = null);

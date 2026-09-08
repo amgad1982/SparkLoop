@@ -79,7 +79,7 @@ mobile/lib/
 ### C. Posts Feed & Interactions (`/feed`)
 - Infinite scroll feed with pull-to-refresh.
 - Hashtags (`#`) and Mentions (`@`) parser with tap-to-filter navigation.
-- 5 Quick Reaction buttons (🔥 😂 💡 🚀 💖) with optimistic state updates and haptic feedback.
+- 5 Quick Reaction buttons (🔥 ⚡ 😂 🤯 ❤️) with optimistic state updates and haptic feedback.
 - Media attachment viewer with zoom and full-screen preview.
 - Globally synchronized `FollowButton` that updates across all posts by that author in real-time.
 - Create Post sheet with character countdown (<= 280 chars), hashtag autocomplete, and media upload.

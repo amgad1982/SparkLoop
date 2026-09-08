@@ -23,6 +23,7 @@ public static class DependencyInjection
         // Used by SendPodBgMusicCommandHandler to persist the active track so
         // late joiners can fetch it on entry; see PodBgMusicStateStore.cs.
         services.AddSingleton<PodBgMusicStateStore>();
+        services.AddSingleton<DjStationStateStore>();
 
         return services;
     }

@@ -45,7 +45,8 @@ public static class PostQueries
             mediaDto,
             post.ReactionCount,
             reactions,
-            post.CreatedAtUtc
+            post.CreatedAtUtc,
+            post.CommentCount
         );
     }
 }

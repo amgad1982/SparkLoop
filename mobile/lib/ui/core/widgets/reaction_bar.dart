@@ -6,16 +6,22 @@ class ReactionItem {
   final String type;
   final String emoji;
   final String label;
+  final String? labelAr;
 
-  const ReactionItem({required this.type, required this.emoji, required this.label});
+  const ReactionItem({
+    required this.type,
+    required this.emoji,
+    required this.label,
+    this.labelAr,
+  });
 }
 
 const List<ReactionItem> supportedReactions = [
-  ReactionItem(type: 'fire', emoji: '🔥', label: 'Fire'),
-  ReactionItem(type: 'laugh', emoji: '😂', label: 'Laugh'),
-  ReactionItem(type: 'mindblown', emoji: '💡', label: 'Insight'),
-  ReactionItem(type: 'rocket', emoji: '🚀', label: 'Rocket'),
-  ReactionItem(type: 'heart', emoji: '💖', label: 'Love'),
+  ReactionItem(type: 'fire', emoji: '🔥', label: 'Fire', labelAr: 'ناري'),
+  ReactionItem(type: 'spark', emoji: '⚡', label: 'Spark', labelAr: 'شرارة'),
+  ReactionItem(type: 'laugh', emoji: '😂', label: 'Funny', labelAr: 'مضحك'),
+  ReactionItem(type: 'mindblown', emoji: '🤯', label: 'Mindblown', labelAr: 'مذهل'),
+  ReactionItem(type: 'heart', emoji: '❤️', label: 'Love', labelAr: 'أحببته'),
 ];
 
 class ReactionBar extends StatelessWidget {
@@ -32,14 +38,19 @@ class ReactionBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Localizations.maybeLocaleOf(context)?.languageCode == 'ar';
+
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: supportedReactions.map((reaction) {
         final count = reactionCounts[reaction.type] ?? 0;
         final hasReacted = userReactions.contains(reaction.type);
+        final tooltipText = '${isArabic && reaction.labelAr != null ? reaction.labelAr : reaction.label} (${reaction.emoji})';
 
-        return InkWell(
+        return Tooltip(
+          message: tooltipText,
+          child: InkWell(
           onTap: () {
             HapticFeedback.lightImpact();
             onToggleReaction(reaction.type);
@@ -86,8 +97,9 @@ class ReactionBar extends StatelessWidget {
               ],
             ),
           ),
-        );
-      }).toList(),
+        ),
+      );
+    }).toList(),
     );
   }
 }

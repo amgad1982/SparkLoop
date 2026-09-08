@@ -64,6 +64,26 @@ export interface PostDto {
   reactionCount: number;
   reactions: ReactionDto[];
   createdAtUtc: string;
+  commentCount?: number;
+}
+
+export interface PostCommentDto {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorUsername: string;
+  authorDisplayName: string;
+  authorAvatarUrl?: string;
+  content: string;
+  createdAtUtc: string;
+}
+
+export interface FeedPageDto {
+  items: PostDto[];
+  pageSize: number;
+  nextCursorCreatedAtUtc?: string | null;
+  nextCursorId?: string | null;
+  hasMore: boolean;
 }
 
 export interface ChainStepDto {
@@ -327,6 +347,8 @@ export interface DjTrackDto {
   artist: string;
   url: string;
   durationSeconds: number;
+  isServerHosted?: boolean;
+  attestationId?: string;
 }
 
 export interface DjListDto {
@@ -345,6 +367,25 @@ export interface DjListDto {
   tracks: DjTrackDto[];
   createdAtUtc: string;
   updatedAtUtc: string;
+  isLive?: boolean;
+  currentTrackTitle?: string;
+  currentTrackArtist?: string;
+  listenersCount?: number;
+}
+
+export interface DjStationBroadcastState {
+  stationId: string;
+  isLive: boolean;
+  currentTrackIndex: number;
+  currentTrackTitle?: string;
+  currentTrackArtist?: string;
+  positionSeconds: number;
+  isPlaying: boolean;
+  listenersCount: number;
+  sfxName?: string;
+  lastUpdatedUtc: string;
+  tempoRate?: number;
+  filterPreset?: string;
 }
 
 export interface CreateDjListDto {
@@ -370,4 +411,63 @@ export interface OAuthCallbackRequest {
   deviceName?: string;
   deviceType?: string;
   isTrusted?: boolean;
+}
+
+export interface MusicUploadResultDto {
+  url: string;
+  trackId: string;
+  title: string;
+  artist: string;
+  durationSeconds: number;
+  fileSizeBytes: number;
+  attestationId: string;
+  attestedAtUtc: string;
+}
+
+export interface CopyrightPolicyClauseDto {
+  titleEn: string;
+  titleAr: string;
+  descriptionEn: string;
+  descriptionAr: string;
+}
+
+export interface CopyrightPolicyDto {
+  version: string;
+  effectiveDateUtc: string;
+  summaryEn: string;
+  summaryAr: string;
+  clauses: CopyrightPolicyClauseDto[];
+  dmcaNoticeEmail: string;
+  takedownProcedureEn: string;
+  takedownProcedureAr: string;
+}
+
+export interface CopyrightComplaintDto {
+  workTitle: string;
+  infringingUrl: string;
+  rightsHolderName: string;
+  rightsHolderEmail: string;
+  phoneNumber?: string;
+  representationStatement: string;
+  goodFaithBeliefConfirmed: boolean;
+  accuracyUnderPenaltyOfPerjuryConfirmed: boolean;
+}
+
+export interface UserMusicTrackDto {
+  id: string;
+  userId: string;
+  username: string;
+  trackTitle: string;
+  trackArtist: string;
+  mediaUrl: string;
+  durationSeconds: number;
+  fileSizeBytes: number;
+  fileChecksumSha256?: string;
+  policyVersion: string;
+  attestedAtUtc: string;
+}
+
+export interface UpdateMusicTrackRequest {
+  title?: string;
+  artist?: string;
 }

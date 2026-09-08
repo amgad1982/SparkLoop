@@ -114,11 +114,10 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
               {chain.currentStepCount} / {chain.maxSteps} {isArabic ? 'أدوار' : 'turns'}
             </span>
             <span
-              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                isCompleted
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${isCompleted
                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
                   : 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30'
-              }`}
+                }`}
             >
               {isCompleted ? (isArabic ? 'مكتملة' : 'Completed') : (isArabic ? 'نشطة' : 'Active')}
             </span>
@@ -150,16 +149,15 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
                 key={step.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className={`p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm space-y-2 ${
-                  isStepAuthorMe
+                className={`p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm space-y-2 ${isStepAuthorMe
                     ? 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-500/30 ml-4 rtl:ml-0 rtl:mr-4'
                     : 'bg-slate-50 dark:bg-[#0b0f17]/60 border-slate-200 dark:border-slate-800/80 mr-4 rtl:mr-0 rtl:ml-4'
-                }`}
+                  }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <img
-                      src={step.authorAvatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${step.authorUsername}`}
+                      src={step.authorAvatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${step.authorUsername}`}
                       alt={step.authorUsername}
                       className="w-6 h-6 rounded-full border border-slate-300 dark:border-slate-700 object-cover"
                     />
@@ -174,11 +172,10 @@ export const PassTheMicChainCard: React.FC<PassTheMicChainCardProps> = ({
                     <Tooltip content={isAudioPlaying ? (isArabic ? 'إيقاف التسجيل الصوتي' : 'Pause audio') : (isArabic ? 'استماع للتسجيل الصوتي' : 'Play voice turn')} position="left">
                       <button
                         onClick={() => playAudio(step.id, step.audioUrl)}
-                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-colors shadow-sm ${
-                          isAudioPlaying
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border transition-colors shadow-sm ${isAudioPlaying
                             ? 'bg-indigo-600 text-white border-indigo-600'
                             : 'bg-slate-100 dark:bg-slate-800/90 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700'
-                        }`}
+                          }`}
                       >
                         <Volume2 className={`w-3 h-3 ${isAudioPlaying ? 'animate-bounce text-white' : 'text-indigo-500 dark:text-indigo-400'}`} />
                         <span>

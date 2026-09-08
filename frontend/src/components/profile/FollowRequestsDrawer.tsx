@@ -131,7 +131,7 @@ export const FollowRequestsDrawer: React.FC<FollowRequestsDrawerProps> = ({
                       <img
                         src={
                           getMediaUrl(req.followerAvatarUrl) ||
-                          `https://api.dicebear.com/7.x/bottts/svg?seed=${req.followerUsername}`
+                          `https://api.dicebear.com/10.x/bottts/svg?seed=${req.followerUsername}`
                         }
                         alt={req.followerUsername}
                         className="w-11 h-11 rounded-2xl bg-slate-200 dark:bg-slate-800 object-cover shrink-0 border border-slate-200 dark:border-slate-700"

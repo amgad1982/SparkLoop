@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../../data/services/api_service.dart';
 import '../theme/app_colors.dart';
 
@@ -27,18 +28,25 @@ class AvatarBadge extends StatelessWidget {
     if (raw != null && raw.isNotEmpty) {
       return ApiService.getMediaUrl(raw);
     }
-    final seed = username.trim().isNotEmpty ? Uri.encodeComponent(username.trim()) : 'guest';
-    return 'https://api.dicebear.com/7.x/bottts/svg?seed=$seed';
+    final seed = username.trim().isNotEmpty
+        ? Uri.encodeComponent(username.trim())
+        : 'guest';
+    return 'https://api.dicebear.com/10.x/bottts/svg?seed=$seed';
   }
 
   bool get isSvg {
     final url = effectiveAvatarUrl.toLowerCase();
-    return url.contains('.svg') || url.contains('/svg?') || url.contains('/svg/');
+    return url.contains('.svg') ||
+        url.contains('/svg?') ||
+        url.contains('/svg/');
   }
 
   bool get isGif {
     final url = effectiveAvatarUrl.toLowerCase();
-    return url.endsWith('.gif') || url.contains('.gif?') || url.contains('/giphy.com/') || url.contains('media.tenor.com');
+    return url.endsWith('.gif') ||
+        url.contains('.gif?') ||
+        url.contains('/giphy.com/') ||
+        url.contains('media.tenor.com');
   }
 
   LinearGradient _getFallbackGradient() {
@@ -58,13 +66,13 @@ class AvatarBadge extends StatelessWidget {
   }
 
   Widget _buildFallbackWidget() {
-    final initial = username.trim().isNotEmpty ? username.trim()[0].toUpperCase() : '👤';
+    final initial = username.trim().isNotEmpty
+        ? username.trim()[0].toUpperCase()
+        : '👤';
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        gradient: _getFallbackGradient(),
-      ),
+      decoration: BoxDecoration(gradient: _getFallbackGradient()),
       child: Center(
         child: Text(
           initial,
@@ -97,7 +105,10 @@ class AvatarBadge extends StatelessWidget {
             child: SizedBox(
               width: 12,
               height: 12,
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppColors.primary,
+              ),
             ),
           ),
         ),
@@ -118,7 +129,10 @@ class AvatarBadge extends StatelessWidget {
               child: SizedBox(
                 width: 12,
                 height: 12,
-                child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+                child: CircularProgressIndicator(
+                  strokeWidth: 1.5,
+                  color: AppColors.primary,
+                ),
               ),
             ),
           );
@@ -131,8 +145,12 @@ class AvatarBadge extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        memCacheWidth: size.isFinite && size > 0 ? (size * 2).round().clamp(32, 256) : 80,
-        memCacheHeight: size.isFinite && size > 0 ? (size * 2).round().clamp(32, 256) : 80,
+        memCacheWidth: size.isFinite && size > 0
+            ? (size * 2).round().clamp(32, 256)
+            : 80,
+        memCacheHeight: size.isFinite && size > 0
+            ? (size * 2).round().clamp(32, 256)
+            : 80,
         placeholder: (context, url) => Container(
           width: size,
           height: size,
@@ -141,7 +159,10 @@ class AvatarBadge extends StatelessWidget {
             child: SizedBox(
               width: 12,
               height: 12,
-              child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: AppColors.primary,
+              ),
             ),
           ),
         ),
