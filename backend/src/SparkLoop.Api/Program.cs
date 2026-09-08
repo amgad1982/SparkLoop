@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.OpenApi.Models;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -43,7 +44,23 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(allowedOrigins)
+        policy
+            .SetIsOriginAllowed(origin =>
+            {
+                if (string.IsNullOrWhiteSpace(origin)) return false;
+                var trimmed = origin.TrimEnd('/');
+                if (allowedOrigins.Any(o => string.Equals(o.TrimEnd('/'), trimmed, StringComparison.OrdinalIgnoreCase)))
+                    return true;
+                if (Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+                {
+                    var host = uri.Host.ToLowerInvariant();
+                    return host == "sloop.mydev-lab.com"
+                        || host.EndsWith(".mydev-lab.com")
+                        || host == "localhost"
+                        || host == "127.0.0.1";
+                }
+                return false;
+            })
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials();
@@ -114,6 +131,15 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 
+// Forwarded headers from Cloudflare Tunnel / Reverse Proxy (MUST be first)
+var forwardedOptions = new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+};
+forwardedOptions.KnownIPNetworks.Clear();
+forwardedOptions.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedOptions);
+
 // 7. Configure Middleware Pipeline
 app.UseMiddleware<GlobalExceptionHandlingMiddleware>();
 
@@ -132,16 +158,21 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// Rate limiter must run early — before auth — so anonymous floods are blocked too.
-app.UseRateLimiter();
-
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "SparkLoop API v1"));
 }
 
+// Endpoint routing MUST precede CORS
+app.UseRouting();
+
+// CORS MUST run before RateLimiter, Authentication, and Authorization so preflight OPTIONS succeed
 app.UseCors("AllowFrontend");
+
+// Rate limiter runs after CORS so cross-origin preflight requests are not blocked or stripped of CORS headers
+app.UseRateLimiter();
+
 app.UseStaticFiles();
 
 app.UseMiddleware<RTLContextMiddleware>();
