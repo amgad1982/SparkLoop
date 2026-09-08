@@ -36,7 +36,7 @@ services:
       - Storage__BucketName=${STORAGE_BUCKET_NAME:-sparkloop-media}
       - Storage__PublicUrl=${STORAGE_PUBLIC_URL:-https://sloopmedia.mydev-lab.com/sparkloop-media}
       # LiveKit SFU & Colocated Coturn TURN on Dedicated Host (TURN-SFU stack on 92.4.162.183)
-      - LiveKit__ServerUrl=${LIVEKIT_URL:-wss://slooplive.mydev-lab.com}
+      - LiveKit__ServerUrl=${LIVEKIT_URL:-ws://92.4.162.183:7880}
       - LiveKit__ApiKey=${LIVEKIT_API_KEY:-sparkloop_livekit_key}
       - LiveKit__ApiSecret=${LIVEKIT_API_SECRET:-sparkloop_livekit_secret_2026_super_secure_32chars}
       - LiveKit__Turn__Server=${LIVEKIT_TURN_SERVER:-turn:92.4.162.183:3478}
@@ -63,7 +63,7 @@ services:
       args:
         - VITE_API_BASE_URL=https://sloopapi.mydev-lab.com/api
         - VITE_WS_URL=wss://sloopws.mydev-lab.com/connection/websocket
-        - VITE_LIVEKIT_URL=wss://slooplive.mydev-lab.com
+        - VITE_LIVEKIT_URL=ws://92.4.162.183:7880
     container_name: sparkloop-frontend
     restart: unless-stopped
     ports:
