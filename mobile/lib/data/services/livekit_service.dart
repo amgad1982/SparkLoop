@@ -223,11 +223,29 @@ class LiveKitService extends ChangeNotifier {
   }
 
   void upsertParticipant(LiveKitSpeaker speaker, {bool isOnStage = true}) {
-    _participants[speaker.userId] = speaker.copyWith(
+    final prevP = _participants[speaker.userId];
+    final prevS = _speakers[speaker.userId];
+    final updatedSpeaker = speaker.copyWith(
       isMuted: speaker.isMuted,
     );
+
+    // Skip redundant notifications if participant data has not changed
+    if (prevP != null &&
+        prevP.isMuted == updatedSpeaker.isMuted &&
+        prevP.isSpeaking == updatedSpeaker.isSpeaking &&
+        prevP.username == updatedSpeaker.username &&
+        prevP.displayName == updatedSpeaker.displayName &&
+        prevP.avatarUrl == updatedSpeaker.avatarUrl &&
+        (!isOnStage ||
+            (prevS != null &&
+                prevS.isMuted == updatedSpeaker.isMuted &&
+                prevS.isSpeaking == updatedSpeaker.isSpeaking))) {
+      return;
+    }
+
+    _participants[speaker.userId] = updatedSpeaker;
     if (isOnStage) {
-      _speakers[speaker.userId] = speaker;
+      _speakers[speaker.userId] = updatedSpeaker;
     }
     notifyListeners();
   }
@@ -254,10 +272,33 @@ class LiveKitService extends ChangeNotifier {
 
   void setSpeakerStatus(String userId, {bool? isSpeaking, bool? isMuted}) {
     if (_speakers.containsKey(userId)) {
-      _speakers[userId] = _speakers[userId]!.copyWith(
-        isSpeaking: isSpeaking ?? _speakers[userId]!.isSpeaking,
-        isMuted: isMuted ?? _speakers[userId]!.isMuted,
+      final current = _speakers[userId]!;
+      final newSpeaking = isSpeaking ?? current.isSpeaking;
+      final newMuted = isMuted ?? current.isMuted;
+      if (current.isSpeaking == newSpeaking && current.isMuted == newMuted) {
+        return;
+      }
+      _speakers[userId] = current.copyWith(
+        isSpeaking: newSpeaking,
+        isMuted: newMuted,
       );
+      notifyListeners();
+    }
+  }
+
+  void promoteToSpeaker() {
+    _isSpeaker = true;
+    notifyListeners();
+  }
+
+  void setParticipantStageStatus(String userId, {required bool isOnStage}) {
+    if (_participants.containsKey(userId)) {
+      final p = _participants[userId]!;
+      if (isOnStage) {
+        _speakers[userId] = p;
+      } else {
+        _speakers.remove(userId);
+      }
       notifyListeners();
     }
   }
@@ -317,13 +358,17 @@ class LiveKitService extends ChangeNotifier {
       _roomListener!
         ..on<ActiveSpeakersChangedEvent>((event) {
           final activeIds = event.speakers.map((s) => s.identity).toSet();
+          bool hasChanged = false;
           for (final id in _speakers.keys) {
             final isNowSpeaking = activeIds.contains(id);
             if (_speakers[id]?.isSpeaking != isNowSpeaking) {
               _speakers[id] = _speakers[id]!.copyWith(isSpeaking: isNowSpeaking);
+              hasChanged = true;
             }
           }
-          notifyListeners();
+          if (hasChanged) {
+            notifyListeners();
+          }
         })
         ..on<TrackSubscribedEvent>((event) {
           _syncParticipantFromLiveKit(event.participant);
@@ -506,6 +551,37 @@ class LiveKitService extends ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  /// Automatically opens and unmutes the microphone when promoted to stage speaker.
+  Future<bool> unmuteMic([String? currentUserId]) async {
+    _isSpeaker = true;
+    _isMicMuted = false;
+    final targetId = currentUserId ?? _localUserId;
+    if (targetId != null && _speakers.containsKey(targetId)) {
+      _speakers[targetId] = _speakers[targetId]!.copyWith(
+        isMuted: false,
+        isSpeaking: true,
+      );
+    }
+    final granted = await requestMicPermission();
+    if (granted && _room?.localParticipant != null) {
+      try {
+        await _room!.localParticipant?.setMicrophoneEnabled(true);
+      } catch (e) {
+        debugPrint('Error enabling microphone in LiveKit: $e');
+      }
+    } else if (!granted) {
+      _isMicMuted = true;
+      if (targetId != null && _speakers.containsKey(targetId)) {
+        _speakers[targetId] = _speakers[targetId]!.copyWith(
+          isMuted: true,
+          isSpeaking: false,
+        );
+      }
+    }
+    notifyListeners();
+    return granted;
   }
 
   Future<bool> requestMicPermission() async {

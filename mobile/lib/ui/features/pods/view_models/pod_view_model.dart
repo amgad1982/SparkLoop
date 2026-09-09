@@ -63,6 +63,8 @@ class PodViewModel extends ChangeNotifier {
   String? _localDisplayName;
   String? _localAvatarUrl;
   Timer? _messageSyncTimer;
+  final _stagePromotedController = StreamController<bool>.broadcast();
+  Stream<bool> get onStagePromoted => _stagePromotedController.stream;
 
   PodViewModel({
     required this._podRepository,
@@ -322,6 +324,55 @@ class PodViewModel extends ChangeNotifier {
           // requires a per-user audio session that we don't wire here;
           // for now we just reflect the intent in the UI.
           _liveKitService.setSpeakerStatus(targetUserId, isMuted: true);
+          notifyListeners();
+        } else if (action == 'promote_speaker' && targetUserId != null && _activePod != null) {
+          // Remove target user from the hand raised queue for all room participants
+          _handRaisedUsers.removeWhere((u) => u['userId'] == targetUserId);
+
+          if (targetUserId == _localUserId) {
+            // Local user's hand raise request was approved by the moderator!
+            _isHandRaised = false;
+
+            // 1. Promote to speaker in LiveKitService
+            _liveKitService.promoteToSpeaker();
+
+            // 2. Automatically open and unmute the microphone
+            final granted = await _liveKitService.unmuteMic(_localUserId);
+
+            // 3. Broadcast STAGE_PRESENCE to all peers in the pod
+            _podRepository.sendSignal(
+              _activePod!.id,
+              'STAGE_PRESENCE',
+              payload: {
+                'userId': _localUserId,
+                'username': _localUsername ?? '',
+                'displayName': _localDisplayName ?? '',
+                'avatarUrl': _localAvatarUrl,
+                'isOnStage': true,
+                'isMuted': !granted,
+                'isSpeaking': false,
+              },
+            );
+
+            // 4. Notify UI to display the request accepted snackbar
+            _stagePromotedController.add(true);
+          } else {
+            // Another user was approved by the moderator; ensure they appear on stage
+            final targetUsername = event.data['targetUsername'] as String? ?? '';
+            final targetDisplayName = event.data['targetDisplayName'] as String? ?? targetUsername;
+            final targetAvatarUrl = event.data['targetAvatarUrl'] as String?;
+            _liveKitService.upsertParticipant(
+              LiveKitSpeaker(
+                userId: targetUserId,
+                username: targetUsername,
+                displayName: targetDisplayName,
+                avatarUrl: targetAvatarUrl,
+                isSpeaking: false,
+                isMuted: false,
+              ),
+              isOnStage: true,
+            );
+          }
           notifyListeners();
         }
       }
@@ -921,6 +972,7 @@ class PodViewModel extends ChangeNotifier {
   void dispose() {
     _messageSyncTimer?.cancel();
     _messageSyncTimer = null;
+    _stagePromotedController.close();
     super.dispose();
   }
 }

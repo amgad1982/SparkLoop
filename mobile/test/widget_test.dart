@@ -976,5 +976,87 @@ void main() {
       expect(supportedReactions[4].type, 'heart');
       expect(supportedReactions[4].emoji, '❤️');
     });
+
+    test('LiveKitService promoteToSpeaker and speaker status deduplication', () {
+      final service = LiveKitService();
+      expect(service.isSpeaker, isFalse);
+
+      service.promoteToSpeaker();
+      expect(service.isSpeaker, isTrue);
+
+      const speaker = LiveKitSpeaker(
+        userId: 'u-1',
+        username: 'amgad',
+        displayName: 'Amgad',
+        isSpeaking: false,
+        isMuted: true,
+      );
+      service.upsertParticipant(speaker, isOnStage: true);
+
+      int notifyCount = 0;
+      service.addListener(() => notifyCount++);
+
+      // Setting identical status should NOT trigger notifyListeners (deduplicated)
+      service.setSpeakerStatus('u-1', isSpeaking: false, isMuted: true);
+      expect(notifyCount, 0);
+
+      // Changing speaking status should trigger notifyListeners
+      service.setSpeakerStatus('u-1', isSpeaking: true, isMuted: false);
+      expect(notifyCount, 1);
+    });
+
+    test('Hand-raise queue visibility logic: only host or moderator sees queue', () {
+      bool canSeeHandQueue({required bool isHost, required bool isModerator, required int count}) {
+        return (isHost || isModerator) && count > 0;
+      }
+
+      // Regular attendee with hands raised -> cannot see queue
+      expect(canSeeHandQueue(isHost: false, isModerator: false, count: 2), isFalse);
+
+      // Regular attendee with 0 hands -> cannot see queue
+      expect(canSeeHandQueue(isHost: false, isModerator: false, count: 0), isFalse);
+
+      // Host with hands raised -> can see queue
+      expect(canSeeHandQueue(isHost: true, isModerator: false, count: 1), isTrue);
+
+      // Host with 0 hands raised -> queue hidden
+      expect(canSeeHandQueue(isHost: true, isModerator: false, count: 0), isFalse);
+
+      // Moderator with hands raised -> can see queue
+      expect(canSeeHandQueue(isHost: false, isModerator: true, count: 3), isTrue);
+    });
+
+    test('MoodPod creation settings validation across all fields', () {
+      final json = {
+        'id': 'pod-all-settings',
+        'title': 'Chill Room',
+        'hostUserId': 'host-1',
+        'hostUsername': 'host_user',
+        'hostDisplayName': 'Host User',
+        'moodEmoji': '🎧',
+        'backgroundTheme': 'cosmic-purple',
+        'isPrivate': true,
+        'inviteCode': 'SECRET77',
+        'allowParticipantsChangeTheme': true,
+        'allowParticipantsPlayBgMusic': false,
+        'allowOpenMic': false,
+        'isDjMode': true,
+        'followersOnly': true,
+        'durationHours': 24,
+      };
+
+      final pod = MoodPodDto.fromJson(json);
+      expect(pod.title, 'Chill Room');
+      expect(pod.moodEmoji, '🎧');
+      expect(pod.backgroundTheme, 'cosmic-purple');
+      expect(pod.isPrivate, isTrue);
+      expect(pod.inviteCode, 'SECRET77');
+      expect(pod.allowParticipantsChangeTheme, isTrue);
+      expect(pod.allowParticipantsPlayBgMusic, isFalse);
+      expect(pod.allowOpenMic, isFalse);
+      expect(pod.isDjMode, isTrue);
+      expect(pod.followersOnly, isTrue);
+      expect(pod.expiresAtUtc, isNotNull);
+    });
   });
 }

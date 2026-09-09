@@ -197,6 +197,11 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
           if (voiceEngine.isOnStage) {
             voiceEngine.handleLeaveStage();
           }
+        } else if (action === 'promote_speaker') {
+          if (!voiceEngine.isOnStage) {
+            voiceEngine.handleJoinStage();
+            alert(isArabic ? 'تم قبول طلبك للصعود للمنصة! تم فتح الميكروفون.' : 'Your request to speak was accepted! You are now on stage.');
+          }
         }
       }
       if (action === 'promote_moderator') {
