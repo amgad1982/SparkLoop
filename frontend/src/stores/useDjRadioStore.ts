@@ -23,8 +23,12 @@ let loopStartTime = 0;
 function resolveLiveKitWsUrl(serverUrl: string): string {
   let rawUrl = serverUrl || (import.meta.env.VITE_LIVEKIT_URL as string) || 'ws://92.4.162.183:7880';
   let liveKitUrl = rawUrl;
-  if (liveKitUrl.includes('slooplive.mydev-lab.com')) {
-    liveKitUrl = 'ws://92.4.162.183:7880';
+  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
+    // Browsers forbid insecure ws:// on an HTTPS page (Mixed Content SecurityError).
+    // Route through same-origin WSS reverse proxy (/rtc) on Nginx.
+    if (liveKitUrl.startsWith('ws://') || liveKitUrl.includes('slooplive.mydev-lab.com')) {
+      liveKitUrl = 'wss://' + window.location.host;
+    }
   }
   return liveKitUrl;
 }
