@@ -40,7 +40,7 @@ class _PodAudioPlayerWidgetState extends State<PodAudioPlayerWidget>
     _waveAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
-    )..repeat(reverse: true);
+    );
 
     if (widget.durationSeconds != null && widget.durationSeconds! > 0) {
       _duration = Duration(seconds: widget.durationSeconds!);
@@ -48,8 +48,18 @@ class _PodAudioPlayerWidgetState extends State<PodAudioPlayerWidget>
 
     _playerStateSubscription = _player.onPlayerStateChanged.listen((state) {
       if (mounted) {
+        final playing = state == PlayerState.playing;
+        if (playing) {
+          if (!_waveAnimController.isAnimating) {
+            _waveAnimController.repeat(reverse: true);
+          }
+        } else {
+          if (_waveAnimController.isAnimating) {
+            _waveAnimController.stop();
+          }
+        }
         setState(() {
-          _isPlaying = state == PlayerState.playing;
+          _isPlaying = playing;
         });
       }
     });
@@ -72,6 +82,9 @@ class _PodAudioPlayerWidgetState extends State<PodAudioPlayerWidget>
 
     _completeSubscription = _player.onPlayerComplete.listen((_) {
       if (mounted) {
+        if (_waveAnimController.isAnimating) {
+          _waveAnimController.stop();
+        }
         setState(() {
           _isPlaying = false;
           _position = Duration.zero;
@@ -127,91 +140,70 @@ class _PodAudioPlayerWidgetState extends State<PodAudioPlayerWidget>
     final double currentMs = _position.inMilliseconds.toDouble().clamp(0.0, totalMs);
     final double progress = (currentMs / totalMs).clamp(0.0, 1.0);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: widget.isSelf
-            ? Colors.black.withValues(alpha: 0.12)
-            : (isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.04)),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
+    return RepaintBoundary(
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
           color: widget.isSelf
-              ? Colors.white.withValues(alpha: 0.2)
-              : (isDark ? AppColors.borderDark : AppColors.borderLight),
-          width: 0.8,
+              ? Colors.black.withValues(alpha: 0.12)
+              : (isDark
+                  ? Colors.white.withValues(alpha: 0.06)
+                  : Colors.black.withValues(alpha: 0.04)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: widget.isSelf
+                ? Colors.white.withValues(alpha: 0.2)
+                : (isDark ? AppColors.borderDark : AppColors.borderLight),
+            width: 0.8,
+          ),
         ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // Play / Pause Circle
-              GestureDetector(
-                onTap: _togglePlay,
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: widget.isSelf
-                        ? Colors.white.withValues(alpha: 0.25)
-                        : (isDark
-                            ? AppColors.primary.withValues(alpha: 0.3)
-                            : AppColors.primary.withValues(alpha: 0.15)),
-                  ),
-                  child: Icon(
-                    _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                    color: primaryColor,
-                    size: 22,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // Play / Pause Circle
+                GestureDetector(
+                  onTap: _togglePlay,
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: widget.isSelf
+                          ? Colors.white.withValues(alpha: 0.25)
+                          : (isDark
+                              ? AppColors.primary.withValues(alpha: 0.3)
+                              : AppColors.primary.withValues(alpha: 0.15)),
+                    ),
+                    child: Icon(
+                      _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      color: primaryColor,
+                      size: 22,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
 
-              // Waveform Bars & Progress Bar
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Visualizer wave bars
-                    SizedBox(
-                      height: 18,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: List.generate(16, (index) {
-                          final barRatio = (index + 1) / 16.0;
-                          final isActive = barRatio <= progress;
-                          final heights = [6, 12, 16, 9, 14, 18, 11, 15, 8, 14, 17, 10, 15, 8, 12, 7];
-                          final baseH = heights[index % heights.length].toDouble();
-
-                          return AnimatedBuilder(
-                            animation: _waveAnimController,
-                            builder: (context, _) {
-                              final animatedHeight = _isPlaying
-                                  ? (baseH * (0.6 + 0.4 * ((index % 2 == 0)
-                                      ? _waveAnimController.value
-                                      : (1 - _waveAnimController.value))))
-                                  : baseH * 0.75;
-                              return Container(
-                                width: 3,
-                                height: animatedHeight,
-                                decoration: BoxDecoration(
-                                  color: isActive ? primaryColor : secondaryColor.withValues(alpha: 0.35),
-                                  borderRadius: BorderRadius.circular(2),
-                                ),
-                              );
-                            },
-                          );
-                        }),
+                // Waveform Bars & Progress Bar
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Visualizer wave bars: Animated only when playing, completely static when paused
+                      SizedBox(
+                        height: 18,
+                        child: _isPlaying
+                            ? AnimatedBuilder(
+                                animation: _waveAnimController,
+                                builder: (context, _) => _buildWaveBars(progress, primaryColor, secondaryColor),
+                              )
+                            : _buildWaveBars(progress, primaryColor, secondaryColor),
                       ),
-                    ),
-                    const SizedBox(height: 6),
+                      const SizedBox(height: 6),
 
                     // Slider / Progress Track
                     ClipRRect(
@@ -265,6 +257,32 @@ class _PodAudioPlayerWidgetState extends State<PodAudioPlayerWidget>
           ),
         ],
       ),
+    ));
+  }
+
+  Widget _buildWaveBars(double progress, Color primaryColor, Color secondaryColor) {
+    const heights = [6, 12, 16, 9, 14, 18, 11, 15, 8, 14, 17, 10, 15, 8, 12, 7];
+    final animVal = _isPlaying ? _waveAnimController.value : 0.0;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: List.generate(16, (index) {
+        final barRatio = (index + 1) / 16.0;
+        final isActive = barRatio <= progress;
+        final baseH = heights[index % heights.length].toDouble();
+        final animatedHeight = _isPlaying
+            ? (baseH * (0.6 + 0.4 * ((index % 2 == 0) ? animVal : (1.0 - animVal))))
+            : baseH * 0.75;
+
+        return Container(
+          width: 3,
+          height: animatedHeight,
+          decoration: BoxDecoration(
+            color: isActive ? primaryColor : secondaryColor.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      }),
     );
   }
 }

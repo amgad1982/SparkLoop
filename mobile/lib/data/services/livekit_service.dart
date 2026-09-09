@@ -118,7 +118,7 @@ class LiveKitService extends ChangeNotifier {
       AudioPlayer.global.setAudioContext(
         AudioContext(
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playAndRecord,
+            category: AVAudioSessionCategory.playback,
             options: {
               AVAudioSessionOptions.defaultToSpeaker,
               AVAudioSessionOptions.mixWithOthers,

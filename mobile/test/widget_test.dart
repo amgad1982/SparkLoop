@@ -23,6 +23,7 @@ import 'package:sparkloop_mobile/ui/features/profile/views/settings_screen.dart'
 import 'package:sparkloop_mobile/ui/features/meme_canvas/views/template_picker_sheet.dart';
 import 'package:sparkloop_mobile/ui/core/widgets/reaction_bar.dart';
 import 'package:sparkloop_mobile/ui/features/shell/bottom_nav_bar.dart';
+import 'package:sparkloop_mobile/ui/features/pods/widgets/pod_audio_player_widget.dart';
 import 'package:sparkloop_mobile/ui/features/theme/theme_view_model.dart';
 
 void main() {
@@ -1099,6 +1100,27 @@ void main() {
       expect(lk.speakers.length, 1);
       expect(lk.listeners.length, 1);
       expect(lk.listeners.first.userId, 'lsn-1');
+    });
+
+    testWidgets('PodAudioPlayerWidget renders with RepaintBoundary and idle state', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: PodAudioPlayerWidget(
+              audioUrl: '/audio/voice/sample.m4a',
+              durationSeconds: 15,
+              isSelf: false,
+            ),
+          ),
+        ),
+      );
+
+      // Verify widget rendered
+      expect(find.text('Voice Note'), findsOneWidget);
+      expect(find.text('00:15'), findsOneWidget);
+      expect(find.byType(RepaintBoundary), findsWidgets);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.pause_rounded), findsNothing);
     });
   });
 }

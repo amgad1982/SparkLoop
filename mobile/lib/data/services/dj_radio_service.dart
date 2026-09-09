@@ -64,7 +64,7 @@ class DjRadioService extends ChangeNotifier {
       AudioPlayer.global.setAudioContext(
         AudioContext(
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playAndRecord,
+            category: AVAudioSessionCategory.playback,
             options: {
               AVAudioSessionOptions.mixWithOthers,
               AVAudioSessionOptions.allowBluetooth,

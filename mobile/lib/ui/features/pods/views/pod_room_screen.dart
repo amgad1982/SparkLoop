@@ -733,12 +733,14 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                       // 1. Stage Area (Speakers & Audience) — compact, expandable
                       Expanded(
                         flex: _showAllSpeakers ? 5 : 2,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                          child: Consumer<LiveKitService>(
-                            builder: (context, liveKit, _) {
-                              return _buildStageGrid(context, pod, liveKit, isArabic);
-                            },
+                        child: RepaintBoundary(
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                            child: Consumer<LiveKitService>(
+                              builder: (context, liveKit, _) {
+                                return _buildStageGrid(context, pod, liveKit, isArabic);
+                              },
+                            ),
                           ),
                         ),
                       ),
@@ -746,14 +748,16 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                       // 2. Chat / Event Stream — taller, WhatsApp-style bubbles
                       Expanded(
                         flex: _showAllSpeakers ? 4 : 7,
-                        child: Container(
-                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-                          child: Selector<PodViewModel, List<PodChatMessageDto>>(
-                            selector: (_, vm) => vm.chatMessages,
-                            shouldRebuild: (prev, next) => prev.length != next.length || prev != next,
-                            builder: (context, messages, _) {
-                              return _buildChatSection(context, messages, pod, isArabic);
-                            },
+                        child: RepaintBoundary(
+                          child: Container(
+                            margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                            child: Selector<PodViewModel, List<PodChatMessageDto>>(
+                              selector: (_, vm) => vm.chatMessages,
+                              shouldRebuild: (prev, next) => prev.length != next.length || prev != next,
+                              builder: (context, messages, _) {
+                                return _buildChatSection(context, messages, pod, isArabic);
+                              },
+                            ),
                           ),
                         ),
                       ),

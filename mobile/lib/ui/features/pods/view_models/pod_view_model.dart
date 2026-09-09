@@ -1048,7 +1048,7 @@ class PodViewModel extends ChangeNotifier {
 
   void _startMessageSync(String podId) {
     _messageSyncTimer?.cancel();
-    _messageSyncTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+    _messageSyncTimer = Timer.periodic(const Duration(seconds: 45), (_) async {
       if (_activePod == null || _activePod!.id.toLowerCase() != podId.toLowerCase()) {
         _messageSyncTimer?.cancel();
         return;

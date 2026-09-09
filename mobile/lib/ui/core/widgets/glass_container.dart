@@ -51,17 +51,21 @@ class GlassContainer extends StatelessWidget {
       ),
     );
 
-    return Container(
+    final body = blur > 0
+        ? ClipRRect(
+            borderRadius: BorderRadius.circular(borderRadius),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: content,
+            ),
+          )
+        : content;
+
+    final container = Container(
       margin: margin,
-      child: blur > 0
-          ? ClipRRect(
-              borderRadius: BorderRadius.circular(borderRadius),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-                child: content,
-              ),
-            )
-          : content,
+      child: body,
     );
+
+    return blur > 0 ? RepaintBoundary(child: container) : container;
   }
 }
