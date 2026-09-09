@@ -1058,5 +1058,47 @@ void main() {
       expect(pod.followersOnly, isTrue);
       expect(pod.expiresAtUtc, isNotNull);
     });
+
+    test('LiveKitService correctly separates stage speakers from room listeners', () {
+      final lk = LiveKitService();
+
+      final speaker = const LiveKitSpeaker(
+        userId: 'spk-1',
+        username: 'speaker_one',
+        displayName: 'Speaker One',
+        isSpeaking: false,
+        isMuted: false,
+      );
+
+      final listener = const LiveKitSpeaker(
+        userId: 'lsn-1',
+        username: 'listener_one',
+        displayName: 'Listener One',
+        isSpeaking: false,
+        isMuted: true,
+      );
+
+      lk.upsertParticipant(speaker, isOnStage: true);
+      lk.upsertParticipant(listener, isOnStage: false);
+
+      expect(lk.speakers.length, 1);
+      expect(lk.speakers.first.userId, 'spk-1');
+
+      expect(lk.participants.length, 2);
+
+      expect(lk.listeners.length, 1);
+      expect(lk.listeners.first.userId, 'lsn-1');
+
+      // Promote listener to stage
+      lk.setParticipantStageStatus('lsn-1', isOnStage: true);
+      expect(lk.speakers.length, 2);
+      expect(lk.listeners.length, 0);
+
+      // Demote back to audience
+      lk.demoteToListener('lsn-1');
+      expect(lk.speakers.length, 1);
+      expect(lk.listeners.length, 1);
+      expect(lk.listeners.first.userId, 'lsn-1');
+    });
   });
 }

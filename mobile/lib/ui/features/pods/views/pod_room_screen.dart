@@ -453,7 +453,12 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                               final targetId = user['userId']!;
                               final targetName = user['username'] ?? '';
                               final displayName = user['displayName'] ?? targetName;
-                              podVm.moderateParticipant(targetId, targetName, 'promote_speaker');
+                              podVm.approveHandRaise(
+                                targetId,
+                                targetName,
+                                targetDisplayName: displayName,
+                                targetAvatarUrl: user['avatarUrl'],
+                              );
                               Navigator.pop(ctx);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
@@ -725,9 +730,9 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                         },
                       ),
 
-                      // 1. Stage Area (Speakers) — compact, expandable
+                      // 1. Stage Area (Speakers & Audience) — compact, expandable
                       Expanded(
-                        flex: 2,
+                        flex: _showAllSpeakers ? 5 : 2,
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           child: Consumer<LiveKitService>(
@@ -740,7 +745,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
 
                       // 2. Chat / Event Stream — taller, WhatsApp-style bubbles
                       Expanded(
-                        flex: 7,
+                        flex: _showAllSpeakers ? 4 : 7,
                         child: Container(
                           margin: const EdgeInsets.fromLTRB(16, 0, 16, 6),
                           child: Selector<PodViewModel, List<PodChatMessageDto>>(
@@ -837,8 +842,9 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     // 3. If current user is on stage, ensure local user entry is present
     final currentUserId = authVm.currentUser?.id ?? authVm.currentPersona.id;
     final currentUsername = authVm.currentUser?.username ?? authVm.currentPersona.username;
+    final localKey = currentUserId.isNotEmpty ? currentUserId : currentUsername.toLowerCase();
+
     if (podVm.isHost || liveKit.isSpeaker || pod.allowOpenMic) {
-      final localKey = currentUserId.isNotEmpty ? currentUserId : currentUsername.toLowerCase();
       if (!speakersMap.containsKey(localKey)) {
         speakersMap[localKey] = LiveKitSpeaker(
           userId: currentUserId,
@@ -853,20 +859,79 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
 
     final speakers = speakersMap.values.toList();
 
+    // 4. Build Audience / Listeners from all known participants not on stage
+    final Map<String, LiveKitSpeaker> listenersMap = {};
+    for (final p in liveKit.participants) {
+      final key = p.userId.isNotEmpty ? p.userId : p.username.toLowerCase();
+      if (key.isNotEmpty && !speakersMap.containsKey(key)) {
+        listenersMap[key] = p;
+      }
+    }
+
+    // If local user is NOT on stage, ensure local user is visible in listeners
+    if (!speakersMap.containsKey(localKey)) {
+      listenersMap[localKey] = LiveKitSpeaker(
+        userId: currentUserId,
+        username: currentUsername,
+        displayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
+        avatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
+        isSpeaking: false,
+        isMuted: true,
+      );
+    }
+
+    final listeners = listenersMap.values.toList();
+    final totalJoiners = speakers.length + listeners.length;
+
+    // Combined items for compact horizontal strip
+    final int separatorCount = (speakers.isNotEmpty && listeners.isNotEmpty) ? 1 : 0;
+    final int totalHorizontalItems = speakers.length + separatorCount + listeners.length;
+
     return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       borderRadius: 18,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Compact header row with title, count, and expand button
+          // Compact header row with indicators for Speakers, Listeners, and Total Joiners
           Row(
             children: [
-              const Icon(Icons.mic, size: 13, color: AppColors.accentEmerald),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.accentEmerald.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.mic, size: 11, color: AppColors.accentEmerald),
+                    const SizedBox(width: 3),
+                    Text(
+                      isArabic ? 'المنصة (${speakers.length})' : 'Stage (${speakers.length})',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: AppColors.accentEmerald),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(width: 5),
-              Text(
-                isArabic ? 'المتحدثون (${speakers.length})' : 'Speakers (${speakers.length})',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.headphones, size: 11, color: Color(0xFF818CF8)),
+                    const SizedBox(width: 3),
+                    Text(
+                      isArabic ? 'المستمعون (${listeners.length})' : 'Audience (${listeners.length})',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Color(0xFF818CF8)),
+                    ),
+                  ],
+                ),
               ),
               const Spacer(),
               if (pod.isPrivate)
@@ -954,13 +1019,11 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                 ),
               InkWell(
                 borderRadius: BorderRadius.circular(6),
-                onTap: speakers.isEmpty ? null : () => setState(() => _showAllSpeakers = !_showAllSpeakers),
+                onTap: () => setState(() => _showAllSpeakers = !_showAllSpeakers),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                   decoration: BoxDecoration(
-                    color: speakers.isEmpty
-                        ? Colors.transparent
-                        : AppColors.accentEmerald.withValues(alpha: 0.15),
+                    color: AppColors.accentEmerald.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Row(
@@ -969,17 +1032,17 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                       Icon(
                         _showAllSpeakers ? Icons.close_fullscreen : Icons.open_in_full,
                         size: 10,
-                        color: speakers.isEmpty ? Colors.grey : AppColors.accentEmerald,
+                        color: AppColors.accentEmerald,
                       ),
                       const SizedBox(width: 3),
                       Text(
                         _showAllSpeakers
                             ? (isArabic ? 'إخفاء' : 'Hide')
-                            : (isArabic ? 'الكل' : 'All'),
-                        style: TextStyle(
+                            : (isArabic ? 'الكل ($totalJoiners)' : 'All ($totalJoiners)'),
+                        style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
-                          color: speakers.isEmpty ? Colors.grey : AppColors.accentEmerald,
+                          color: AppColors.accentEmerald,
                         ),
                       ),
                     ],
@@ -989,51 +1052,119 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             ],
           ),
           const SizedBox(height: 6),
-          // Compact speaker strip — small avatars; toggles to a wrap-grid when "All" is pressed.
+          // Compact strip or Expanded categorized grid
           Expanded(
-            child: speakers.isEmpty
-                ? Center(
-                    child: Text(
-                      isArabic ? 'لا يوجد متحدثون' : 'No speakers yet',
-                      style: TextStyle(fontSize: 10.5, color: Colors.grey.withValues(alpha: 0.6)),
+            child: _showAllSpeakers
+                ? SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.mic, size: 12, color: AppColors.accentEmerald),
+                            const SizedBox(width: 4),
+                            Text(
+                              isArabic
+                                  ? 'المتحدثون على المنصة (${speakers.length})'
+                                  : 'Speakers on Stage (${speakers.length})',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        if (speakers.isEmpty)
+                          Text(
+                            isArabic ? 'لا يوجد متحدثون' : 'No speakers on stage',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: speakers
+                                .map((speaker) => _buildSpeakerListItem(
+                                      context: context,
+                                      speaker: speaker,
+                                      pod: pod,
+                                    ))
+                                .toList(),
+                          ),
+                        const Divider(height: 16, color: Colors.white12),
+                        Row(
+                          children: [
+                            const Icon(Icons.headphones, size: 12, color: Color(0xFF818CF8)),
+                            const SizedBox(width: 4),
+                            Text(
+                              isArabic
+                                  ? 'المستمعون في الحجرة (${listeners.length})'
+                                  : 'Audience in Pod (${listeners.length})',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        if (listeners.isEmpty)
+                          Text(
+                            isArabic ? 'لا يوجد مستمعون آخرون' : 'No other listeners yet',
+                            style: const TextStyle(fontSize: 10, color: Colors.grey),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: listeners
+                                .map((listener) => _buildListenerListItem(
+                                      context: context,
+                                      listener: listener,
+                                      pod: pod,
+                                    ))
+                                .toList(),
+                          ),
+                      ],
                     ),
                   )
-                : (_showAllSpeakers
-                    ? SingleChildScrollView(
-                        child: Wrap(
-                          spacing: 10,
-                          runSpacing: 6,
-                          alignment: WrapAlignment.start,
-                          children: speakers.map((speaker) {
-                            return _buildSpeakerListItem(
-                              context: context,
-                              speaker: speaker,
-                              pod: pod,
-                            );
-                          }).toList(),
-                        ),
-                      )
-                    : ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: speakers.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final speaker = speakers[index];
-                          return _buildSpeakerListItem(
+                : ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: totalHorizontalItems,
+                    itemBuilder: (context, index) {
+                      if (index < speakers.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildSpeakerListItem(
                             context: context,
-                            speaker: speaker,
+                            speaker: speakers[index],
                             pod: pod,
-                          );
-                        },
-                      )),
+                          ),
+                        );
+                      } else if (separatorCount > 0 && index == speakers.length) {
+                        return Center(
+                          child: Container(
+                            width: 1,
+                            height: 32,
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            color: Colors.white24,
+                          ),
+                        );
+                      } else {
+                        final listenerIndex = index - speakers.length - separatorCount;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: _buildListenerListItem(
+                            context: context,
+                            listener: listeners[listenerIndex],
+                            pod: pod,
+                          ),
+                        );
+                      }
+                    },
+                  ),
           ),
         ],
       ),
     );
   }
 
-  /// Builds one compact speaker tile used in both the horizontal strip (collapsed) and
-/// the wrap-grid (expanded). Computes host/self/avatar from the speaker + pod.
+  /// Builds one compact speaker tile with mic indicator, host star, and tap-for-actions.
   Widget _buildSpeakerListItem({
     required BuildContext context,
     required LiveKitSpeaker speaker,
@@ -1055,76 +1186,289 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             ? speaker.avatarUrl
             : (isHostUser ? pod.hostAvatarUrl : null));
 
-    return SizedBox(
-      width: 52,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: speaker.isSpeaking ? AppColors.accentEmerald : Colors.transparent,
-                    width: 2,
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _showParticipantActionsModal(
+        context: context,
+        participant: speaker,
+        isSpeaker: true,
+        pod: pod,
+        isArabic: isArabic,
+      ),
+      child: SizedBox(
+        width: 52,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: speaker.isSpeaking ? AppColors.accentEmerald : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: AvatarBadge(
+                    avatarUrl: resolvedAvatar,
+                    username: speaker.username,
+                    size: 30,
                   ),
                 ),
-                child: AvatarBadge(
+                Positioned(
+                  bottom: -1,
+                  right: -1,
+                  child: Container(
+                    width: 13,
+                    height: 13,
+                    decoration: BoxDecoration(
+                      color: speaker.isMuted ? AppColors.error : AppColors.accentEmerald,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black, width: 1.2),
+                    ),
+                    child: Icon(
+                      speaker.isMuted ? Icons.mic_off : Icons.mic,
+                      size: 7,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                if (isHostUser)
+                  Positioned(
+                    top: -3,
+                    left: -3,
+                    child: Container(
+                      padding: const EdgeInsets.all(1.5),
+                      decoration: const BoxDecoration(
+                        color: AppColors.accentAmber,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.star, size: 8, color: Colors.black),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              speaker.displayName.isNotEmpty ? speaker.displayName : speaker.username,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 9,
+                color: isSelf ? AppColors.primaryLight : Colors.white,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Builds one compact listener tile with headphones indicator and tap-for-actions.
+  Widget _buildListenerListItem({
+    required BuildContext context,
+    required LiveKitSpeaker listener,
+    required MoodPodDto pod,
+  }) {
+    final authVm = context.read<AuthViewModel>();
+    final isSelf = (listener.userId.isNotEmpty &&
+            (listener.userId == authVm.currentUser?.id || listener.userId == authVm.currentPersona.id)) ||
+        (listener.username.isNotEmpty &&
+            (listener.username.toLowerCase() == authVm.currentUser?.username.toLowerCase() ||
+             listener.username.toLowerCase() == authVm.currentPersona.username.toLowerCase()));
+
+    final resolvedAvatar = isSelf
+        ? (authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl)
+        : (listener.avatarUrl?.isNotEmpty == true ? listener.avatarUrl : null);
+
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _showParticipantActionsModal(
+        context: context,
+        participant: listener,
+        isSpeaker: false,
+        pod: pod,
+        isArabic: isArabic,
+      ),
+      child: SizedBox(
+        width: 52,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AvatarBadge(
                   avatarUrl: resolvedAvatar,
-                  username: speaker.username,
+                  username: listener.username,
                   size: 30,
                 ),
-              ),
-              Positioned(
-                bottom: -1,
-                right: -1,
-                child: Container(
-                  width: 13,
-                  height: 13,
-                  decoration: BoxDecoration(
-                    color: speaker.isMuted ? AppColors.error : AppColors.accentEmerald,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 1.2),
-                  ),
-                  child: Icon(
-                    speaker.isMuted ? Icons.mic_off : Icons.mic,
-                    size: 7,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-              if (isHostUser)
                 Positioned(
-                  top: -3,
-                  left: -3,
+                  bottom: -1,
+                  right: -1,
                   child: Container(
-                    padding: const EdgeInsets.all(1.5),
-                    decoration: const BoxDecoration(
-                      color: AppColors.accentAmber,
+                    width: 13,
+                    height: 13,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF6366F1),
                       shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black, width: 1.2),
                     ),
-                    child: const Icon(Icons.star, size: 8, color: Colors.black),
+                    child: const Icon(
+                      Icons.headphones,
+                      size: 7,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
-            ],
-          ),
-          const SizedBox(height: 3),
-          Text(
-            speaker.displayName.isNotEmpty ? speaker.displayName : speaker.username,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 9,
-              color: isSelf ? AppColors.primaryLight : Colors.white,
+              ],
             ),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-          ),
-        ],
+            const SizedBox(height: 3),
+            Text(
+              listener.displayName.isNotEmpty ? listener.displayName : listener.username,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 9,
+                color: isSelf ? AppColors.primaryLight : Colors.white70,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Displays an interactive moderation & profile modal when tapping any stage or audience participant.
+  void _showParticipantActionsModal({
+    required BuildContext context,
+    required LiveKitSpeaker participant,
+    required bool isSpeaker,
+    required MoodPodDto pod,
+    required bool isArabic,
+  }) {
+    final podVm = context.read<PodViewModel>();
+    final authVm = context.read<AuthViewModel>();
+    final currentUserId = authVm.currentUser?.id ?? authVm.currentPersona.id;
+    final isSelf = participant.userId == currentUserId;
+    final canModerate = podVm.isHost || podVm.isModerator;
+    final isHostParticipant = participant.userId == pod.hostUserId ||
+        participant.username.toLowerCase() == pod.hostUsername.toLowerCase();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => GlassContainer(
+        borderRadius: 24,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            AvatarBadge(
+              avatarUrl: participant.avatarUrl,
+              username: participant.username,
+              size: 56,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              participant.displayName.isNotEmpty ? participant.displayName : participant.username,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            Text(
+              '@${participant.username}',
+              style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+            ),
+            const SizedBox(height: 16),
+            if (canModerate && !isSelf && !isHostParticipant) ...[
+              if (!isSpeaker) ...[
+                ListTile(
+                  leading: const Icon(Icons.mic, color: AppColors.accentEmerald),
+                  title: Text(isArabic ? 'دعوة للصعود للمنصة وتحدث' : 'Invite to Speak on Stage'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    podVm.approveHandRaise(
+                      participant.userId,
+                      participant.username,
+                      targetDisplayName: participant.displayName,
+                      targetAvatarUrl: participant.avatarUrl,
+                    );
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isArabic
+                            ? 'تمت دعوة ${participant.displayName} للصعود للمنصة'
+                            : 'Invited ${participant.displayName} to speak on stage'),
+                      ),
+                    );
+                  },
+                ),
+              ] else ...[
+                ListTile(
+                  leading: const Icon(Icons.mic_off, color: AppColors.accentAmber),
+                  title: Text(isArabic ? 'كتم الميكروفون' : 'Mute Microphone'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    podVm.moderateParticipant(participant.userId, participant.username, 'remote_mute');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.arrow_downward, color: Color(0xFF6366F1)),
+                  title: Text(isArabic ? 'إنزال إلى المستمعين' : 'Move to Audience'),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    podVm.moderateParticipant(participant.userId, participant.username, 'kick_stage');
+                  },
+                ),
+              ],
+              ListTile(
+                leading: const Icon(Icons.shield, color: AppColors.accentAmber),
+                title: Text(isArabic ? 'تعيين كمشرف للحجرة' : 'Promote to Moderator'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  podVm.moderateParticipant(participant.userId, participant.username, 'promote_moderator');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_remove, color: AppColors.error),
+                title: Text(isArabic ? 'طرد من الحجرة' : 'Kick from Pod'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  podVm.moderateParticipant(participant.userId, participant.username, 'kick');
+                },
+              ),
+            ] else if (isSelf && isSpeaker && !podVm.isHost) ...[
+              ListTile(
+                leading: const Icon(Icons.arrow_downward, color: Color(0xFF6366F1)),
+                title: Text(isArabic ? 'مغادرة المنصة والعودة للمستمعين' : 'Leave Stage (Return to Audience)'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  podVm.leaveStage();
+                },
+              ),
+            ],
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

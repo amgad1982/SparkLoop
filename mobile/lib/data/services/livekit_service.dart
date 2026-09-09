@@ -209,6 +209,7 @@ class LiveKitService extends ChangeNotifier {
 
   final Map<String, LiveKitSpeaker> _participants = {};
   List<LiveKitSpeaker> get participants => _participants.values.toList();
+  List<LiveKitSpeaker> get listeners => _participants.values.where((p) => !_speakers.containsKey(p.userId)).toList();
 
   LiveKitService({AudioPlayer? audioPlayer, AudioPlayer? sfxPlayer}) {
     if (audioPlayer != null) {
@@ -236,16 +237,16 @@ class LiveKitService extends ChangeNotifier {
         prevP.username == updatedSpeaker.username &&
         prevP.displayName == updatedSpeaker.displayName &&
         prevP.avatarUrl == updatedSpeaker.avatarUrl &&
-        (!isOnStage ||
-            (prevS != null &&
-                prevS.isMuted == updatedSpeaker.isMuted &&
-                prevS.isSpeaking == updatedSpeaker.isSpeaking))) {
+        ((isOnStage && prevS != null && prevS.isMuted == updatedSpeaker.isMuted && prevS.isSpeaking == updatedSpeaker.isSpeaking) ||
+         (!isOnStage && prevS == null))) {
       return;
     }
 
     _participants[speaker.userId] = updatedSpeaker;
     if (isOnStage) {
       _speakers[speaker.userId] = updatedSpeaker;
+    } else {
+      _speakers.remove(speaker.userId);
     }
     notifyListeners();
   }
@@ -288,6 +289,22 @@ class LiveKitService extends ChangeNotifier {
 
   void promoteToSpeaker() {
     _isSpeaker = true;
+    notifyListeners();
+  }
+
+  void demoteToListener([String? currentUserId]) {
+    _isSpeaker = false;
+    _isMicMuted = true;
+    final targetId = currentUserId ?? _localUserId;
+    if (targetId != null) {
+      _speakers.remove(targetId);
+      if (_participants.containsKey(targetId)) {
+        _participants[targetId] = _participants[targetId]!.copyWith(isMuted: true, isSpeaking: false);
+      }
+    }
+    if (_room?.localParticipant != null) {
+      _room!.localParticipant?.setMicrophoneEnabled(false);
+    }
     notifyListeners();
   }
 

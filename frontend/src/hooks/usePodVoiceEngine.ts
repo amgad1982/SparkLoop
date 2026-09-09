@@ -446,6 +446,17 @@ export function usePodVoiceEngine({
           roomInstance?.startAudio().catch(() => { });
           syncSpeakerList(roomInstance);
 
+          // Broadcast STAGE_JOIN to Centrifugo so Flutter and Web peers register us immediately
+          api.sendPodSignal(podId, 'STAGE_JOIN', {
+            userId: currentPersona.id,
+            username: currentPersona.username,
+            displayName: currentPersona.displayName,
+            avatarUrl: currentPersona.avatarUrl,
+            isOnStage: isOnStageRef.current,
+            isMuted: isMutedRef.current,
+            isSpeaking: false,
+          }).catch(() => { });
+
           // If host on stage, acquire mic
           if (isOnStageRef.current && !isMutedRef.current) {
             try {
@@ -1092,14 +1103,14 @@ export function usePodVoiceEngine({
           }
           syncSpeakerList(roomRef.current);
 
-          // If another participant joins the stage, respond with our stage presence so they discover us immediately
-          if ((signalType === 'STAGE_JOIN' || eventType === 'STAGE_JOIN') && isOnStageRef.current) {
+          // If another participant joins, respond with our stage presence so they discover us immediately
+          if (signalType === 'STAGE_JOIN' || eventType === 'STAGE_JOIN') {
             api.sendPodSignal(podId, 'STAGE_PRESENCE', {
               userId: currentPersona.id,
               username: currentPersona.username,
               displayName: currentPersona.displayName,
               avatarUrl: currentPersona.avatarUrl,
-              isOnStage: true,
+              isOnStage: isOnStageRef.current,
               isMuted: isMutedRef.current,
               isSpeaking: lastMicLevelRef.current > 0.05,
             }, uId).catch(() => { });

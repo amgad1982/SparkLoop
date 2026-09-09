@@ -200,7 +200,7 @@ class PodViewModel extends ChangeNotifier {
               'username': _localUsername ?? '',
               'displayName': _localDisplayName ?? '',
               'avatarUrl': _localAvatarUrl,
-              'isOnStage': _isHost || (_activePod?.allowOpenMic == true),
+              'isOnStage': _isHost || _liveKitService.isSpeaker || (_activePod?.allowOpenMic == true),
               'isMuted': _liveKitService.isMicMuted,
               'isSpeaking': !_liveKitService.isMicMuted,
             },
@@ -244,7 +244,59 @@ class PodViewModel extends ChangeNotifier {
           notifyListeners();
         }
       }
-      // 9. Real-time Audio Chunks from Speakers (Deprecated in favor of LiveKit WebRTC)
+      // 9. Stage Approvals (Web & Mobile unified hand raise approval)
+      else if (signalType == 'STAGE_APPROVE' || type == 'STAGE_APPROVE') {
+        final payload = (event.data['payload'] as Map?) ?? event.data;
+        final targetUserId = (payload['targetUserId'] ?? event.data['targetUserId']) as String?;
+        final targetUsername = (payload['username'] ?? payload['targetUsername'] ?? event.data['username'] ?? event.data['targetUsername']) as String? ?? '';
+        final targetDisplayName = (payload['displayName'] ?? payload['targetDisplayName'] ?? event.data['displayName'] ?? event.data['targetDisplayName']) as String? ?? targetUsername;
+        final targetAvatarUrl = (payload['avatarUrl'] ?? payload['targetAvatarUrl'] ?? event.data['avatarUrl'] ?? event.data['targetAvatarUrl']) as String?;
+
+        if (targetUserId != null) {
+          await _handleSpeakerPromotion(
+            targetUserId: targetUserId,
+            targetUsername: targetUsername,
+            targetDisplayName: targetDisplayName,
+            targetAvatarUrl: targetAvatarUrl,
+          );
+        }
+      }
+      // 10. Remote Stage Mute
+      else if (signalType == 'STAGE_MUTE' || type == 'STAGE_MUTE') {
+        final payload = (event.data['payload'] as Map?) ?? event.data;
+        final targetUserId = (payload['targetUserId'] ?? event.data['targetUserId']) as String?;
+        if (targetUserId != null) {
+          if (targetUserId == _localUserId) {
+            if (!_liveKitService.isMicMuted) {
+              await _liveKitService.toggleMute(_localUserId);
+            }
+          } else {
+            _liveKitService.setSpeakerStatus(targetUserId, isMuted: true);
+          }
+          notifyListeners();
+        }
+      }
+      // 11. Remote Stage Removal (return to audience)
+      else if (signalType == 'STAGE_REMOVE' || type == 'STAGE_REMOVE') {
+        final payload = (event.data['payload'] as Map?) ?? event.data;
+        final targetUserId = (payload['targetUserId'] ?? event.data['targetUserId']) as String?;
+        if (targetUserId != null) {
+          if (targetUserId == _localUserId) {
+            _liveKitService.demoteToListener(_localUserId);
+            if (_activePod != null && _localUserId != null) {
+              _podRepository.sendSignal(
+                _activePod!.id,
+                'STAGE_LEAVE',
+                payload: {'userId': _localUserId},
+              );
+            }
+          } else {
+            _liveKitService.setParticipantStageStatus(targetUserId, isOnStage: false);
+          }
+          notifyListeners();
+        }
+      }
+      // 12. Real-time Audio Chunks from Speakers (Deprecated in favor of LiveKit WebRTC)
       else if (type == 'AUDIO_CHUNK') {
         // Ignored: LiveKit WebRTC handles native real-time audio
       }
@@ -326,54 +378,15 @@ class PodViewModel extends ChangeNotifier {
           _liveKitService.setSpeakerStatus(targetUserId, isMuted: true);
           notifyListeners();
         } else if (action == 'promote_speaker' && targetUserId != null && _activePod != null) {
-          // Remove target user from the hand raised queue for all room participants
-          _handRaisedUsers.removeWhere((u) => u['userId'] == targetUserId);
-
-          if (targetUserId == _localUserId) {
-            // Local user's hand raise request was approved by the moderator!
-            _isHandRaised = false;
-
-            // 1. Promote to speaker in LiveKitService
-            _liveKitService.promoteToSpeaker();
-
-            // 2. Automatically open and unmute the microphone
-            final granted = await _liveKitService.unmuteMic(_localUserId);
-
-            // 3. Broadcast STAGE_PRESENCE to all peers in the pod
-            _podRepository.sendSignal(
-              _activePod!.id,
-              'STAGE_PRESENCE',
-              payload: {
-                'userId': _localUserId,
-                'username': _localUsername ?? '',
-                'displayName': _localDisplayName ?? '',
-                'avatarUrl': _localAvatarUrl,
-                'isOnStage': true,
-                'isMuted': !granted,
-                'isSpeaking': false,
-              },
-            );
-
-            // 4. Notify UI to display the request accepted snackbar
-            _stagePromotedController.add(true);
-          } else {
-            // Another user was approved by the moderator; ensure they appear on stage
-            final targetUsername = event.data['targetUsername'] as String? ?? '';
-            final targetDisplayName = event.data['targetDisplayName'] as String? ?? targetUsername;
-            final targetAvatarUrl = event.data['targetAvatarUrl'] as String?;
-            _liveKitService.upsertParticipant(
-              LiveKitSpeaker(
-                userId: targetUserId,
-                username: targetUsername,
-                displayName: targetDisplayName,
-                avatarUrl: targetAvatarUrl,
-                isSpeaking: false,
-                isMuted: false,
-              ),
-              isOnStage: true,
-            );
-          }
-          notifyListeners();
+          final targetUsername = event.data['targetUsername'] as String? ?? '';
+          final targetDisplayName = event.data['targetDisplayName'] as String? ?? targetUsername;
+          final targetAvatarUrl = event.data['targetAvatarUrl'] as String?;
+          await _handleSpeakerPromotion(
+            targetUserId: targetUserId,
+            targetUsername: targetUsername,
+            targetDisplayName: targetDisplayName,
+            targetAvatarUrl: targetAvatarUrl,
+          );
         }
       }
       // 11. Pod Lifecycle Closure
@@ -459,7 +472,7 @@ class PodViewModel extends ChangeNotifier {
       try {
         final tokenResult = await _podRepository.getLiveKitToken(
           podId,
-          isOnStage: isSpeakerRole,
+          isOnStage: true,
           inviteCode: inviteCode,
         );
 
@@ -596,6 +609,108 @@ class PodViewModel extends ChangeNotifier {
           'displayName': _localDisplayName ?? '',
           'avatarUrl': _localAvatarUrl,
         },
+      );
+    }
+    notifyListeners();
+  }
+
+  Future<void> approveHandRaise(
+    String targetUserId,
+    String targetUsername, {
+    String? targetDisplayName,
+    String? targetAvatarUrl,
+  }) async {
+    if (_activePod == null) return;
+
+    // 1. Optimistically promote speaker
+    await _handleSpeakerPromotion(
+      targetUserId: targetUserId,
+      targetUsername: targetUsername,
+      targetDisplayName: targetDisplayName ?? targetUsername,
+      targetAvatarUrl: targetAvatarUrl,
+    );
+
+    // 2. Broadcast STAGE_APPROVE signal to all peers
+    await _podRepository.sendSignal(
+      _activePod!.id,
+      'STAGE_APPROVE',
+      payload: {
+        'targetUserId': targetUserId,
+        'username': targetUsername,
+        'displayName': targetDisplayName ?? targetUsername,
+        'avatarUrl': targetAvatarUrl,
+      },
+      targetUserId: targetUserId,
+    );
+
+    // 3. Persist moderation action via backend API
+    await moderateParticipant(targetUserId, targetUsername, 'promote_speaker');
+  }
+
+  Future<void> leaveStage() async {
+    if (_activePod == null || _localUserId == null) return;
+    _liveKitService.demoteToListener(_localUserId);
+    await _podRepository.sendSignal(
+      _activePod!.id,
+      'STAGE_LEAVE',
+      payload: {'userId': _localUserId},
+    );
+    notifyListeners();
+  }
+
+  Future<void> _handleSpeakerPromotion({
+    required String targetUserId,
+    required String targetUsername,
+    required String targetDisplayName,
+    String? targetAvatarUrl,
+  }) async {
+    _handRaisedUsers.removeWhere((u) => u['userId'] == targetUserId);
+
+    final isTargetLocal = targetUserId == _localUserId ||
+        (_localUsername != null &&
+            targetUsername.isNotEmpty &&
+            targetUsername.toLowerCase() == _localUsername!.toLowerCase());
+
+    if (isTargetLocal) {
+      _isHandRaised = false;
+
+      // 1. Promote to speaker in LiveKitService
+      _liveKitService.promoteToSpeaker();
+
+      // 2. Automatically open and unmute the microphone
+      final granted = await _liveKitService.unmuteMic(_localUserId);
+
+      // 3. Broadcast STAGE_JOIN to all peers in the pod
+      if (_activePod != null && _localUserId != null) {
+        _podRepository.sendSignal(
+          _activePod!.id,
+          'STAGE_JOIN',
+          payload: {
+            'userId': _localUserId,
+            'username': _localUsername ?? '',
+            'displayName': _localDisplayName ?? '',
+            'avatarUrl': _localAvatarUrl,
+            'isOnStage': true,
+            'isMuted': !granted,
+            'isSpeaking': false,
+          },
+        );
+      }
+
+      // 4. Notify UI via stream to display the green "mic open" snackbar
+      _stagePromotedController.add(true);
+    } else {
+      // Remote participant promoted: ensure they are placed on stage
+      _liveKitService.upsertParticipant(
+        LiveKitSpeaker(
+          userId: targetUserId,
+          username: targetUsername,
+          displayName: targetDisplayName,
+          avatarUrl: targetAvatarUrl,
+          isSpeaking: false,
+          isMuted: false,
+        ),
+        isOnStage: true,
       );
     }
     notifyListeners();

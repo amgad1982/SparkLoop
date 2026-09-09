@@ -70,7 +70,7 @@ public class LiveKitService : ILiveKitService
             {
                 { "room", roomName },
                 { "roomJoin", true },
-                { "canPublish", isOnStage },
+                { "canPublish", true },
                 { "canSubscribe", true },
                 { "canPublishData", true }
             };
