@@ -648,6 +648,15 @@ public class MoodPodsController : ControllerBase
     }
 
     [Authorize]
+    [HttpPost("{id:guid}/reopen")]
+    [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
+    public async Task<ActionResult<MoodPodDto>> ReopenPod(Guid id, [FromQuery] int? durationHours = null)
+    {
+        var result = await _mediator.Send(new ReopenMoodPodCommand(id, durationHours));
+        return Ok(result);
+    }
+
+    [Authorize]
     [HttpPost("{id:guid}/moderate")]
     [EnableRateLimiting(RateLimitingPolicies.WriteContent)]
     public async Task<ActionResult<bool>> Moderate(Guid id, [FromBody] ModerateRequest request)

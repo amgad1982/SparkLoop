@@ -22,6 +22,10 @@ public class LiveKitService : ILiveKitService
         _configuration = configuration;
         _logger = logger;
         _serverUrl = configuration["LiveKit:ServerUrl"] ?? "ws://92.4.162.183:7880";
+        if (_serverUrl.Contains("slooplive.mydev-lab.com", StringComparison.OrdinalIgnoreCase))
+        {
+            _serverUrl = "ws://92.4.162.183:7880";
+        }
         _apiKey = configuration["LiveKit:ApiKey"] ?? "sparkloop_livekit_key";
         _apiSecret = configuration["LiveKit:ApiSecret"] ?? "sparkloop_livekit_secret_2026_super_secure_32chars";
     }

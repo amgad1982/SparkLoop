@@ -89,9 +89,10 @@ class LiveKitService extends ChangeNotifier {
 
   static String resolveWsUrl({String? customHost}) {
     if (customHost != null && customHost.isNotEmpty) {
-      var host = customHost
-          .replaceAll('wss://slooplive.mydev-lab.com', 'ws://92.4.162.183:7880')
-          .replaceAll('https://slooplive.mydev-lab.com', 'http://92.4.162.183:7880');
+      if (customHost.contains('slooplive.mydev-lab.com')) {
+        return defaultWsUrl;
+      }
+      var host = customHost;
       if (!kIsWeb && Platform.isAndroid) {
         host = host
             .replaceAll('ws://localhost:', 'ws://10.0.2.2:')
@@ -167,6 +168,10 @@ class LiveKitService extends ChangeNotifier {
   bool _isSpeaker = false;
   bool get isSpeaker => _isSpeaker;
 
+  String? _podHostUserId;
+  String? _podHostUsername;
+  bool _podAllowOpenMic = false;
+
   final Map<String, LiveKitSpeaker> _speakers = {};
   List<LiveKitSpeaker> get speakers => _speakers.values.toList();
   List<LiveKitSpeaker> get remoteSpeakers => _speakers.values.toList();
@@ -222,7 +227,7 @@ class LiveKitService extends ChangeNotifier {
       isMuted: speaker.isMuted,
     );
     if (isOnStage) {
-      addOrUpdateSpeaker(speaker);
+      _speakers[speaker.userId] = speaker;
     }
     notifyListeners();
   }
@@ -250,8 +255,8 @@ class LiveKitService extends ChangeNotifier {
   void setSpeakerStatus(String userId, {bool? isSpeaking, bool? isMuted}) {
     if (_speakers.containsKey(userId)) {
       _speakers[userId] = _speakers[userId]!.copyWith(
-        isSpeaking: isSpeaking,
-        isMuted: isMuted,
+        isSpeaking: isSpeaking ?? _speakers[userId]!.isSpeaking,
+        isMuted: isMuted ?? _speakers[userId]!.isMuted,
       );
       notifyListeners();
     }
@@ -268,15 +273,21 @@ class LiveKitService extends ChangeNotifier {
     required String currentDisplayName,
     String? currentAvatarUrl,
     bool asSpeaker = false,
+    String? podHostUserId,
+    String? podHostUsername,
+    bool allowOpenMic = false,
     List<IceServerDto>? iceServers,
   }) async {
-    leaveRoom();
+    await leaveRoom();
 
     _currentRoomId = podId;
     _localUserId = currentUserId;
     _isSpeaker = asSpeaker;
     _isMicMuted = !asSpeaker;
     _isInRoom = true;
+    _podHostUserId = podHostUserId;
+    _podHostUsername = podHostUsername;
+    _podAllowOpenMic = allowOpenMic;
 
     // Register local user in participants
     final localSpeaker = LiveKitSpeaker(
@@ -320,6 +331,34 @@ class LiveKitService extends ChangeNotifier {
         })
         ..on<TrackUnsubscribedEvent>((event) {
           notifyListeners();
+        })
+        ..on<TrackPublishedEvent>((event) {
+          _syncParticipantFromLiveKit(event.participant);
+          notifyListeners();
+        })
+        ..on<TrackUnpublishedEvent>((event) {
+          _syncParticipantFromLiveKit(event.participant);
+          notifyListeners();
+        })
+        ..on<ParticipantMetadataUpdatedEvent>((event) {
+          _syncParticipantFromLiveKit(event.participant);
+          notifyListeners();
+        })
+        ..on<ParticipantNameUpdatedEvent>((event) {
+          _syncParticipantFromLiveKit(event.participant);
+          notifyListeners();
+        })
+        ..on<TrackMutedEvent>((event) {
+          if (_speakers.containsKey(event.participant.identity)) {
+            _speakers[event.participant.identity] = _speakers[event.participant.identity]!.copyWith(isMuted: true);
+            notifyListeners();
+          }
+        })
+        ..on<TrackUnmutedEvent>((event) {
+          if (_speakers.containsKey(event.participant.identity)) {
+            _speakers[event.participant.identity] = _speakers[event.participant.identity]!.copyWith(isMuted: false);
+            notifyListeners();
+          }
         })
         ..on<ParticipantConnectedEvent>((event) {
           _syncParticipantFromLiveKit(event.participant);
@@ -425,6 +464,13 @@ class LiveKitService extends ChangeNotifier {
       } catch (_) {}
     }
 
+    final isHostParticipant = (_podHostUserId != null && _podHostUserId!.isNotEmpty && _podHostUserId == participant.identity) ||
+        (_podHostUsername != null && _podHostUsername!.isNotEmpty && _podHostUsername!.toLowerCase() == username.toLowerCase());
+
+    if (isHostParticipant || _podAllowOpenMic) {
+      isOnStage = true;
+    }
+
     final speaker = LiveKitSpeaker(
       userId: participant.identity,
       username: username,
@@ -477,10 +523,13 @@ class LiveKitService extends ChangeNotifier {
     }
   }
 
-  void leaveRoom() {
+  Future<void> leaveRoom() async {
     _isInRoom = false;
     _currentRoomId = null;
     _localUserId = null;
+    _podHostUserId = null;
+    _podHostUsername = null;
+    _podAllowOpenMic = false;
     _speakers.clear();
     _participants.clear();
     _isMicMuted = true;
@@ -492,7 +541,7 @@ class LiveKitService extends ChangeNotifier {
     _djAvatarUrl = null;
     notifyListeners();
 
-    unawaited(_disconnectRoom());
+    await _disconnectRoom();
   }
 
   Future<void> _disconnectRoom() async {

@@ -10,7 +10,7 @@ WORKDIR /app
 # Build Arguments for Backend API & Real-time WebSockets
 ARG VITE_API_BASE_URL=https://sloopapi.mydev-lab.com/api
 ARG VITE_WS_URL=wss://sloopws.mydev-lab.com/connection/websocket
-ARG VITE_LIVEKIT_URL=wss://slooplive.mydev-lab.com
+ARG VITE_LIVEKIT_URL=ws://92.4.162.183:7880
 
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL \
     VITE_WS_URL=$VITE_WS_URL \

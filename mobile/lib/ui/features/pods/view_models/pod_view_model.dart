@@ -171,8 +171,10 @@ class PodViewModel extends ChangeNotifier {
         final isOnStage = (payload['isOnStage'] ?? event.data['isOnStage'] as bool?) ?? true;
 
         if (uId != null) {
-          // Track everyone (speakers and audience alike) in the participants
-          // registry so the moderator UI can render a complete list.
+          final isHostUser = (_activePod?.hostUserId.isNotEmpty == true && _activePod?.hostUserId == uId) ||
+              (_activePod?.hostUsername.isNotEmpty == true && _activePod?.hostUsername.toLowerCase() == uName.toLowerCase());
+          final effectiveOnStage = isOnStage || isHostUser || (_activePod?.allowOpenMic == true);
+
           _liveKitService.upsertParticipant(
             LiveKitSpeaker(
               userId: uId,
@@ -182,19 +184,8 @@ class PodViewModel extends ChangeNotifier {
               isSpeaking: isSpk,
               isMuted: isMt,
             ),
-            isOnStage: isOnStage,
+            isOnStage: effectiveOnStage,
           );
-
-          if (isOnStage) {
-            _liveKitService.addOrUpdateSpeaker(LiveKitSpeaker(
-              userId: uId,
-              username: uName,
-              displayName: dName,
-              avatarUrl: avUrl,
-              isSpeaking: isSpk,
-              isMuted: isMt,
-            ));
-          }
         }
 
         // If another user joined, respond with our presence so they know we are in the room
@@ -373,8 +364,16 @@ class PodViewModel extends ChangeNotifier {
       _localAvatarUrl = currentAvatarUrl;
 
       _activePod = await _podRepository.getMoodPodById(podId, inviteCode: inviteCode);
-      _isHost = _activePod?.hostUserId == currentUserId;
-      _isModerator = _isHost || (_activePod?.moderatorUserIds.contains(currentUserId) ?? false);
+
+      final hostId = _activePod?.hostUserId.trim().toLowerCase() ?? '';
+      final hostUsername = _activePod?.hostUsername.trim().toLowerCase() ?? '';
+      final myId = currentUserId.trim().toLowerCase();
+      final myUsername = currentUsername.trim().toLowerCase();
+
+      _isHost = (hostId.isNotEmpty && hostId == myId) ||
+                (hostUsername.isNotEmpty && hostUsername == myUsername);
+      _isModerator = _isHost ||
+          (_activePod?.moderatorUserIds.any((m) => m.trim().toLowerCase() == myId) ?? false);
 
       // Seed the in-memory chat with the last 50 messages returned by the
       // backend so a late joiner can see what's been said before they arrived.
@@ -394,15 +393,27 @@ class PodViewModel extends ChangeNotifier {
 
       final isSpeakerRole = _isHost || (_activePod?.allowOpenMic == true);
 
-      final tokenResult = await _podRepository.getLiveKitToken(
-        podId,
-        isOnStage: isSpeakerRole,
-        inviteCode: inviteCode,
+      // Immediately place local speaker on stage if they have a speaker role (host or open-mic),
+      // ensuring their avatar appears on the speakers stage with zero delay.
+      final localSpeaker = LiveKitSpeaker(
+        userId: currentUserId,
+        username: currentUsername,
+        displayName: currentDisplayName,
+        avatarUrl: currentAvatarUrl,
+        isSpeaking: false,
+        isMuted: !isSpeakerRole,
       );
-
-      final liveKitWsUrl = LiveKitService.resolveWsUrl(customHost: tokenResult.serverUrl);
+      _liveKitService.upsertParticipant(localSpeaker, isOnStage: isSpeakerRole);
 
       try {
+        final tokenResult = await _podRepository.getLiveKitToken(
+          podId,
+          isOnStage: isSpeakerRole,
+          inviteCode: inviteCode,
+        );
+
+        final liveKitWsUrl = LiveKitService.resolveWsUrl(customHost: tokenResult.serverUrl);
+
         await _liveKitService.connectToRoom(
           podId: podId,
           token: tokenResult.token,
@@ -412,6 +423,9 @@ class PodViewModel extends ChangeNotifier {
           currentDisplayName: currentDisplayName,
           currentAvatarUrl: currentAvatarUrl,
           asSpeaker: isSpeakerRole,
+          podHostUserId: _activePod?.hostUserId,
+          podHostUsername: _activePod?.hostUsername,
+          allowOpenMic: _activePod?.allowOpenMic == true,
           iceServers: tokenResult.iceServers,
         );
       } catch (voiceErr) {

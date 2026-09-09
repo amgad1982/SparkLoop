@@ -330,3 +330,34 @@ public class UserPrivacyInvariantsTests
     }
 }
 
+public class MoodPodLifecycleTests
+{
+    [Fact]
+    public void MoodPod_CloseAndReopen_UpdatesActiveAndExpiry()
+    {
+        var hostId = Guid.NewGuid();
+        var pod = SparkLoop.Domain.Aggregates.MoodPodAggregate.MoodPod.Create(
+            Guid.NewGuid(),
+            "Chill Room",
+            "☕",
+            "cosmic-purple",
+            hostId,
+            "tester",
+            "Tester",
+            null,
+            customTtl: TimeSpan.FromHours(2));
+
+        pod.IsActive.Should().BeTrue();
+        pod.ExpiresAtUtc.Should().BeAfter(DateTime.UtcNow);
+
+        // Close pod
+        pod.ClosePod();
+        pod.IsActive.Should().BeFalse();
+
+        // Reopen pod
+        pod.ReopenPod(TimeSpan.FromHours(4));
+        pod.IsActive.Should().BeTrue();
+        pod.ExpiresAtUtc.Should().BeAfter(DateTime.UtcNow.AddHours(3.9));
+    }
+}
+

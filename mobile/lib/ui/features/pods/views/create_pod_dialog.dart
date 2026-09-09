@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../../data/models/pod_models.dart';
 import '../../../core/theme/app_colors.dart';
 import '../view_models/pod_view_model.dart';
 
@@ -58,8 +59,8 @@ const List<Map<String, dynamic>> podDurationOptions = [
 class CreatePodDialog extends StatefulWidget {
   const CreatePodDialog({super.key});
 
-  static Future<void> show(BuildContext context) {
-    return showModalBottomSheet(
+  static Future<MoodPodDto?> show(BuildContext context) {
+    return showModalBottomSheet<MoodPodDto>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -120,7 +121,7 @@ class _CreatePodDialogState extends State<CreatePodDialog> {
     }
     if (context.mounted) {
       if (created != null) {
-        Navigator.pop(context);
+        Navigator.of(context).pop(created);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

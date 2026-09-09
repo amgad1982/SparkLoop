@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import 'api_service.dart';
 import 'notification_service.dart';
 
@@ -39,13 +40,18 @@ class CentrifugoService extends ChangeNotifier {
   Stream<CentrifugoEvent> get events => _eventController.stream;
 
   final Set<String> _activeChannels = {};
+  final Set<String> _serverSubscribedChannels = {};
   int _messageId = 1;
 
   CentrifugoService({required this._apiService, String? wsUrl})
       : _wsUrl = wsUrl ?? defaultWsUrl;
 
+  bool _isConnecting = false;
+
   Future<void> connect({bool force = false}) async {
     if (_isConnected && !force) return;
+    if (_isConnecting && !force) return;
+    _isConnecting = true;
 
     if (force) {
       _subscription?.cancel();
@@ -55,6 +61,7 @@ class CentrifugoService extends ChangeNotifier {
       } catch (_) {}
       _channel = null;
       _isConnected = false;
+      _serverSubscribedChannels.clear();
     }
 
     try {
@@ -81,7 +88,23 @@ class CentrifugoService extends ChangeNotifier {
       }
 
       final uri = Uri.parse(effectiveUrl);
-      _channel = WebSocketChannel.connect(uri);
+
+      if (!kIsWeb) {
+        _channel = IOWebSocketChannel.connect(
+          uri,
+          headers: const {
+            'Origin': 'https://sloop.mydev-lab.com',
+            'User-Agent': 'SparkLoopMobile/1.0 (iOS)',
+          },
+        );
+      } else {
+        _channel = WebSocketChannel.connect(uri);
+      }
+
+      // Intercept ready error to prevent unhandled root zone exceptions
+      _channel?.ready.catchError((err) {
+        debugPrint('Centrifugo WebSocket handshake error: $err');
+      });
 
       _subscription = _channel?.stream.listen(
         _onMessage,
@@ -92,15 +115,21 @@ class CentrifugoService extends ChangeNotifier {
         },
       );
 
+      // Await handshake completion before sending commands
+      try {
+        await _channel?.ready;
+      } catch (e) {
+        debugPrint('Centrifugo connection failed to upgrade: $e');
+        _onDisconnect();
+        return;
+      }
+
       // Send Centrifugo v5 connect command
       final connectPayload = <String, dynamic>{
         'id': _messageId++,
         'connect': token != null && token.isNotEmpty ? {'token': token} : <String, dynamic>{},
       };
       _send(connectPayload);
-
-      _isConnected = true;
-      notifyListeners();
 
       // Start ping timer every 25 seconds
       _pingTimer?.cancel();
@@ -109,14 +138,11 @@ class CentrifugoService extends ChangeNotifier {
           _send({'ping': {}});
         }
       });
-
-      // Resubscribe to active channels
-      for (final ch in _activeChannels) {
-        _subscribeToChannel(ch);
-      }
     } catch (e) {
       debugPrint('Failed to connect Centrifugo: $e');
       _onDisconnect();
+    } finally {
+      _isConnecting = false;
     }
   }
 
@@ -127,6 +153,7 @@ class CentrifugoService extends ChangeNotifier {
 
   void subscribe(String channel) {
     final normalized = channel.trim().toLowerCase();
+    if (normalized.isEmpty) return;
     _activeChannels.add(normalized);
     if (_isConnected) {
       _subscribeToChannel(normalized);
@@ -135,7 +162,9 @@ class CentrifugoService extends ChangeNotifier {
 
   void unsubscribe(String channel) {
     final normalized = channel.trim().toLowerCase();
+    if (normalized.isEmpty) return;
     _activeChannels.remove(normalized);
+    _serverSubscribedChannels.remove(normalized);
     if (_isConnected) {
       _send({
         'id': _messageId++,
@@ -146,6 +175,9 @@ class CentrifugoService extends ChangeNotifier {
 
   void _subscribeToChannel(String channel) {
     final normalized = channel.trim().toLowerCase();
+    if (normalized.isEmpty) return;
+    if (_serverSubscribedChannels.contains(normalized)) return;
+    _serverSubscribedChannels.add(normalized);
     _send({
       'id': _messageId++,
       'subscribe': {'channel': normalized},
@@ -179,6 +211,10 @@ class CentrifugoService extends ChangeNotifier {
             final err = msg['error'] as Map<String, dynamic>;
             final code = err['code'] as int?;
             final errMsg = err['message'] as String? ?? '';
+            if (code == 105) {
+              // Centrifugo code 105 means channel is already subscribed (benign)
+              continue;
+            }
             debugPrint('Centrifugo command error: $code - $errMsg');
             if (code == 103 || code == 109) {
               final now = DateTime.now();
@@ -208,33 +244,39 @@ class CentrifugoService extends ChangeNotifier {
           // Handle Centrifugo publish events (v4, v5, push, result, and channel protocols)
           if (msg.containsKey('pub')) {
             final pub = msg['pub'] as Map<String, dynamic>;
-            final channel = (pub['channel'] as String? ?? '').trim().toLowerCase();
+            final channel = ((pub['channel'] ?? msg['channel']) as String? ?? '').trim().toLowerCase();
             final data = pub['data'] is Map<String, dynamic>
                 ? pub['data'] as Map<String, dynamic>
                 : {'raw': pub['data']};
 
-            _dispatch(channel, data);
+            if (channel.isNotEmpty) {
+              _dispatch(channel, data);
+            }
           } else if (msg.containsKey('push')) {
             final push = msg['push'] as Map<String, dynamic>;
             final pub = push['pub'] is Map<String, dynamic> ? push['pub'] as Map<String, dynamic> : push;
-            final channel = ((push['channel'] ?? pub['channel']) as String? ?? '').trim().toLowerCase();
+            final channel = ((push['channel'] ?? pub['channel'] ?? msg['channel']) as String? ?? '').trim().toLowerCase();
             final data = pub['data'] is Map<String, dynamic>
                 ? pub['data'] as Map<String, dynamic>
                 : {'raw': pub['data']};
 
-            _dispatch(channel, data);
+            if (channel.isNotEmpty) {
+              _dispatch(channel, data);
+            }
           } else if (msg.containsKey('channel') && msg.containsKey('data')) {
             final channel = (msg['channel'] as String? ?? '').trim().toLowerCase();
             final data = msg['data'] is Map<String, dynamic>
                 ? msg['data'] as Map<String, dynamic>
                 : {'raw': msg['data']};
 
-            _dispatch(channel, data);
+            if (channel.isNotEmpty) {
+              _dispatch(channel, data);
+            }
           } else if (msg.containsKey('result') && msg['result'] is Map<String, dynamic>) {
             final res = msg['result'] as Map<String, dynamic>;
             if (res.containsKey('pub') || res.containsKey('data')) {
               final pub = res['pub'] is Map<String, dynamic> ? res['pub'] as Map<String, dynamic> : res;
-              final channel = ((pub['channel'] ?? res['channel']) as String? ?? '').trim().toLowerCase();
+              final channel = ((pub['channel'] ?? res['channel'] ?? msg['channel']) as String? ?? '').trim().toLowerCase();
               final data = pub['data'] is Map<String, dynamic>
                   ? pub['data'] as Map<String, dynamic>
                   : (res['data'] is Map<String, dynamic> ? res['data'] as Map<String, dynamic> : {'raw': pub['data'] ?? res['data']});
@@ -253,6 +295,8 @@ class CentrifugoService extends ChangeNotifier {
   }
 
   void _dispatch(String channel, Map<String, dynamic> data) {
+    final type = data['type'] ?? data['signalType'] ?? 'data';
+    debugPrint('Centrifugo push received on [$channel]: $type');
     final event = CentrifugoEvent(channel: channel, data: data);
     _eventController.add(event);
     _checkNotification(event);
@@ -293,6 +337,8 @@ class CentrifugoService extends ChangeNotifier {
 
   void _onDisconnect() {
     _isConnected = false;
+    _isConnecting = false;
+    _serverSubscribedChannels.clear();
     notifyListeners();
     _pingTimer?.cancel();
     _subscription?.cancel();

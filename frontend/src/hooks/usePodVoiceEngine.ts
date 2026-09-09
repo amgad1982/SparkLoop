@@ -464,10 +464,11 @@ export function usePodVoiceEngine({
           if (isMounted) setIsLiveKitConnected(false);
         });
 
-        // Dynamic LiveKit URL resolution with HTTPS/WSS auto-upgrade
-        let liveKitUrl = (import.meta.env.VITE_LIVEKIT_URL as string) || tokenDto.serverUrl;
-        if (typeof window !== 'undefined' && window.location.protocol === 'https:' && liveKitUrl.startsWith('ws://') && !liveKitUrl.includes('localhost') && !liveKitUrl.includes('127.0.0.1')) {
-          liveKitUrl = liveKitUrl.replace(/^ws:\/\//i, 'wss://');
+        // Dynamic LiveKit URL resolution
+        let rawUrl = tokenDto.serverUrl || (import.meta.env.VITE_LIVEKIT_URL as string) || 'ws://92.4.162.183:7880';
+        let liveKitUrl = rawUrl;
+        if (liveKitUrl.includes('slooplive.mydev-lab.com')) {
+          liveKitUrl = 'ws://92.4.162.183:7880';
         }
 
         // Connect with dynamic iceServers from backend
@@ -1056,23 +1057,49 @@ export function usePodVoiceEngine({
       ) {
         handleLeaveStage();
       }
-      // 4. Stage Join from remote participant
-      else if (signalType === 'STAGE_JOIN' || eventType === 'STAGE_JOIN') {
+      // 4. Stage Join & Presence Handshake from remote participant
+      else if (
+        signalType === 'STAGE_JOIN' ||
+        eventType === 'STAGE_JOIN' ||
+        signalType === 'STAGE_PRESENCE' ||
+        eventType === 'STAGE_PRESENCE'
+      ) {
         const uId = payload.userId || data.senderId;
         const uName = payload.username || data.senderUsername;
         const dName = payload.displayName || data.senderDisplayName || uName;
         const avUrl = payload.avatarUrl || data.senderAvatarUrl;
+        const isOnStage = payload.isOnStage !== undefined ? payload.isOnStage : true;
+        const isMt = payload.isMuted !== undefined ? payload.isMuted : false;
+        const isSpk = payload.isSpeaking !== undefined ? payload.isSpeaking : false;
+
         if (uId && uId !== currentPersona.id) {
-          stagePresenceMapRef.current.set(uId, {
-            userId: uId,
-            username: uName,
-            displayName: dName,
-            avatarUrl: avUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${uName}`,
-            isMuted: false,
-            isSpeaking: false,
-            joinedAtUtc: Date.now(),
-          });
+          if (isOnStage) {
+            stagePresenceMapRef.current.set(uId, {
+              userId: uId,
+              username: uName,
+              displayName: dName,
+              avatarUrl: avUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${uName}`,
+              isMuted: isMt,
+              isSpeaking: isSpk,
+              joinedAtUtc: Date.now(),
+            });
+          } else {
+            stagePresenceMapRef.current.delete(uId);
+          }
           syncSpeakerList(roomRef.current);
+
+          // If another participant joins the stage, respond with our stage presence so they discover us immediately
+          if ((signalType === 'STAGE_JOIN' || eventType === 'STAGE_JOIN') && isOnStageRef.current) {
+            api.sendPodSignal(podId, 'STAGE_PRESENCE', {
+              userId: currentPersona.id,
+              username: currentPersona.username,
+              displayName: currentPersona.displayName,
+              avatarUrl: currentPersona.avatarUrl,
+              isOnStage: true,
+              isMuted: isMutedRef.current,
+              isSpeaking: lastMicLevelRef.current > 0.05,
+            }, uId).catch(() => { });
+          }
         }
       }
       // 5. Stage Leave from remote participant

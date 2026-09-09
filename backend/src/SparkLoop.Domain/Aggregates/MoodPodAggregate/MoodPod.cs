@@ -375,6 +375,24 @@ public class MoodPod : AggregateRoot<Guid>
         AddDomainEvent(new MoodPodExpiredEvent(Id, ExpiresAtUtc));
     }
 
+    public void ReopenPod(TimeSpan? duration = null)
+    {
+        IsActive = true;
+        ExpiresAtUtc = DateTime.UtcNow.Add(duration ?? ExpiryPolicy.DefaultTtl);
+        AddDomainEvent(new MoodPodSettingsUpdatedEvent(
+            Id,
+            Title,
+            MoodEmoji,
+            BackgroundTheme,
+            CustomBackgroundImageUrl,
+            IsPrivate,
+            InviteCode,
+            AllowParticipantsChangeTheme,
+            AllowParticipantsPlayBgMusic,
+            AllowOpenMic,
+            _moderatorUserIds.AsReadOnly()));
+    }
+
     public void DeactivateIfExpired()
     {
         if (IsActive && ExpiryPolicy.IsExpired(ExpiresAtUtc))

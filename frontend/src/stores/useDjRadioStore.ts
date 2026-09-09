@@ -21,15 +21,10 @@ let isCrossfading = false;
 let loopStartTime = 0;
 
 function resolveLiveKitWsUrl(serverUrl: string): string {
-  let liveKitUrl = (import.meta.env.VITE_LIVEKIT_URL as string) || serverUrl;
-  if (
-    typeof window !== 'undefined' &&
-    window.location.protocol === 'https:' &&
-    liveKitUrl.startsWith('ws://') &&
-    !liveKitUrl.includes('localhost') &&
-    !liveKitUrl.includes('127.0.0.1')
-  ) {
-    liveKitUrl = liveKitUrl.replace(/^ws:\/\//i, 'wss://');
+  let rawUrl = serverUrl || (import.meta.env.VITE_LIVEKIT_URL as string) || 'ws://92.4.162.183:7880';
+  let liveKitUrl = rawUrl;
+  if (liveKitUrl.includes('slooplive.mydev-lab.com')) {
+    liveKitUrl = 'ws://92.4.162.183:7880';
   }
   return liveKitUrl;
 }

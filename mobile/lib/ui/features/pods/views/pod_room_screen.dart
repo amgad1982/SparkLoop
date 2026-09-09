@@ -116,7 +116,6 @@ class PodRoomScreen extends StatefulWidget {
 class _PodRoomScreenState extends State<PodRoomScreen> {
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  Timer? _countdownTimer;
   bool _showAllSpeakers = false;
   int _lastMessageCount = 0;
 
@@ -170,44 +169,11 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
         currentDisplayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
         currentAvatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
       );
-
-      _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() {});
-      });
     });
-  }
-
-  String _getFormattedTimeLeft(MoodPodDto? pod, bool isArabic) {
-    if (pod == null) {
-      return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
-    }
-
-    final diff = pod.expiresAtUtc.difference(DateTime.now().toUtc());
-    if (diff.inDays > 365) {
-      return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
-    }
-
-    if (diff.isNegative) {
-      return isArabic ? 'منتهية' : 'Expired';
-    }
-
-    final hours = diff.inHours;
-    final minutes = diff.inMinutes % 60;
-    final seconds = diff.inSeconds % 60;
-
-    String pad(int n) => n.toString().padLeft(2, '0');
-    if (hours >= 24) {
-      final days = diff.inDays;
-      final remHours = hours % 24;
-      return '${days}d ${pad(remHours)}h ${pad(minutes)}m';
-    } else {
-      return '${pad(hours)}:${pad(minutes)}:${pad(seconds)}';
-    }
   }
 
   @override
   void dispose() {
-    _countdownTimer?.cancel();
     _voiceRecordingTimer?.cancel();
     _audioRecorder.dispose();
     _chatController.dispose();
@@ -556,12 +522,7 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                   ),
                   const SizedBox(width: 4),
                   Expanded(
-                    child: Text(
-                      '${pod.vibe} • ${_getFormattedTimeLeft(pod, isArabic)}',
-                      style: const TextStyle(fontSize: 10.5, color: AppColors.accentEmerald, fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
-                      maxLines: 1,
-                    ),
+                    child: _PodCountdownSubtitle(pod: pod, isArabic: isArabic),
                   ),
                 ],
               ),
@@ -747,7 +708,56 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   }
 
   Widget _buildStageGrid(BuildContext context, MoodPodDto pod, LiveKitService liveKit, bool isArabic) {
-    final speakers = liveKit.speakers;
+    final podVm = context.read<PodViewModel>();
+    final authVm = context.read<AuthViewModel>();
+
+    // Build an authoritative list of stage speakers:
+    // 1. Pod Host is ALWAYS guaranteed to be a speaker on stage
+    // 2. Active LiveKit / Centrifugo speakers
+    // 3. Current user (if host, on stage, or open mic)
+    final Map<String, LiveKitSpeaker> speakersMap = {};
+
+    // 1. Host is always on stage
+    final hostSpeaker = LiveKitSpeaker(
+      userId: pod.hostUserId,
+      username: pod.hostUsername,
+      displayName: pod.hostDisplayName.isNotEmpty ? pod.hostDisplayName : pod.hostUsername,
+      avatarUrl: pod.hostAvatarUrl,
+      isSpeaking: false,
+      isMuted: false,
+    );
+    if (pod.hostUserId.isNotEmpty) {
+      speakersMap[pod.hostUserId] = hostSpeaker;
+    } else if (pod.hostUsername.isNotEmpty) {
+      speakersMap[pod.hostUsername.toLowerCase()] = hostSpeaker;
+    }
+
+    // 2. Add all speakers from LiveKitService
+    for (final s in liveKit.speakers) {
+      final key = s.userId.isNotEmpty ? s.userId : s.username.toLowerCase();
+      if (key.isNotEmpty) {
+        speakersMap[key] = s;
+      }
+    }
+
+    // 3. If current user is on stage, ensure local user entry is present
+    final currentUserId = authVm.currentUser?.id ?? authVm.currentPersona.id;
+    final currentUsername = authVm.currentUser?.username ?? authVm.currentPersona.username;
+    if (podVm.isHost || liveKit.isSpeaker || pod.allowOpenMic) {
+      final localKey = currentUserId.isNotEmpty ? currentUserId : currentUsername.toLowerCase();
+      if (!speakersMap.containsKey(localKey)) {
+        speakersMap[localKey] = LiveKitSpeaker(
+          userId: currentUserId,
+          username: currentUsername,
+          displayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
+          avatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
+          isSpeaking: false,
+          isMuted: liveKit.isMicMuted,
+        );
+      }
+    }
+
+    final speakers = speakersMap.values.toList();
 
     return GlassContainer(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -997,30 +1007,18 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     final messages = podVm.chatMessages;
     final pod = podVm.activePod;
 
-    // Build a flat list of widgets interleaving "day separator" pills with the
-    // WhatsApp chat bubbles so users see "Today" / "Yesterday" markers.
-    final List<Widget> items = [];
+    // Build lightweight item descriptors for day separators and messages
+    final List<_ChatItemDescriptor> items = [];
     DateTime? lastDay;
     for (var i = 0; i < messages.length; i++) {
       final msg = messages[i];
       final localCreated = msg.createdAtUtc.toLocal();
       final dayKey = DateTime(localCreated.year, localCreated.month, localCreated.day);
       if (lastDay == null || _isDifferentLocalDay(lastDay, dayKey)) {
-        items.add(_buildDaySeparator(context, msg.createdAtUtc, isArabic));
+        items.add(_ChatItemDescriptor.separator(msg.createdAtUtc));
         lastDay = dayKey;
       }
-
-      final isSelf = (currentUserId.isNotEmpty && msg.userId == currentUserId) ||
-          (msg.userId.isNotEmpty && msg.userId == authVm.currentPersona.id) ||
-          (currentUsername.isNotEmpty && msg.username.toLowerCase() == currentUsername.toLowerCase());
-
-      items.add(_buildChatBubble(
-        context: context,
-        msg: msg,
-        isSelf: isSelf,
-        isArabic: isArabic,
-        pod: pod,
-      ));
+      items.add(_ChatItemDescriptor.message(msg));
     }
 
     // Automatically scroll to the newest message whenever the message count changes
@@ -1041,7 +1039,24 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
               reverse: false,
               padding: const EdgeInsets.symmetric(vertical: 8),
               itemCount: items.length,
-              itemBuilder: (context, index) => items[index],
+              itemBuilder: (context, index) {
+                final item = items[index];
+                if (item.isDaySeparator) {
+                  return _buildDaySeparator(context, item.date!, isArabic);
+                }
+                final msg = item.message!;
+                final isSelf = (currentUserId.isNotEmpty && msg.userId == currentUserId) ||
+                    (msg.userId.isNotEmpty && msg.userId == authVm.currentPersona.id) ||
+                    (currentUsername.isNotEmpty && msg.username.toLowerCase() == currentUsername.toLowerCase());
+
+                return _buildChatBubble(
+                  context: context,
+                  msg: msg,
+                  isSelf: isSelf,
+                  isArabic: isArabic,
+                  pod: pod,
+                );
+              },
             ),
           ),
           _buildChatInputBar(context, isArabic),
@@ -1597,6 +1612,88 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ChatItemDescriptor {
+  final bool isDaySeparator;
+  final DateTime? date;
+  final PodChatMessageDto? message;
+
+  const _ChatItemDescriptor.separator(this.date)
+      : isDaySeparator = true,
+        message = null;
+
+  const _ChatItemDescriptor.message(this.message)
+      : isDaySeparator = false,
+        date = null;
+}
+
+/// An isolated, self-updating subtitle pill for the pod room AppBar countdown.
+/// Ticking here prevents full-screen rebuilds of PodRoomScreen and heavy audio/chat widgets.
+class _PodCountdownSubtitle extends StatefulWidget {
+  final MoodPodDto pod;
+  final bool isArabic;
+
+  const _PodCountdownSubtitle({required this.pod, required this.isArabic});
+
+  @override
+  State<_PodCountdownSubtitle> createState() => _PodCountdownSubtitleState();
+}
+
+class _PodCountdownSubtitleState extends State<_PodCountdownSubtitle> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _formatTimeLeft(MoodPodDto? pod, bool isArabic) {
+    if (pod == null) {
+      return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
+    }
+
+    final diff = pod.expiresAtUtc.difference(DateTime.now().toUtc());
+    if (diff.inDays > 365) {
+      return isArabic ? 'دائمة ♾️' : 'Permanent ♾️';
+    }
+
+    if (diff.isNegative) {
+      return isArabic ? 'منتهية' : 'Expired';
+    }
+
+    final hours = diff.inHours;
+    final minutes = diff.inMinutes % 60;
+    final seconds = diff.inSeconds % 60;
+
+    String pad(int n) => n.toString().padLeft(2, '0');
+    if (hours >= 24) {
+      final days = diff.inDays;
+      final remHours = hours % 24;
+      return '${days}d ${pad(remHours)}h ${pad(minutes)}m';
+    } else {
+      return '${pad(hours)}:${pad(minutes)}:${pad(seconds)}';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      '${widget.pod.vibe} • ${_formatTimeLeft(widget.pod, widget.isArabic)}',
+      style: const TextStyle(fontSize: 10.5, color: AppColors.accentEmerald, fontWeight: FontWeight.bold),
+      overflow: TextOverflow.ellipsis,
+      maxLines: 1,
     );
   }
 }

@@ -98,17 +98,11 @@ public class LiveKitWebhookController : ControllerBase
 
                     if (eventType == "room_finished")
                     {
-                        _logger.LogInformation("LiveKit room finished for pod {PodId}. Updating pod status.", podId);
-                        var pod = await _dbContext.MoodPods.FirstOrDefaultAsync(p => p.Id == podId, cancellationToken);
-                        if (pod != null && pod.IsActive)
-                        {
-                            pod.ClosePod();
-                            await _dbContext.SaveChangesAsync(cancellationToken);
-                        }
+                        _logger.LogInformation("LiveKit voice stage finished/went idle for pod {PodId}.", podId);
 
                         await _centrifugoService.PublishAsync(channel, new
                         {
-                            type = "ROOM_FINISHED",
+                            type = "VOICE_STAGE_IDLE",
                             podId = podId,
                             timestamp = DateTime.UtcNow
                         }, cancellationToken);

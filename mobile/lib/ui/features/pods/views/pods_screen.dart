@@ -118,11 +118,14 @@ class PodsScreen extends StatelessWidget {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
+        onPressed: () async {
           if (!authVm.isAuthenticated) {
             context.push('/login');
           } else {
-            CreatePodDialog.show(context);
+            final newPod = await CreatePodDialog.show(context);
+            if (newPod != null && context.mounted) {
+              context.push('/pods/${newPod.id}');
+            }
           }
         },
         icon: const Icon(Icons.radio),

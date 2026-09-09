@@ -775,4 +775,56 @@ public class CloseMoodPodCommandHandler : IRequestHandler<CloseMoodPodCommand, b
     }
 }
 
+public record ReopenMoodPodCommand(Guid PodId, int? DurationHours = null) : IRequest<MoodPodDto>;
+
+public class ReopenMoodPodCommandHandler : IRequestHandler<ReopenMoodPodCommand, MoodPodDto>
+{
+    private readonly IAppDbContext _dbContext;
+    private readonly ICurrentUserService _currentUserService;
+    private readonly ICentrifugoService _centrifugoService;
+
+    public ReopenMoodPodCommandHandler(
+        IAppDbContext dbContext,
+        ICurrentUserService currentUserService,
+        ICentrifugoService centrifugoService)
+    {
+        _dbContext = dbContext;
+        _currentUserService = currentUserService;
+        _centrifugoService = centrifugoService;
+    }
+
+    public async Task<MoodPodDto> Handle(ReopenMoodPodCommand request, CancellationToken cancellationToken)
+    {
+        var pod = await _dbContext.MoodPods
+            .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
+            ?? throw new NotFoundException("MoodPod", request.PodId);
+
+        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        if (!pod.IsModerator(currentUserId))
+        {
+            throw new DomainRuleException("Only the host or moderators can reopen this room.", "NOT_AUTHORIZED");
+        }
+
+        TimeSpan? customTtl = request.DurationHours switch
+        {
+            -1 or 0 => TimeSpan.FromDays(36500),
+            > 0 => TimeSpan.FromHours(request.DurationHours.Value),
+            _ => null
+        };
+
+        pod.ReopenPod(customTtl);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var channel = $"pod:{pod.Id}";
+        await _centrifugoService.PublishAsync(channel, new
+        {
+            type = "POD_REOPENED",
+            podId = pod.Id,
+            timestamp = DateTime.UtcNow
+        }, cancellationToken);
+
+        return MoodPodQueries.MapToDto(pod);
+    }
+}
+
 
