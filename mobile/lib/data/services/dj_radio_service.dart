@@ -60,11 +60,17 @@ class DjRadioService extends ChangeNotifier {
       _deckA.setReleaseMode(ReleaseMode.stop);
       _deckB.setReleaseMode(ReleaseMode.stop);
 
-      // Configure background audio context for iOS & Android
+      // Configure background audio context for iOS & Android.
+      // IMPORTANT: Use `playAndRecord` (iOS) / voice communication (Android)
+      // so the microphone stays available for LiveKit voice chat while DJ
+      // decks are playing. The previous `playback`/`media` config disabled
+      // the mic globally and made it impossible for other clients to hear
+      // the speaker during a mood pod. `mixWithOthers` lets DJ music and
+      // LiveKit voice coexist.
       AudioPlayer.global.setAudioContext(
         AudioContext(
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playback,
+            category: AVAudioSessionCategory.playAndRecord,
             options: {
               AVAudioSessionOptions.mixWithOthers,
               AVAudioSessionOptions.allowBluetooth,
@@ -75,8 +81,8 @@ class DjRadioService extends ChangeNotifier {
           android: const AudioContextAndroid(
             isSpeakerphoneOn: true,
             stayAwake: true,
-            contentType: AndroidContentType.music,
-            usageType: AndroidUsageType.media,
+            contentType: AndroidContentType.speech,
+            usageType: AndroidUsageType.voiceCommunication,
             audioFocus: AndroidAudioFocus.gainTransientMayDuck,
           ),
         ),

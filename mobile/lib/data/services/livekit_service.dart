@@ -115,10 +115,15 @@ class LiveKitService extends ChangeNotifier {
     final player = AudioPlayer();
     try {
       player.setReleaseMode(ReleaseMode.loop);
-      AudioPlayer.global.setAudioContext(
+      // IMPORTANT: Use `playAndRecord` (iOS) / voice communication (Android)
+      // instead of `playback` so the microphone stays available for LiveKit
+      // voice chat. The previous `playback`/`media` config disabled the mic
+      // and made it impossible for other clients to hear the speaker.
+      // `mixWithOthers` lets DJ background music and LiveKit voice coexist.
+      player.setAudioContext(
         AudioContext(
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playback,
+            category: AVAudioSessionCategory.playAndRecord,
             options: {
               AVAudioSessionOptions.defaultToSpeaker,
               AVAudioSessionOptions.mixWithOthers,
@@ -129,8 +134,8 @@ class LiveKitService extends ChangeNotifier {
           android: const AudioContextAndroid(
             isSpeakerphoneOn: true,
             stayAwake: true,
-            contentType: AndroidContentType.music,
-            usageType: AndroidUsageType.media,
+            contentType: AndroidContentType.speech,
+            usageType: AndroidUsageType.voiceCommunication,
             audioFocus: AndroidAudioFocus.gainTransientMayDuck,
           ),
         ),
@@ -159,6 +164,9 @@ class LiveKitService extends ChangeNotifier {
   String? get currentRoomId => _currentRoomId;
 
   String? _localUserId;
+  String? _localUsername;
+  String? _localDisplayName;
+  String? _localAvatarUrl;
 
   bool _isMicMuted = true;
   bool get isMicMuted => _isMicMuted;
@@ -340,6 +348,9 @@ class LiveKitService extends ChangeNotifier {
 
     _currentRoomId = podId;
     _localUserId = currentUserId;
+    _localUsername = currentUsername;
+    _localDisplayName = currentDisplayName;
+    _localAvatarUrl = currentAvatarUrl;
     _isSpeaker = asSpeaker;
     _isMicMuted = !asSpeaker;
     _isInRoom = true;
@@ -490,6 +501,20 @@ class LiveKitService extends ChangeNotifier {
         if (granted) {
           try {
             await room.localParticipant?.setMicrophoneEnabled(true);
+            // Broadcast on-stage metadata so other peers' _syncParticipant
+            // can detect that this participant joined directly as a speaker.
+            try {
+              await room.localParticipant?.setMetadata(
+                jsonEncode({
+                  'username': currentUsername,
+                  'displayName': currentDisplayName,
+                  'avatarUrl': currentAvatarUrl,
+                  'isOnStage': true,
+                }),
+              );
+            } catch (metaErr) {
+              debugPrint('Failed to publish initial on-stage metadata: $metaErr');
+            }
           } catch (micErr) {
             debugPrint('Failed to enable microphone in LiveKit: $micErr');
             _isMicMuted = true;
@@ -575,16 +600,55 @@ class LiveKitService extends ChangeNotifier {
     _isSpeaker = true;
     _isMicMuted = false;
     final targetId = currentUserId ?? _localUserId;
-    if (targetId != null && _speakers.containsKey(targetId)) {
+
+    // Promote the user to the on-stage speakers list so the UI reflects the
+    // new role immediately and other code paths that key off `_speakers`
+    // (e.g. mute/promote icons in the moderation sheet) work correctly.
+    if (targetId != null && _participants.containsKey(targetId)) {
+      _participants[targetId] = _participants[targetId]!.copyWith(
+        isMuted: false,
+        isSpeaking: true,
+      );
+    }
+    if (targetId != null && !_speakers.containsKey(targetId) && _participants.containsKey(targetId)) {
+      _speakers[targetId] = _participants[targetId]!;
+    } else if (targetId != null && _speakers.containsKey(targetId)) {
       _speakers[targetId] = _speakers[targetId]!.copyWith(
         isMuted: false,
         isSpeaking: true,
       );
     }
+
     final granted = await requestMicPermission();
     if (granted && _room?.localParticipant != null) {
       try {
+        // Re-apply the iOS/Android audio session so the platform switches
+        // from the audience-only `.playback` category to `.playAndRecord`
+        // BEFORE WebRTC tries to start microphone capture. Without this,
+        // the audio engine may initialise the recording device while the
+        // session is still locked to playback-only mode and the local mic
+        // would silently fail to transmit any audio.
+        try {
+          await AudioManager.instance.setSpeakerOutputPreferred(true);
+        } catch (_) {}
+
         await _room!.localParticipant?.setMicrophoneEnabled(true);
+
+        // Broadcast the new on-stage status to other peers via LiveKit
+        // participant metadata so their `_syncParticipantFromLiveKit`
+        // picks up `isOnStage=true` on the next track-subscribe handshake.
+        try {
+          await _room!.localParticipant?.setMetadata(
+            jsonEncode({
+              'username': _localUsername ?? '',
+              'displayName': _localDisplayName ?? '',
+              'avatarUrl': _localAvatarUrl,
+              'isOnStage': true,
+            }),
+          );
+        } catch (metaErr) {
+          debugPrint('Failed to publish on-stage metadata: $metaErr');
+        }
       } catch (e) {
         debugPrint('Error enabling microphone in LiveKit: $e');
       }
@@ -620,6 +684,9 @@ class LiveKitService extends ChangeNotifier {
     _isInRoom = false;
     _currentRoomId = null;
     _localUserId = null;
+    _localUsername = null;
+    _localDisplayName = null;
+    _localAvatarUrl = null;
     _podHostUserId = null;
     _podHostUsername = null;
     _podAllowOpenMic = false;

@@ -423,26 +423,117 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
               ),
               child: Column(
                 children: [
-                  _buildSwitch(
-                    title: isArabic ? 'حجرة خاصة (Invite Only)' : 'Private Room (Invite Only)',
-                    value: _isPrivate,
-                    onChanged: isMod ? (v) => setState(() => _isPrivate = v) : null,
+                  // Room Privacy Mode label
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.privacy_tip_outlined, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          isArabic ? 'خصوصية الحجرة' : 'Room Privacy Mode',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
                   ),
-                  const Divider(height: 12),
-                  _buildSwitch(
-                    title: isArabic ? 'مايك مفتوح للجميع' : 'Open Mic (Allow anyone to speak)',
-                    value: _allowOpenMic,
-                    onChanged: isMod ? (v) => setState(() => _allowOpenMic = v) : null,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildOptionButton(
+                          context: context,
+                          icon: Icons.public,
+                          label: isArabic ? 'عامة 🌐' : 'Public 🌐',
+                          subtitle: isArabic ? 'يستطيع الجميع الانضمام' : 'Anyone can join',
+                          isSelected: !_isPrivate,
+                          accent: AppColors.accentEmerald,
+                          onTap: isMod ? () => setState(() => _isPrivate = false) : null,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildOptionButton(
+                          context: context,
+                          icon: Icons.lock_outline,
+                          label: isArabic ? 'خاصة 🔒' : 'Private 🔒',
+                          subtitle: isArabic ? 'بدعوة فقط' : 'Invite only',
+                          isSelected: _isPrivate,
+                          accent: Colors.purple,
+                          onTap: isMod ? () => setState(() => _isPrivate = true) : null,
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
                   ),
-                  const Divider(height: 12),
+                  const SizedBox(height: 14),
+                  // Stage Speaking Access Mode label
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.mic_none, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          isArabic ? 'نظام التحدث والمايك في الحجرة' : 'Stage Speaking Access Mode',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildOptionButton(
+                          context: context,
+                          icon: Icons.pan_tool_alt_outlined,
+                          label: isArabic ? 'برفع اليد فقط ✋' : 'Request to Speak ✋',
+                          subtitle: isArabic ? 'المشرف يوافق على الطلب' : 'Approval required',
+                          isSelected: !_allowOpenMic,
+                          accent: AppColors.accentAmber,
+                          onTap: isMod ? () => setState(() => _allowOpenMic = false) : null,
+                          isDark: isDark,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildOptionButton(
+                          context: context,
+                          icon: Icons.mic,
+                          label: isArabic ? 'مايك مفتوح 🎙️' : 'Open Mic 🎙️',
+                          subtitle: isArabic ? 'الجميع يمكنه التحدث' : 'Anyone can speak',
+                          isSelected: _allowOpenMic,
+                          accent: AppColors.accentEmerald,
+                          onTap: isMod ? () => setState(() => _allowOpenMic = true) : null,
+                          isDark: isDark,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // Additional Permissions label
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.shield_outlined, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          isArabic ? 'صلاحيات الحضور الإضافية' : 'Additional Permissions',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 10),
                   _buildSwitch(
-                    title: isArabic ? 'السماح للضيوف بالتحكم في الموسيقى' : 'Allow guests to control music',
+                    title: isArabic ? 'تشغيل موسيقى الخلفية (DJ)' : 'Allow playing background music',
                     value: _allowPlayMusic,
                     onChanged: isMod ? (v) => setState(() => _allowPlayMusic = v) : null,
                   ),
-                  const Divider(height: 12),
+                  const Divider(height: 10),
                   _buildSwitch(
-                    title: isArabic ? 'السماح بتغيير الثيم' : 'Allow guests to change room theme',
+                    title: isArabic ? 'تغيير ثيم وخلفية الغرفة' : 'Allow changing theme & wallpaper',
                     value: _allowChangeTheme,
                     onChanged: isMod ? (v) => setState(() => _allowChangeTheme = v) : null,
                   ),
@@ -453,29 +544,53 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
         ),
         const SizedBox(height: 18),
 
-        // Extend Duration (host/moderator only)
+        // Extend Room Lifetime (host/moderator only) — 4-col clickable grid
         if (isMod) ...[
-          Text(
-            isArabic ? 'تمديد مدة الحجرة' : 'Extend Room Duration',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          Row(
+            children: [
+              const Icon(Icons.schedule, size: 14, color: AppColors.accentAmber),
+              const SizedBox(width: 6),
+              Text(
+                isArabic ? 'تغيير مدة بقاء الحجرة (Lifetime):' : 'Change Room Lifetime:',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              ),
+              const Spacer(),
+              if (_extendDuration != null)
+                Text(
+                  podDurationOptions
+                          .firstWhere(
+                            (d) => d['value'] == _extendDuration,
+                            orElse: () => {'en': '', 'ar': ''},
+                          )[isArabic ? 'ar' : 'en']
+                      as String,
+                  style: const TextStyle(
+                    fontSize: 10.5,
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.accentAmber,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 8),
-          DropdownButtonFormField<int>(
-            initialValue: _extendDuration,
-            hint: Text(isArabic ? 'اختر مدة التمديد...' : 'Select duration extension...'),
-            decoration: const InputDecoration(
-              contentPadding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            ),
-            items: podDurationOptions.map((opt) {
-              return DropdownMenuItem<int>(
-                value: opt['value'] as int,
-                child: Text(
-                  isArabic ? (opt['ar'] as String) : (opt['en'] as String),
-                  style: const TextStyle(fontSize: 12.5),
+          GridView.count(
+            crossAxisCount: 4,
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            mainAxisSpacing: 6,
+            crossAxisSpacing: 6,
+            childAspectRatio: 1.6,
+            children: podDurationOptions.map((opt) {
+              final isSelected = opt['value'] == _extendDuration;
+              return _buildDurationChip(
+                label: isArabic ? (opt['ar'] as String) : (opt['en'] as String),
+                isSelected: isSelected,
+                onTap: () => setState(
+                  () => _extendDuration = isSelected ? null : (opt['value'] as int),
                 ),
+                isDark: isDark,
               );
             }).toList(),
-            onChanged: (val) => setState(() => _extendDuration = val),
           ),
           const SizedBox(height: 24),
         ] else
@@ -545,16 +660,25 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
     final isMod = podVm.isHost || podVm.isModerator;
 
     final seen = <String>{};
-    final ordered = <MapEntry<LiveKitSpeaker, _ParticipantRole>>[];
+    final onStage = <MapEntry<LiveKitSpeaker, _ParticipantRole>>[];
+    final listeners = <MapEntry<LiveKitSpeaker, _ParticipantRole>>[];
 
-    void add(LiveKitSpeaker s, _ParticipantRole role) {
+    void addOn(LiveKitSpeaker s, _ParticipantRole role) {
       if (s.userId.isEmpty) return;
       if (seen.add(s.userId)) {
-        ordered.add(MapEntry(s, role));
+        onStage.add(MapEntry(s, role));
       }
     }
 
-    add(
+    void addListen(LiveKitSpeaker s, _ParticipantRole role) {
+      if (s.userId.isEmpty) return;
+      if (seen.add(s.userId)) {
+        listeners.add(MapEntry(s, role));
+      }
+    }
+
+    // Host is always considered on-stage
+    addOn(
       LiveKitSpeaker(
         userId: pod.hostUserId,
         username: pod.hostUsername,
@@ -566,70 +690,135 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
       _ParticipantRole.host,
     );
 
+    // Active moderators — on stage
     for (final modId in pod.moderatorUserIds) {
       if (modId == pod.hostUserId) continue;
       final match = liveKit.participants.where((p) => p.userId == modId).toList();
       if (match.isNotEmpty) {
-        add(match.first, _ParticipantRole.moderator);
+        addOn(match.first, _ParticipantRole.moderator);
       }
     }
 
+    // Everyone else — on stage if they are speakers, otherwise listeners
     for (final p in liveKit.participants) {
       if (p.userId == pod.hostUserId) continue;
       if (pod.moderatorUserIds.contains(p.userId)) continue;
-      final onStage = liveKit.speakers.any((sp) => sp.userId == p.userId);
-      add(p, onStage ? _ParticipantRole.speaker : _ParticipantRole.audience);
+      final isOnStage = liveKit.speakers.any((sp) => sp.userId == p.userId);
+      if (isOnStage) {
+        addOn(p, _ParticipantRole.speaker);
+      } else {
+        addListen(p, _ParticipantRole.audience);
+      }
     }
 
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
+        // --- Speakers on Stage section (host, moderators, on-stage speakers) ---
         Row(
           children: [
+            Icon(Icons.mic, size: 14, color: AppColors.accentEmerald),
+            const SizedBox(width: 6),
             Text(
-              isArabic ? 'المشاركون والإشراف المباشر' : 'Live Participants & Moderation',
+              isArabic ? 'متحدث على المسرح' : 'Speakers on Stage',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.15),
+                color: AppColors.accentEmerald.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                '${ordered.length}',
-                style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11),
+                '${onStage.length}',
+                style: const TextStyle(
+                  color: AppColors.accentEmerald,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
 
-        for (final entry in ordered)
-          _buildParticipantRow(
-            context,
-            podVm,
-            entry.key,
-            entry.value,
-            isArabic: isArabic,
-            isMod: isMod,
-            pod: pod,
-          ),
-
-        if (ordered.length <= 1)
+        if (onStage.isEmpty)
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             child: Center(
               child: Text(
-                isArabic
-                    ? 'لم ينضم أحد بعد. ستظهر المشاركون هنا تلقائياً.'
-                    : 'No participants yet. People joining the room will appear here automatically.',
+                isArabic ? 'لا يوجد أحد على المسرح.' : 'No one is on stage yet.',
                 style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
                 textAlign: TextAlign.center,
               ),
             ),
-          ),
+          )
+        else
+          for (final entry in onStage)
+            _buildParticipantRow(
+              context,
+              podVm,
+              entry.key,
+              entry.value,
+              isArabic: isArabic,
+              isMod: isMod,
+              pod: pod,
+            ),
+
+        // --- Listeners section ---
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Icon(Icons.hearing, size: 14, color: const Color(0xFF94A3B8)),
+            const SizedBox(width: 6),
+            Text(
+              isArabic ? 'مستمعين بالحجرة' : 'Listeners',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: const Color(0xFF94A3B8).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '${listeners.length}',
+                style: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        if (listeners.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Center(
+              child: Text(
+                isArabic ? 'لا يوجد مستمعين بعد.' : 'No listeners yet.',
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF94A3B8)),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          )
+        else
+          for (final entry in listeners)
+            _buildParticipantRow(
+              context,
+              podVm,
+              entry.key,
+              entry.value,
+              isArabic: isArabic,
+              isMod: isMod,
+              pod: pod,
+              isListener: true,
+            ),
 
         const SizedBox(height: 8),
         Padding(
@@ -653,6 +842,7 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
     required bool isArabic,
     required bool isMod,
     required MoodPodDto pod,
+    bool isListener = false,
   }) {
     final authVm = context.watch<AuthViewModel>();
     final isSelf = (authVm.currentUser != null && authVm.currentUser!.id == participant.userId) ||
@@ -736,7 +926,7 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
                 ],
               ),
             ),
-            if (isMod && !isSelf && !isHost) ...[
+            if (isMod && !isSelf && !isHost && !isListener) ...[
               _buildModIcon(
                 context,
                 icon: participant.isMuted ? Icons.mic_off : Icons.mic,
@@ -751,19 +941,20 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
                 color: participant.isMuted ? AppColors.error : AppColors.accentEmerald,
               ),
               const SizedBox(width: 4),
-              _buildModIcon(
-                context,
-                icon: isThisMod ? Icons.workspaces_outline : Icons.workspaces,
-                tooltip: isThisMod
-                    ? (isArabic ? 'إزالة من المشرفين' : 'Demote')
-                    : (isArabic ? 'ترقية لمشرف' : 'Promote to Moderator'),
-                onTap: () => podVm.moderateParticipant(
-                  participant.userId,
-                  participant.username,
-                  isThisMod ? 'demote_moderator' : 'promote_moderator',
+              if (!isListener)
+                _buildModIcon(
+                  context,
+                  icon: isThisMod ? Icons.workspaces_outline : Icons.workspaces,
+                  tooltip: isThisMod
+                      ? (isArabic ? 'إزالة من المشرفين' : 'Demote')
+                      : (isArabic ? 'ترقية لمشرف' : 'Promote to Moderator'),
+                  onTap: () => podVm.moderateParticipant(
+                    participant.userId,
+                    participant.username,
+                    isThisMod ? 'demote_moderator' : 'promote_moderator',
+                  ),
+                  color: AppColors.accentCyan,
                 ),
-                color: AppColors.accentCyan,
-              ),
               const SizedBox(width: 4),
               _buildModIcon(
                 context,
@@ -841,6 +1032,68 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
               ),
             ),
           ),
+        // Shareable Pod Link (matches React's "Copy Shareable Pod Link" card)
+        Opacity(
+          opacity: isMod ? 1.0 : 0.5,
+          child: IgnorePointer(
+            ignoring: !isMod,
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: isDark ? AppColors.borderDark : AppColors.borderLight),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.link, size: 16, color: AppColors.accentCyan),
+                      const SizedBox(width: 6),
+                      Text(
+                        isArabic ? 'رابط مشاركة الحجرة' : 'Shareable Pod Link',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        final pod = podVm.activePod!;
+                        final code = pod.inviteCode.isNotEmpty ? pod.inviteCode : '';
+                        // Deep link to the pod, matching React's invite link format.
+                        final link = '${Uri.base.origin}/?podId=${pod.id}${code.isNotEmpty ? '&code=$code' : ''}';
+                        Clipboard.setData(ClipboardData(text: link));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              isArabic
+                                  ? 'تم نسخ الرابط للحافظة! 📋'
+                                  : 'Link copied to clipboard! 📋',
+                            ),
+                            backgroundColor: AppColors.accentEmerald,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.copy, size: 14),
+                      label: Text(isArabic ? 'نسخ رابط الحجرة ومشاركته' : 'Copy Shareable Link'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        backgroundColor: AppColors.accentCyan.withValues(alpha: 0.15),
+                        foregroundColor: AppColors.accentCyan,
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
         Text(
           isArabic ? 'دعوة مستخدم بالاسم أو المعرف' : 'Invite User to Pod',
           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
@@ -951,6 +1204,134 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
             shape: BoxShape.circle,
           ),
           child: Icon(icon, size: 16, color: color),
+        ),
+      ),
+    );
+  }
+
+  /// Two-state selection card used by the privacy & speaking-access grids.
+  /// Matches the React "Public vs Private" / "Request to Speak vs Open Mic"
+  /// button pairs in PodModerationDrawer.
+  Widget _buildOptionButton({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required bool isSelected,
+    required Color accent,
+    required VoidCallback? onTap,
+    required bool isDark,
+  }) {
+    final bgColor = isSelected
+        ? accent.withValues(alpha: 0.15)
+        : (isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC));
+    final borderColor = isSelected ? accent : (isDark ? AppColors.borderDark : AppColors.borderLight);
+    final textColor = isSelected
+        ? accent
+        : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF64748B));
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: borderColor,
+            width: isSelected ? 1.5 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: accent.withValues(alpha: 0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 14, color: accent),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.normal,
+                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Compact duration chip used by the 4-column "Change Room Lifetime" grid.
+  /// Matches the React EXTEND_DURATION_OPTIONS grid styling.
+  Widget _buildDurationChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.accentAmber.withValues(alpha: 0.18)
+              : (isDark ? AppColors.surfaceDark : const Color(0xFFF8FAFC)),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? AppColors.accentAmber
+                : (isDark ? AppColors.borderDark : AppColors.borderLight),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+            color: isSelected
+                ? AppColors.accentAmber
+                : (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF64748B)),
+          ),
         ),
       ),
     );

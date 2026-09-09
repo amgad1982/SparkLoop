@@ -680,21 +680,32 @@ class PodViewModel extends ChangeNotifier {
       // 2. Automatically open and unmute the microphone
       final granted = await _liveKitService.unmuteMic(_localUserId);
 
-      // 3. Broadcast STAGE_JOIN to all peers in the pod
+      // 3. Broadcast STAGE_JOIN to all peers in the pod.
+      //    AWAIT the signal send so the function doesn't return before the
+      //    HTTP request is actually dispatched to Centrifugo. Without this,
+      //    the function exit can race with the network call and the STAGE_JOIN
+      //    is silently dropped — leaving the host with no signal to render the
+      //    promoted speaker.
       if (_activePod != null && _localUserId != null) {
-        _podRepository.sendSignal(
-          _activePod!.id,
-          'STAGE_JOIN',
-          payload: {
-            'userId': _localUserId,
-            'username': _localUsername ?? '',
-            'displayName': _localDisplayName ?? '',
-            'avatarUrl': _localAvatarUrl,
-            'isOnStage': true,
-            'isMuted': !granted,
-            'isSpeaking': false,
-          },
-        );
+        try {
+          await _podRepository.sendSignal(
+            _activePod!.id,
+            'STAGE_JOIN',
+            payload: {
+              'userId': _localUserId,
+              'username': _localUsername ?? '',
+              'displayName': _localDisplayName ?? '',
+              'avatarUrl': _localAvatarUrl,
+              'isOnStage': true,
+              'isMuted': !granted,
+              'isSpeaking': false,
+            },
+          );
+        } catch (signalErr) {
+          debugPrint('Failed to broadcast STAGE_JOIN after promotion: $signalErr');
+        }
+      } else {
+        debugPrint('Cannot broadcast STAGE_JOIN: _activePod or _localUserId is null.');
       }
 
       // 4. Notify UI via stream to display the green "mic open" snackbar

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:livekit_client/livekit_client.dart';
 import 'package:provider/provider.dart';
 
 import 'data/repositories/auth_repository.dart';
@@ -30,6 +31,20 @@ import 'ui/navigation/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize the LiveKit voice engine with the default communication
+  // audio session options (iOS .playAndRecord / Android voiceCommunication).
+  // Without this, the WebRTC audio device module may initialize with
+  // media/playback attributes and the microphone will not capture audio
+  // for the mood pod speakers — other clients would not hear anything.
+  // Passing the options explicitly seeds the runtime audio session policy
+  // for Android and pins the iOS audio session to `playAndRecord` so the
+  // mic keeps working even after the audience→speaker transition.
+  // ignore: experimental_member_use_from_member
+  await LiveKitClient.initialize(
+    // ignore: experimental_member_use
+    initialAudioSessionOptions: AudioSessionOptions.communication(),
+  );
 
   // 1. Initialize Storage & Core Services
   final storageService = StorageService();
