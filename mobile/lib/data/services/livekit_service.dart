@@ -297,6 +297,20 @@ class LiveKitService extends ChangeNotifier {
 
   void promoteToSpeaker() {
     _isSpeaker = true;
+    _isMicMuted = false;
+
+    // Move the local user from `_participants` (audience) to `_speakers`
+    // (on stage) so the stage grid, moderation sheet, and audio
+    // visualizers all reflect the promotion IMMEDIATELY — without waiting
+    // for the LiveKit reconnect to land. The reconnect (which happens
+    // in `PodViewModel._handleSpeakerPromotion`) will replace this
+    // optimistic entry with the authoritative LiveKit-driven one.
+    final targetId = _localUserId;
+    if (targetId != null && _participants.containsKey(targetId)) {
+      final p = _participants[targetId]!;
+      _speakers[targetId] = p.copyWith(isMuted: false, isSpeaking: false);
+    }
+
     notifyListeners();
   }
 

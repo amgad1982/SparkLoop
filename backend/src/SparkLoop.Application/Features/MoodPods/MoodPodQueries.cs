@@ -262,8 +262,25 @@ public class GetPodVoiceTokenQueryHandler : IRequestHandler<GetPodVoiceTokenQuer
             }
         }
 
-        // Only allow publishing if host, moderator, or open mic with explicit on-stage request
-        var isOnStage = isHost || isModerator || (pod.AllowOpenMic && request.IsOnStage);
+        // FIX (Bug - "moderated raise-hand: approved user can't speak"):
+        //
+        // The original expression was:
+        //     isOnStage = isHost || isModerator || (pod.AllowOpenMic && request.IsOnStage);
+        // which meant that in a `AllowOpenMic = false` room the
+        // `promote_speaker` moderation action had no way to grant
+        // publish permissions — even after the moderator approved the
+        // user's raise-hand request, the audience member's freshly
+        // minted LiveKit JWT still had `canPublishAudio = false`.
+        //
+        // `MoodPod.IsApprovedSpeaker` returns true for the host, every
+        // active moderator, and every user that has been explicitly
+        // approved via the `promote_speaker` moderation action. We now
+        // include that predicate here so approved users receive a
+        // publish-capable token immediately on the next refresh.
+        var isOnStage = isHost
+            || isModerator
+            || (pod.AllowOpenMic && request.IsOnStage)
+            || pod.IsApprovedSpeaker(userId);
 
         var token = _liveKitService.GenerateVoiceToken(
             podId: pod.Id.ToString(),

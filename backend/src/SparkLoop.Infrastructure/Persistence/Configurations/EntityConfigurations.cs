@@ -342,6 +342,19 @@ public class MoodPodConfiguration : IEntityTypeConfiguration<MoodPod>
             )
             .Metadata.SetValueComparer(guidListComparer);
 
+        // FIX (Bug - "moderated raise-hand: approved user can't speak"):
+        // Persist the set of users who have been explicitly approved
+        // by a moderator to speak on stage. The column is added by a
+        // forward-compatible migration; existing rows default to an
+        // empty list (no approved speakers).
+        builder.Property<List<Guid>>("_approvedSpeakerUserIds")
+            .HasColumnName("approved_speaker_user_ids")
+            .HasConversion(
+                v => System.Text.Json.JsonSerializer.Serialize(v, (System.Text.Json.JsonSerializerOptions?)null),
+                v => System.Text.Json.JsonSerializer.Deserialize<List<Guid>>(v, (System.Text.Json.JsonSerializerOptions?)null) ?? new List<Guid>()
+            )
+            .Metadata.SetValueComparer(guidListComparer);
+
         builder.HasMany(p => p.Messages)
             .WithOne()
             .HasForeignKey(m => m.PodId)

@@ -579,6 +579,7 @@ export const MoodPodRoom: React.FC<MoodPodRoomProps> = ({ initialPod, onBack }) 
           isModerator={isModerator}
           moderatorUserIds={pod.moderatorUserIds}
           speakers={voiceEngine.speakers}
+          listeners={voiceEngine.listeners}
           isOnStage={voiceEngine.isOnStage}
           isMuted={voiceEngine.isMuted}
           micLevel={voiceEngine.micLevel}

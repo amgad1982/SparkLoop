@@ -59,6 +59,21 @@ public class MoodPod : AggregateRoot<Guid>
     private readonly List<PodMessage> _messages = [];
     private readonly List<Guid> _moderatorUserIds = [];
     private readonly List<Guid> _invitedUserIds = [];
+    // FIX (Bug - "moderated raise-hand: approved user can't speak"):
+    //
+    // When the pod has `AllowOpenMic = false`, the only way for an
+    // audience member to gain publish permissions is to be explicitly
+    // approved by a moderator (via the `promote_speaker` moderation
+    // action). The backend used to drop that action on the floor —
+    // `MoodPod.ModerateParticipant` only handled `promote_moderator`
+    // / `demote_moderator` and silently ignored `promote_speaker`.
+    //
+    // We now persist the set of approved speaker user IDs on the
+    // aggregate. `GetPodVoiceTokenQuery` reads this set so the next
+    // token the approved user receives actually grants
+    // `canPublishAudio`. The set is mutated by `AddApprovedSpeaker`
+    // and `RemoveApprovedSpeaker`, both of which are idempotent.
+    private readonly List<Guid> _approvedSpeakerUserIds = [];
 
     public string Title { get; private set; } = string.Empty;
     public string MoodEmoji { get; private set; } = "🔥";
@@ -86,6 +101,7 @@ public class MoodPod : AggregateRoot<Guid>
     public IReadOnlyCollection<PodMessage> Messages => _messages.AsReadOnly();
     public IReadOnlyCollection<Guid> ModeratorUserIds => _moderatorUserIds.AsReadOnly();
     public IReadOnlyCollection<Guid> InvitedUserIds => _invitedUserIds.AsReadOnly();
+    public IReadOnlyCollection<Guid> ApprovedSpeakerUserIds => _approvedSpeakerUserIds.AsReadOnly();
 
     private MoodPod() : base() { }
 
@@ -213,6 +229,44 @@ public class MoodPod : AggregateRoot<Guid>
         }
     }
 
+    /// <summary>
+    /// Idempotently grants the user the right to publish audio in this pod,
+    /// even when <see cref="AllowOpenMic"/> is false. The host and any
+    /// existing moderators do not need to be added here — they are
+    /// already allowed to publish.
+    /// </summary>
+    public void AddApprovedSpeaker(Guid userId)
+    {
+        CheckActive();
+        if (!_approvedSpeakerUserIds.Contains(userId))
+        {
+            _approvedSpeakerUserIds.Add(userId);
+        }
+    }
+
+    /// <summary>
+    /// Idempotently revokes a previously approved speaker's publish
+    /// permission. Removing the host has no effect — the host always
+    /// retains publish rights.
+    /// </summary>
+    public void RemoveApprovedSpeaker(Guid userId)
+    {
+        if (userId == HostUserId) return;
+        _approvedSpeakerUserIds.Remove(userId);
+    }
+
+    /// <summary>
+    /// Returns true if the user has been explicitly approved to speak
+    /// on stage by a moderator via the <c>promote_speaker</c> moderation
+    /// action.
+    /// </summary>
+    public bool IsApprovedSpeaker(Guid userId)
+    {
+        return HostUserId == userId
+            || _moderatorUserIds.Contains(userId)
+            || _approvedSpeakerUserIds.Contains(userId);
+    }
+
     public void InviteUser(Guid userId, string hostUsername)
     {
         CheckActive();
@@ -283,6 +337,20 @@ public class MoodPod : AggregateRoot<Guid>
         else if (action == "demote_moderator")
         {
             RemoveModerator(targetUserId);
+        }
+        else if (action == "promote_speaker")
+        {
+            // Persist the approved-speaker state so subsequent
+            // `GetPodVoiceToken` calls grant this user a publish-capable
+            // JWT, even when `AllowOpenMic` is false.
+            AddApprovedSpeaker(targetUserId);
+        }
+        else if (action == "remove_speaker" || action == "kick_stage")
+        {
+            // Revoke the previously granted publish permission so the
+            // audience member falls back to listener on the next
+            // token refresh.
+            RemoveApprovedSpeaker(targetUserId);
         }
 
         AddDomainEvent(new MoodPodModerationActionEvent(

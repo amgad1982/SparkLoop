@@ -503,7 +503,6 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
   @override
   Widget build(BuildContext context) {
     final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Selector<PodViewModel, ({bool isLoading, MoodPodDto? pod})>(
       selector: (_, vm) => (isLoading: vm.isLoading, pod: vm.activePod),
@@ -523,12 +522,18 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
           );
         }
 
-        // Determine Theme Gradient
+        // Determine Theme Gradient (used ONLY for the chat area,
+        // matching the React web version where the mood background is
+        // scoped to the chat container rather than the whole screen).
         final matchingTheme = podThemePresets.firstWhere(
           (t) => t['id'] == pod.backgroundTheme,
           orElse: () => podThemePresets[0],
         );
         final gradientColors = (matchingTheme['gradient'] as List<Color>);
+        final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+        final scaffoldBg = isDarkMode ? AppColors.bgDark : AppColors.bgLight;
+        final appBarBg = isDarkMode ? AppColors.surfaceDark : Colors.white;
+        final appBarFg = isDarkMode ? Colors.white : const Color(0xFF0F172A);
 
         return PopScope(
           canPop: false,
@@ -536,9 +541,24 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             if (!didPop) _leave();
           },
           child: Scaffold(
-            extendBodyBehindAppBar: true,
+            // FIX (mobile-only - chat-scoped mood background):
+            // We used to set `extendBodyBehindAppBar: true` and paint the
+            // theme gradient + optional custom background image as a full
+            // screen `Positioned.fill` behind every widget, including the
+            // AppBar. That made the entire screen look tinted by the mood
+            // theme and visually disconnected the AppBar / bottom controls
+            // from the rest of the app shell.
+            //
+            // The React web version scopes the same gradient to the chat
+            // card only (see `getThemeBackground` + the outer
+            // `glass-panel` wrapper in MoodPodRoom.tsx). We mirror that
+            // here by giving the Scaffold an opaque background and
+            // confining the gradient to the chat section below.
+            backgroundColor: scaffoldBg,
             appBar: AppBar(
-              backgroundColor: Colors.transparent,
+              backgroundColor: appBarBg,
+              foregroundColor: appBarFg,
+              surfaceTintColor: Colors.transparent,
               elevation: 0,
               titleSpacing: 4,
               title: Column(
@@ -666,32 +686,11 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
             ),
             body: Stack(
               children: [
-                // Background Atmosphere Gradient
-                Positioned.fill(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isDark
-                            ? gradientColors
-                            : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Optional Custom Wallpaper Overlay
-                if (pod.customBackgroundImageUrl != null && pod.customBackgroundImageUrl!.isNotEmpty)
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: 0.25,
-                      child: AppNetworkImage(
-                        imageUrl: pod.customBackgroundImageUrl!,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ),
+                // NOTE: The full-screen mood gradient + optional custom
+                // wallpaper overlay used to live here, painting the entire
+                // body including behind the AppBar. It has been removed so
+                // the mood background only colours the chat area (see
+                // `_buildChatSection` for the new scoped gradient).
 
                 // Main Room Stage Content
                 SafeArea(
@@ -745,7 +744,11 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                         ),
                       ),
 
-                      // 2. Chat / Event Stream — taller, WhatsApp-style bubbles
+                      // 2. Chat / Event Stream — taller, WhatsApp-style bubbles.
+                      //    The mood theme gradient + optional custom wallpaper
+                      //    are now scoped to this chat card only, mirroring the
+                      //    React web layout where the same gradient colours
+                      //    the chat container instead of the whole screen.
                       Expanded(
                         flex: _showAllSpeakers ? 4 : 7,
                         child: RepaintBoundary(
@@ -755,7 +758,13 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
                               selector: (_, vm) => vm.chatMessages,
                               shouldRebuild: (prev, next) => prev.length != next.length || prev != next,
                               builder: (context, messages, _) {
-                                return _buildChatSection(context, messages, pod, isArabic);
+                                return _buildChatSection(
+                                  context,
+                                  messages,
+                                  pod,
+                                  isArabic,
+                                  gradientColors: gradientColors,
+                                );
                               },
                             ),
                           ),
@@ -1505,10 +1514,17 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     return list[username.hashCode.abs() % list.length];
   }
 
-  Widget _buildChatSection(BuildContext context, List<PodChatMessageDto> messages, MoodPodDto pod, bool isArabic) {
+  Widget _buildChatSection(
+    BuildContext context,
+    List<PodChatMessageDto> messages,
+    MoodPodDto pod,
+    bool isArabic, {
+    required List<Color> gradientColors,
+  }) {
     final authVm = context.read<AuthViewModel>();
     final currentUserId = authVm.currentUser?.id ?? authVm.currentPersona.id;
     final currentUsername = authVm.currentUser?.username ?? authVm.currentPersona.username;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Build lightweight item descriptors for day separators and messages
     final List<_ChatItemDescriptor> items = [];
@@ -1531,39 +1547,105 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
       _scrollToBottom(animate: !isInitial);
     }
 
-    return GlassContainer(
-      padding: EdgeInsets.zero,
-      borderRadius: 18,
-      child: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              reverse: false,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                if (item.isDaySeparator) {
-                  return _buildDaySeparator(context, item.date!, isArabic);
-                }
-                final msg = item.message!;
-                final isSelf = (currentUserId.isNotEmpty && msg.userId == currentUserId) ||
-                    (msg.userId.isNotEmpty && msg.userId == authVm.currentPersona.id) ||
-                    (currentUsername.isNotEmpty && msg.username.toLowerCase() == currentUsername.toLowerCase());
+    // Chat area decoration: scoped mood gradient + optional custom
+    // wallpaper, kept inside the chat card so the rest of the screen
+    // (AppBar, stage area, bottom controls) keeps the standard shell
+    // background. This matches the React web layout where the gradient
+    // is constrained to the chat container.
+    final borderColor = isDark
+        ? AppColors.borderDark.withValues(alpha: 0.8)
+        : AppColors.borderLight.withValues(alpha: 0.9);
 
-                return _buildChatBubble(
-                  context: context,
-                  msg: msg,
-                  isSelf: isSelf,
-                  isArabic: isArabic,
-                  pod: pod,
-                );
-              },
+    return RepaintBoundary(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Stack(
+          children: [
+            // 1. Mood theme gradient (only colours the chat card)
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? gradientColors
+                        : [
+                            // Light theme: very pale wash of the theme so
+                            // the chat area is still visibly themed but
+                            // doesn't fight with the rest of the light UI.
+                            ...gradientColors.map((c) => c.withValues(alpha: 0.18)),
+                          ],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                  ),
+                ),
+              ),
             ),
-          ),
-          _buildChatInputBar(context, isArabic),
-        ],
+
+            // 2. Optional custom wallpaper overlay (same scoping as the
+            //    gradient — only inside the chat card).
+            if (pod.customBackgroundImageUrl != null && pod.customBackgroundImageUrl!.isNotEmpty)
+              Positioned.fill(
+                child: Opacity(
+                  opacity: isDark ? 0.25 : 0.18,
+                  child: AppNetworkImage(
+                    imageUrl: pod.customBackgroundImageUrl!,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+
+            // 3. Translucent glass panel so the chat list and input bar
+            //    remain legible over the gradient / wallpaper.
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: (isDark
+                          ? AppColors.surfaceDark
+                          : Colors.white)
+                      .withValues(alpha: isDark ? 0.55 : 0.55),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: borderColor, width: 1),
+                ),
+              ),
+            ),
+
+            // 4. Actual chat content: scrollable message list + input bar.
+            Padding(
+              padding: EdgeInsets.zero,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      reverse: false,
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      itemCount: items.length,
+                      itemBuilder: (context, index) {
+                        final item = items[index];
+                        if (item.isDaySeparator) {
+                          return _buildDaySeparator(context, item.date!, isArabic);
+                        }
+                        final msg = item.message!;
+                        final isSelf = (currentUserId.isNotEmpty && msg.userId == currentUserId) ||
+                            (msg.userId.isNotEmpty && msg.userId == authVm.currentPersona.id) ||
+                            (currentUsername.isNotEmpty && msg.username.toLowerCase() == currentUsername.toLowerCase());
+
+                        return _buildChatBubble(
+                          context: context,
+                          msg: msg,
+                          isSelf: isSelf,
+                          isArabic: isArabic,
+                          pod: pod,
+                        );
+                      },
+                    ),
+                  ),
+                  _buildChatInputBar(context, isArabic),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

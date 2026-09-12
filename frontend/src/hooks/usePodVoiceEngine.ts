@@ -55,6 +55,20 @@ export function usePodVoiceEngine({
   const [isMuted, setIsMuted] = useState(false);
   const [micLevel, setMicLevel] = useState(0);
   const [speakers, setSpeakers] = useState<PodSpeaker[]>([]);
+  // FIX (Bug - "user doesn't appear on the web until he takes some action"):
+  //
+  // Before this change the React frontend only exposed a `speakers`
+  // array, which combined LiveKit participants with audio publications
+  // and Centrifugo STAGE_PRESENCE entries. Audience members — who have
+  // no audio publication and no STAGE_PRESENCE yet — never appeared in
+  // the UI. They only became visible after they raised their hand or
+  // were promoted to stage.
+  //
+  // The mobile app already renders a separate "Listeners" row (see
+  // `pod_room_screen.dart` line 866). We mirror that on the web by
+  // tracking every connected LiveKit participant that is NOT on stage
+  // in a dedicated `listeners` state.
+  const [listeners, setListeners] = useState<PodSpeaker[]>([]);
   const [handRaisedUsers, setHandRaisedUsers] = useState<{ userId: string; username: string; displayName: string }[]>([]);
   const [isHandRaised, setIsHandRaised] = useState(false);
   const [roomVolume, setRoomVolumeState] = useState(1.0);
@@ -203,6 +217,7 @@ export function usePodVoiceEngine({
   const syncSpeakerList = useCallback(
     (room: Room | null) => {
       const speakerList: PodSpeaker[] = [];
+      const listenerList: PodSpeaker[] = [];
       const seenIds = new Set<string>();
 
       // 1. Self (if on stage)
@@ -219,26 +234,40 @@ export function usePodVoiceEngine({
         });
       }
 
-      // 2. Remote LiveKit Participants
+      // 2. Remote LiveKit Participants — split into on-stage vs listeners.
       if (room) {
         room.remoteParticipants.forEach((p: RemoteParticipant) => {
-          let meta: { username?: string; displayName?: string; isOnStage?: boolean } = {};
+          let meta: { username?: string; displayName?: string; avatarUrl?: string; isOnStage?: boolean } = {};
           try {
             if (p.metadata) meta = JSON.parse(p.metadata);
           } catch { }
 
           const hasAudio = p.audioTrackPublications.size > 0;
           const isParticipantOnStage = hasAudio || meta.isOnStage || stagePresenceMapRef.current.has(p.identity);
+          const username = meta.username || p.name || p.identity;
+          const displayName = meta.displayName || p.name || meta.username || p.identity;
+          const avatarUrl = meta.avatarUrl || `https://api.dicebear.com/10.x/bottts/svg?seed=${username}`;
 
           if (isParticipantOnStage) {
             seenIds.add(p.identity);
             speakerList.push({
               userId: p.identity,
-              username: meta.username || p.name || p.identity,
-              displayName: meta.displayName || p.name || meta.username || p.identity,
-              avatarUrl: `https://api.dicebear.com/10.x/bottts/svg?seed=${meta.username || p.identity}`,
+              username,
+              displayName,
+              avatarUrl,
               isMuted: !p.isMicrophoneEnabled,
               isSpeaking: p.isSpeaking,
+              joinedAtUtc: Date.now(),
+            });
+          } else {
+            // Audience / listener — make them visible in the UI.
+            listenerList.push({
+              userId: p.identity,
+              username,
+              displayName,
+              avatarUrl,
+              isMuted: true, // listeners are always "muted" in the sense of not publishing
+              isSpeaking: false,
               joinedAtUtc: Date.now(),
             });
           }
@@ -254,6 +283,7 @@ export function usePodVoiceEngine({
       });
 
       setSpeakers(speakerList);
+      setListeners(listenerList);
       if (onSpeakersUpdated) {
         onSpeakersUpdated(speakerList);
       }
@@ -1316,6 +1346,7 @@ export function usePodVoiceEngine({
     isMuted,
     micLevel,
     speakers,
+    listeners,
     handRaisedUsers,
     isHandRaised,
     roomVolume,

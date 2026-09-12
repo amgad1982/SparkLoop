@@ -71,6 +71,30 @@ public static class DbInitializer
             }
 
             // ---------------------------------------------------------------------
+            // FIX (Bug - "moderated raise-hand: approved user can't speak"):
+            //
+            // Persist the per-pod set of users the host/moderators have
+            // explicitly approved to speak on stage. Without this column the
+            // `promote_speaker` moderation action has nowhere to write its
+            // decision and a freshly minted LiveKit token for the approved
+            // audience member keeps `canPublishAudio = false`.
+            //
+            // Stored as JSON text matching the JSON column convention used
+            // for `_moderatorUserIds` / `_invitedUserIds` in the EF
+            // configuration. `IF NOT EXISTS` makes this idempotent for
+            // fresh databases as well as existing production ones.
+            // ---------------------------------------------------------------------
+            try
+            {
+                await dbContext.Database.ExecuteSqlRawAsync(
+                    "ALTER TABLE \"mood_pods\" ADD COLUMN IF NOT EXISTS \"approved_speaker_user_ids\" jsonb NOT NULL DEFAULT '[]'::jsonb;");
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "MoodPod approved_speaker_user_ids column alteration note");
+            }
+
+            // ---------------------------------------------------------------------
             // DJ Lists table & MoodPod DJ columns
             // ---------------------------------------------------------------------
             var isSqlite = dbContext.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;

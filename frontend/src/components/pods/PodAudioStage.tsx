@@ -18,6 +18,7 @@ import {
   Shield,
   UserMinus,
   ShieldAlert,
+  Users,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -27,6 +28,11 @@ interface PodAudioStageProps {
   hostDisplayName: string;
   hostAvatarUrl?: string;
   speakers: PodSpeaker[];
+  // FIX: audience / listener participants who joined the LiveKit room
+  // but are not on stage yet. They were previously invisible on the web
+  // — now they appear in a separate "Listeners" row right below the
+  // stage. Mirrors the mobile `pod_room_screen.dart` layout.
+  listeners?: PodSpeaker[];
   isOnStage: boolean;
   isMuted: boolean;
   micLevel: number;
@@ -54,6 +60,7 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
   hostDisplayName,
   hostAvatarUrl,
   speakers,
+  listeners = [],
   isOnStage,
   isMuted,
   micLevel,
@@ -588,6 +595,70 @@ export const PodAudioStage: React.FC<PodAudioStageProps> = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* FIX (Bug - "user doesn't appear on the web until he takes some
+         action"):
+         Audience members who joined the LiveKit room but are not on
+         stage were previously invisible on the web. We now render a
+         compact "Listeners" row beneath the stage grid so every
+         connected participant is visible from the moment they join the
+         room — matching the mobile `pod_room_screen.dart` layout. The
+         row collapses when empty to avoid wasted space. */}
+      {listeners.length > 0 && (
+        <div className="pt-2 border-t border-zinc-200/70 dark:border-zinc-800/60">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <Users className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+            <span className="text-[10.5px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              {isArabic ? `مستمعين (${listeners.length})` : `Listeners (${listeners.length})`}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5 -mx-1 scroll-smooth">
+            {listeners.map((listener) => {
+              const isListenerMe = listener.userId === currentPersona.id;
+              const isListenerHost = listener.username.toLowerCase() === hostUsername.toLowerCase();
+              const isListenerMod = moderatorUserIds.includes(listener.userId);
+              return (
+                <motion.div
+                  key={listener.userId}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="group relative flex flex-col items-center gap-0.5 shrink-0 min-w-[44px] max-w-[56px]"
+                  title={listener.displayName || listener.username}
+                >
+                  <div className="relative">
+                    <div className="w-7 h-7 rounded-lg p-0.5 ring-1 ring-zinc-200 dark:ring-zinc-800 bg-zinc-100 dark:bg-zinc-900 opacity-80">
+                      <img
+                        src={
+                          listener.avatarUrl ||
+                          (isListenerHost && hostAvatarUrl
+                            ? hostAvatarUrl
+                            : `https://api.dicebear.com/10.x/bottts/svg?seed=${listener.username}`)
+                        }
+                        alt={listener.username}
+                        className="w-full h-full rounded-md object-cover bg-white dark:bg-zinc-950"
+                      />
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center border-2 border-white dark:border-zinc-950 shadow-md bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300">
+                      <MicOff className="w-1.5 h-1.5" />
+                    </div>
+                  </div>
+                  <span className="text-[8.5px] font-bold text-zinc-600 dark:text-zinc-400 block truncate max-w-full">
+                    {listener.displayName || listener.username}
+                  </span>
+                  {/* Host/Mod badge */}
+                  {(isListenerHost || isListenerMod || isListenerMe) && (
+                    <span className="text-[7px] font-extrabold uppercase tracking-wider text-fuchsia-600 dark:text-fuchsia-400">
+                      {isListenerHost ? 'Host' : isListenerMod ? 'Mod' : isListenerMe ? 'You' : ''}
+                    </span>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 4. Live Mic Waveform Frequency Spectrum for Local User on stage */}
       {isOnStage && !isMuted && (

@@ -66,6 +66,23 @@ class PodViewModel extends ChangeNotifier {
   final _stagePromotedController = StreamController<bool>.broadcast();
   Stream<bool> get onStagePromoted => _stagePromotedController.stream;
 
+  // FIX (Bug - "approval notification keeps showing"):
+  // Both `MODERATION_ACTION` (sent by the backend to the promoted user's
+  // private channel) and `STAGE_APPROVE` (broadcast by the moderator's
+  // Centrifugo signal) reach the mobile client for the same approval
+  // event. Each of them triggers `_handleSpeakerPromotion` independently,
+  // which in turn emits to `_stagePromotedController`. The UI listens to
+  // the stream and pops the green "your mic is open" snackbar — so the
+  // user sees two identical snackbars stacked on top of each other,
+  // which they perceive as the notification "keeps showing".
+  //
+  // We track the last time we surfaced a promotion for the local user
+  // and ignore any subsequent promotion event that arrives within
+  // `_kPromotionSnackbarDebounceMs` of the last one.
+  static const int _kPromotionSnackbarDebounceMs = 4000;
+  int _lastPromotionSnackbarAtMs = 0;
+  bool _isPromotionInFlight = false;
+
   PodViewModel({
     required this._podRepository,
     required this._userRepository,
@@ -666,34 +683,65 @@ class PodViewModel extends ChangeNotifier {
   }) async {
     _handRaisedUsers.removeWhere((u) => u['userId'] == targetUserId);
 
+    // Guard: if we already kicked off a local-user promotion in the last
+    // few seconds, ignore subsequent invocations. Both `STAGE_APPROVE`
+    // (from the moderator's realtime signal) and `MODERATION_ACTION`
+    // (from the backend's audit-log event) end up here, and the latter
+    // always lands a few hundred milliseconds after the former. Without
+    // this guard we would reconnect to LiveKit twice and emit two
+    // identical snackbars back-to-back.
     final isTargetLocal = targetUserId == _localUserId ||
         (_localUsername != null &&
             targetUsername.isNotEmpty &&
             targetUsername.toLowerCase() == _localUsername!.toLowerCase());
 
+    if (isTargetLocal && _isPromotionInFlight) {
+      return;
+    }
+
     if (isTargetLocal) {
       _isHandRaised = false;
 
-      // FIX (Bug #2 - "mic doesn't work after moderator approval"):
+      // FIX (Bug #2 + UX - "mobile app doesn't respond to accepting the mic
+      // opening"):
       //
-      // The original implementation just flipped `_liveKitService._isSpeaker`
-      // to true and called `setMicrophoneEnabled(true)`. That call silently
-      // failed because the LiveKit JWT we originally received only granted
-      // `canSubscribe` (the audience joined with `isOnStage = false` and the
-      // backend therefore minted a read-only token). The user saw the mic
-      // icon switch to "on" but other peers could not hear them.
+      // The original flow awaited the entire LiveKit reconnect inside this
+      // function before showing any UI feedback. `connectToRoom` takes 1-3 s
+      // (WebSocket connect + LiveKit validate + token exchange), so the
+      // bottom controls bar (mic toggle, raise hand) appeared frozen during
+      // that window. The user thought the app was unresponsive.
       //
-      // The fix is to obtain a fresh token with `isOnStage = true` BEFORE
-      // asking LiveKit to enable the microphone. The LiveKit Flutter SDK
-      // does not allow promoting an existing participant without a
-      // reconnect, so we tear down the current room and reconnect with the
-      // new token.
-      //
-      // Steps:
-      //   1. Request a new LiveKit token (now grants canPublish).
-      //   2. Reconnect the room with `asSpeaker: true`.
-      //   3. Open the microphone.
-      //   4. Broadcast STAGE_JOIN so the moderator's UI updates.
+      // We now:
+      //   1. Optimistically flip the local speaker/mute state so the UI
+      //      (mic icon, stage grid) updates instantly — the snackbar pops
+      //      immediately and the user feels acknowledged.
+      //   2. Trigger the token refresh + LiveKit reconnect in the
+      //      background. If it succeeds, the optimistic state stays. If it
+      //      fails, we roll back.
+      //   3. Dedup the snackbar against any duplicate `STAGE_APPROVE` /
+      //      `MODERATION_ACTION` signals that arrive within a few seconds
+      //      of the same promotion.
+      _liveKitService.promoteToSpeaker();
+
+      // Mark that a promotion is already in flight so that a second
+      // `MODERATION_ACTION` arriving in the same Centrifugo burst won't
+      // double-fire the reconnect or the snackbar.
+      _isPromotionInFlight = true;
+
+      // Optimistic UI: "we're on stage now, mic is open". `notifyListeners`
+      // flushes the change to all `Selector`s (mic toggle, stage grid) so
+      // they react instantly instead of waiting for the reconnect to land.
+      notifyListeners();
+
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      final shouldShowSnackbar = (nowMs - _lastPromotionSnackbarAtMs) > _kPromotionSnackbarDebounceMs;
+      if (shouldShowSnackbar) {
+        _lastPromotionSnackbarAtMs = nowMs;
+        _stagePromotedController.add(true);
+      }
+
+      // Background reconnect — awaited so the caller can know whether the
+      // promotion succeeded, but the snackbar / UI already showed above.
       bool micLive = false;
       try {
         final tokenResult = await _podRepository.getLiveKitToken(
@@ -721,14 +769,13 @@ class PodViewModel extends ChangeNotifier {
         micLive = await _liveKitService.unmuteMic(_localUserId);
       } catch (promoteErr) {
         debugPrint('Failed to promote local user to speaker: $promoteErr');
+        // Roll back the optimistic state so the UI matches reality.
+        _liveKitService.demoteToListener(_localUserId ?? '');
+      } finally {
+        _isPromotionInFlight = false;
       }
 
-      // 3. Broadcast STAGE_JOIN to all peers in the pod.
-      //    AWAIT the signal send so the function doesn't return before the
-      //    HTTP request is actually dispatched to Centrifugo. Without this,
-      //    the function exit can race with the network call and the STAGE_JOIN
-      //    is silently dropped — leaving the host with no signal to render the
-      //    promoted speaker.
+      // Broadcast STAGE_JOIN to all peers in the pod.
       if (_activePod != null && _localUserId != null) {
         try {
           await _podRepository.sendSignal(
@@ -750,9 +797,6 @@ class PodViewModel extends ChangeNotifier {
       } else {
         debugPrint('Cannot broadcast STAGE_JOIN: _activePod or _localUserId is null.');
       }
-
-      // 4. Notify UI via stream to display the green "mic open" snackbar
-      _stagePromotedController.add(true);
     } else {
       // Remote participant promoted: ensure they are placed on stage
       _liveKitService.upsertParticipant(
@@ -1028,6 +1072,10 @@ class PodViewModel extends ChangeNotifier {
     _chatMessages.clear();
     _handRaisedUsers.clear();
     _activeSoundBanner = null;
+    // Reset promotion dedup state so a fresh room doesn't inherit the
+    // previous room's snackbar cooldown or in-flight flag.
+    _isPromotionInFlight = false;
+    _lastPromotionSnackbarAtMs = 0;
     notifyListeners();
   }
 
