@@ -489,6 +489,30 @@ class LiveKitService extends ChangeNotifier {
               ),
             ];
 
+      // FIX (mic-not-working after promotion):
+      //
+      // Configure the platform AVAudioSession to the LiveKit
+      // `communication` preset BEFORE `room.connect`. LiveKit's
+      // `applyOptionsForConnect` reads the current `AudioSessionOptions`
+      // when the WebRTC engine spins up, so this must happen before the
+      // connect call. Without this, the iOS simulator's CoreAudio
+      // engine rejects the recording format with
+      // `AudioProcessingException(applyFailed): Audio engine returned
+      // error code: -4010`, which is the simulator-only symptom users
+      // see even though the code is otherwise correct. The fix is safe
+      // on real devices too — `communication` is the recommended
+      // preset for voice chat.
+      try {
+        // ignore: experimental_member_use
+        await AudioManager.instance.setAudioSessionOptions(
+          // ignore: experimental_member_use
+          AudioSessionOptions.communication(),
+        );
+        debugPrint('LiveKit audio session set to communication preset.');
+      } catch (audioOptsErr) {
+        debugPrint('setAudioSessionOptions not available or failed: $audioOptsErr');
+      }
+
       await room.connect(
         effectiveWsUrl,
         token,
@@ -513,21 +537,40 @@ class LiveKitService extends ChangeNotifier {
       if (asSpeaker && !_isMicMuted) {
         final granted = await requestMicPermission();
         if (granted) {
+          // FIX: track the publish result so we can detect a server-side
+          // rejection (e.g. JWT missing `canPublishAudio`). Previously
+          // the result was discarded and the UI was left claiming the
+          // mic was open even when the publish was refused.
+          bool micPublished = false;
           try {
-            await room.localParticipant?.setMicrophoneEnabled(true);
+            final micPub = await room.localParticipant?.setMicrophoneEnabled(true);
+            micPublished = micPub != null;
+            debugPrint(
+              'LiveKit setMicrophoneEnabled(true) result: '
+              '${micPub == null ? "rejected (no track created)" : "published: sid=${micPub.sid}"}',
+            );
+            if (!micPublished) {
+              _isMicMuted = true;
+            }
+
             // Broadcast on-stage metadata so other peers' _syncParticipant
-            // can detect that this participant joined directly as a speaker.
-            try {
-              await room.localParticipant?.setMetadata(
-                jsonEncode({
-                  'username': currentUsername,
-                  'displayName': currentDisplayName,
-                  'avatarUrl': currentAvatarUrl,
-                  'isOnStage': true,
-                }),
-              );
-            } catch (metaErr) {
-              debugPrint('Failed to publish initial on-stage metadata: $metaErr');
+            // can detect that this participant joined directly as a
+            // speaker. Only do this when the mic was actually published;
+            // otherwise we mislead remote peers into thinking we are
+            // publishing.
+            if (micPublished) {
+              try {
+                await room.localParticipant?.setMetadata(
+                  jsonEncode({
+                    'username': currentUsername,
+                    'displayName': currentDisplayName,
+                    'avatarUrl': currentAvatarUrl,
+                    'isOnStage': true,
+                  }),
+                );
+              } catch (metaErr) {
+                debugPrint('Failed to publish initial on-stage metadata: $metaErr');
+              }
             }
           } catch (micErr) {
             debugPrint('Failed to enable microphone in LiveKit: $micErr');
@@ -679,6 +722,25 @@ class LiveKitService extends ChangeNotifier {
         await AudioManager.instance.setSpeakerOutputPreferred(true);
       } catch (_) {}
 
+      // FIX (mic-not-working after promotion):
+      //
+      // Apply LiveKit's `communication` audio session preset before
+      // asking the WebRTC engine to capture. Without this, the iOS
+      // simulator's CoreAudio engine rejects the recording format with
+      // `AudioProcessingException(applyFailed): -4010`, which is the
+      // simulator-only symptom users see even though the code is
+      // otherwise correct. The fix is safe on real devices too —
+      // `communication` is the recommended preset for voice chat.
+      try {
+        // ignore: experimental_member_use
+        await AudioManager.instance.setAudioSessionOptions(
+          // ignore: experimental_member_use
+          AudioSessionOptions.communication(),
+        );
+      } catch (audioOptsErr) {
+        debugPrint('setAudioSessionOptions not available or failed: $audioOptsErr');
+      }
+
       // Now ask LiveKit to publish the local microphone. Track the
       // return value so we can detect publish failures (e.g. JWT
       // missing `canPublish`). The SDK returns a `LocalTrackPublication?`
@@ -687,6 +749,10 @@ class LiveKitService extends ChangeNotifier {
       // actually created.
       final micPub = await _room!.localParticipant!.setMicrophoneEnabled(true);
       micEnabled = micPub != null;
+      debugPrint(
+        'unmuteMic setMicrophoneEnabled result: '
+        '${micPub == null ? "rejected (no track created)" : "published: sid=${micPub.sid}"}',
+      );
       if (!micEnabled) {
         // LiveKit refused to enable the mic (typically because the
         // JWT lacks `canPublish`). Roll back optimistic state.
