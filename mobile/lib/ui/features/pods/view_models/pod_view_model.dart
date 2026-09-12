@@ -674,11 +674,54 @@ class PodViewModel extends ChangeNotifier {
     if (isTargetLocal) {
       _isHandRaised = false;
 
-      // 1. Promote to speaker in LiveKitService
-      _liveKitService.promoteToSpeaker();
+      // FIX (Bug #2 - "mic doesn't work after moderator approval"):
+      //
+      // The original implementation just flipped `_liveKitService._isSpeaker`
+      // to true and called `setMicrophoneEnabled(true)`. That call silently
+      // failed because the LiveKit JWT we originally received only granted
+      // `canSubscribe` (the audience joined with `isOnStage = false` and the
+      // backend therefore minted a read-only token). The user saw the mic
+      // icon switch to "on" but other peers could not hear them.
+      //
+      // The fix is to obtain a fresh token with `isOnStage = true` BEFORE
+      // asking LiveKit to enable the microphone. The LiveKit Flutter SDK
+      // does not allow promoting an existing participant without a
+      // reconnect, so we tear down the current room and reconnect with the
+      // new token.
+      //
+      // Steps:
+      //   1. Request a new LiveKit token (now grants canPublish).
+      //   2. Reconnect the room with `asSpeaker: true`.
+      //   3. Open the microphone.
+      //   4. Broadcast STAGE_JOIN so the moderator's UI updates.
+      bool micLive = false;
+      try {
+        final tokenResult = await _podRepository.getLiveKitToken(
+          _activePod!.id,
+          isOnStage: true,
+        );
+        final liveKitWsUrl = LiveKitService.resolveWsUrl(customHost: tokenResult.serverUrl);
 
-      // 2. Automatically open and unmute the microphone
-      final granted = await _liveKitService.unmuteMic(_localUserId);
+        await _liveKitService.connectToRoom(
+          podId: _activePod!.id,
+          token: tokenResult.token,
+          wsUrl: liveKitWsUrl,
+          currentUserId: _localUserId!,
+          currentUsername: _localUsername ?? '',
+          currentDisplayName: _localDisplayName ?? _localUsername ?? '',
+          currentAvatarUrl: _localAvatarUrl,
+          asSpeaker: true,
+          podHostUserId: _activePod!.hostUserId,
+          podHostUsername: _activePod!.hostUsername,
+          allowOpenMic: _activePod!.allowOpenMic,
+          iceServers: tokenResult.iceServers,
+        );
+
+        // Now that we are connected with canPublish, enable the mic.
+        micLive = await _liveKitService.unmuteMic(_localUserId);
+      } catch (promoteErr) {
+        debugPrint('Failed to promote local user to speaker: $promoteErr');
+      }
 
       // 3. Broadcast STAGE_JOIN to all peers in the pod.
       //    AWAIT the signal send so the function doesn't return before the
@@ -697,7 +740,7 @@ class PodViewModel extends ChangeNotifier {
               'displayName': _localDisplayName ?? '',
               'avatarUrl': _localAvatarUrl,
               'isOnStage': true,
-              'isMuted': !granted,
+              'isMuted': !micLive,
               'isSpeaking': false,
             },
           );

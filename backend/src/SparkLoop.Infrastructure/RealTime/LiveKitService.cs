@@ -66,11 +66,35 @@ public class LiveKitService : ILiveKitService
             var now = DateTimeOffset.UtcNow;
             var expires = now.Add(ttl ?? TimeSpan.FromHours(6));
 
+            // FIX (Bug #1 - SparkLoop raise-hand approval flow):
+            //
+            // Before this change the JWT ALWAYS granted `canPublish: true`,
+            // regardless of whether the user was a host / moderator / approved
+            // speaker, or merely an audience member in a `allowOpenMic = false`
+            // room. That meant an audience participant could ignore the
+            // moderator's raise-hand gate and start publishing audio simply by
+            // calling `setMicrophoneEnabled(true)` on their LiveKit
+            // local participant. The frontend raised-hand UI therefore could
+            // not reliably enforce the "moderated stage" policy.
+            //
+            // We now flip `canPublish` / `canPublishAudio` to follow the
+            // server-computed `isOnStage` flag:
+            //
+            //   * isOnStage == true  -> canPublishAudio = true  (speaker)
+            //   * isOnStage == false -> canPublishAudio = false (listener)
+            //
+            // The user is still allowed to receive audio (`canSubscribe`) and
+            // to publish data signals (chat, reactions, hand-raise, etc.)
+            // so the rest of the social features keep working.
+            var canPublishAudio = isOnStage;
+
             var videoGrants = new Dictionary<string, object>
             {
                 { "room", roomName },
                 { "roomJoin", true },
-                { "canPublish", true },
+                { "canPublish", canPublishAudio },
+                { "canPublishAudio", canPublishAudio },
+                { "canPublishVideo", false },
                 { "canSubscribe", true },
                 { "canPublishData", true }
             };
@@ -80,7 +104,8 @@ public class LiveKitService : ILiveKitService
                 userId,
                 username,
                 displayName,
-                isOnStage
+                isOnStage,
+                canPublish = canPublishAudio
             });
 
             var payload = new JwtPayload

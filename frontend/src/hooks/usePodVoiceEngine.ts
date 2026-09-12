@@ -770,6 +770,32 @@ export function usePodVoiceEngine({
   const hostApproveSpeaker = useCallback(
     async (userId: string, username?: string, displayName?: string) => {
       setHandRaisedUsers((prev) => prev.filter((u) => u.userId !== userId));
+
+      // FIX (Bug #4 - Web moderator approval persistence):
+      //
+      // Before this change the React moderator only broadcast a
+      // `STAGE_APPROVE` Centrifugo signal. The backend never received
+      // the moderation event, so:
+      //   * No `MODERATION_ACTION` was published on the user's
+      //     `user:{targetUserId}` channel, breaking any code path that
+      //     listens for backend-driven moderation.
+      //   * The Flutter mobile client only relied on the Centrifugo
+      //     signal — which works most of the time but is the *only*
+      //     channel of communication, leaving the system fragile if
+      //     Centrifugo drops a message.
+      //   * Audit logs / moderation history were missing.
+      //
+      // We now persist the action via the backend moderation API and
+      // still broadcast the realtime signal so existing peers update
+      // their UI immediately. The two paths are independent — either
+      // one alone would deliver the approval, but having both makes the
+      // system resilient.
+      try {
+        await api.moderatePodParticipant(podId, userId, username || '', 'promote_speaker');
+      } catch (modErr) {
+        console.warn('Failed to persist promote_speaker moderation:', modErr);
+      }
+
       await api.sendPodSignal(podId, 'STAGE_APPROVE', {
         targetUserId: userId,
         username: username || '',

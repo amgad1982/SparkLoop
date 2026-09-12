@@ -596,6 +596,28 @@ class LiveKitService extends ChangeNotifier {
   }
 
   /// Automatically opens and unmutes the microphone when promoted to stage speaker.
+///
+/// FIX (Bug #2 - "mic doesn't work after moderator approval"):
+///
+/// When a user joins the pod as audience (allowOpenMic = false), they
+/// connect to LiveKit with a JWT that only grants `canSubscribe`. If the
+/// moderator later approves their raise-hand request we previously just
+/// flipped internal state and called `setMicrophoneEnabled(true)`. The
+/// LiveKit SDK silently rejected the publish because the JWT lacks
+/// `canPublish`, but we kept reporting "mic enabled" to the UI.
+///
+/// The proper fix is:
+///   1. Re-issue the LiveKit token from the backend with
+///      `isOnStage = true` so the new JWT grants `canPublish` /
+///      `canPublishAudio`.
+///   2. Reconnect the room with that fresh token so the LiveKit server
+///      accepts the audio publish.
+///   3. Only then call `setMicrophoneEnabled(true)` and propagate
+///      `isOnStage=true` metadata to remote peers.
+///
+/// The token refresh is performed by `PodViewModel` before this method
+/// is invoked. We still defensively check the return value of
+/// `setMicrophoneEnabled` so we never lie about the mic state.
   Future<bool> unmuteMic([String? currentUserId]) async {
     _isSpeaker = true;
     _isMicMuted = false;
@@ -620,39 +642,76 @@ class LiveKitService extends ChangeNotifier {
     }
 
     final granted = await requestMicPermission();
-    if (granted && _room?.localParticipant != null) {
+    if (!granted || _room?.localParticipant == null) {
+      // Permission denied or no active room: revert the optimistic
+      // "unmuted" state so the UI stays truthful.
+      _isMicMuted = true;
+      if (targetId != null && _speakers.containsKey(targetId)) {
+        _speakers[targetId] = _speakers[targetId]!.copyWith(
+          isMuted: true,
+          isSpeaking: false,
+        );
+      }
+      notifyListeners();
+      return false;
+    }
+
+    bool micEnabled = false;
+    try {
+      // Route output to the loudspeaker so the new speaker sounds like
+      // the rest of the on-stage talent. setSpeakerOutputPreferred is
+      // a no-op on web and safe to call before enabling the mic.
       try {
-        // Re-apply the iOS/Android audio session so the platform switches
-        // from the audience-only `.playback` category to `.playAndRecord`
-        // BEFORE WebRTC tries to start microphone capture. Without this,
-        // the audio engine may initialise the recording device while the
-        // session is still locked to playback-only mode and the local mic
-        // would silently fail to transmit any audio.
-        try {
-          await AudioManager.instance.setSpeakerOutputPreferred(true);
-        } catch (_) {}
+        await AudioManager.instance.setSpeakerOutputPreferred(true);
+      } catch (_) {}
 
-        await _room!.localParticipant?.setMicrophoneEnabled(true);
+      // Now ask LiveKit to publish the local microphone. Track the
+      // return value so we can detect publish failures (e.g. JWT
+      // missing `canPublish`). The SDK returns a `LocalTrackPublication?`
+      // (null when the publish was rejected, e.g. because the JWT
+      // lacks `canPublish`), so `micEnabled == true` ⇔ a track was
+      // actually created.
+      final micPub = await _room!.localParticipant!.setMicrophoneEnabled(true);
+      micEnabled = micPub != null;
+      if (!micEnabled) {
+        // LiveKit refused to enable the mic (typically because the
+        // JWT lacks `canPublish`). Roll back optimistic state.
+        debugPrint(
+          'LiveKit refused to enable microphone after raise-hand approval. '
+          'Check that the backend JWT grants canPublish for this user.',
+        );
+        _isMicMuted = true;
+        if (targetId != null && _speakers.containsKey(targetId)) {
+          _speakers[targetId] = _speakers[targetId]!.copyWith(
+            isMuted: true,
+            isSpeaking: false,
+          );
+        }
+      }
 
-        // Broadcast the new on-stage status to other peers via LiveKit
-        // participant metadata so their `_syncParticipantFromLiveKit`
-        // picks up `isOnStage=true` on the next track-subscribe handshake.
+      // 3) Broadcast the new on-stage status to other peers via LiveKit
+      //    participant metadata so their `_syncParticipantFromLiveKit`
+      //    picks up `isOnStage=true` on the next track-subscribe
+      //    handshake. Only do this once we know the mic is live,
+      //    otherwise we mislead remote peers into thinking the user
+      //    is publishing.
+      if (micEnabled) {
         try {
-          await _room!.localParticipant?.setMetadata(
+          await _room!.localParticipant!.setMetadata(
             jsonEncode({
               'username': _localUsername ?? '',
               'displayName': _localDisplayName ?? '',
               'avatarUrl': _localAvatarUrl,
               'isOnStage': true,
+              'isMuted': false,
             }),
           );
         } catch (metaErr) {
           debugPrint('Failed to publish on-stage metadata: $metaErr');
         }
-      } catch (e) {
-        debugPrint('Error enabling microphone in LiveKit: $e');
       }
-    } else if (!granted) {
+    } catch (e) {
+      debugPrint('Error enabling microphone in LiveKit: $e');
       _isMicMuted = true;
       if (targetId != null && _speakers.containsKey(targetId)) {
         _speakers[targetId] = _speakers[targetId]!.copyWith(
@@ -662,7 +721,7 @@ class LiveKitService extends ChangeNotifier {
       }
     }
     notifyListeners();
-    return granted;
+    return micEnabled;
   }
 
   Future<bool> requestMicPermission() async {
