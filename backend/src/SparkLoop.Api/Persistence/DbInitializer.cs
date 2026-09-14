@@ -84,10 +84,21 @@ public static class DbInitializer
             // configuration. `IF NOT EXISTS` makes this idempotent for
             // fresh databases as well as existing production ones.
             // ---------------------------------------------------------------------
+            var isSqlite = dbContext.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
             try
             {
-                await dbContext.Database.ExecuteSqlRawAsync(
-                    "ALTER TABLE \"mood_pods\" ADD COLUMN IF NOT EXISTS \"approved_speaker_user_ids\" jsonb NOT NULL DEFAULT '[]'::jsonb;");
+                if (isSqlite)
+                {
+                    await dbContext.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"mood_pods\" ADD COLUMN \"approved_speaker_user_ids\" TEXT NOT NULL DEFAULT '[]';");
+                }
+                else
+                {
+                    await dbContext.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"mood_pods\" ADD COLUMN IF NOT EXISTS \"approved_speaker_user_ids\" text NOT NULL DEFAULT '[]';");
+                    await dbContext.Database.ExecuteSqlRawAsync(
+                        "ALTER TABLE \"mood_pods\" ALTER COLUMN \"approved_speaker_user_ids\" TYPE text USING \"approved_speaker_user_ids\"::text;");
+                }
             }
             catch (Exception ex)
             {
@@ -97,7 +108,6 @@ public static class DbInitializer
             // ---------------------------------------------------------------------
             // DJ Lists table & MoodPod DJ columns
             // ---------------------------------------------------------------------
-            var isSqlite = dbContext.Database.ProviderName?.Contains("Sqlite", StringComparison.OrdinalIgnoreCase) == true;
             if (isSqlite)
             {
                 await dbContext.Database.ExecuteSqlRawAsync(@"

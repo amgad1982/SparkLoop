@@ -148,6 +148,28 @@ class LiveKitService extends ChangeNotifier {
     final player = AudioPlayer();
     try {
       player.setReleaseMode(ReleaseMode.stop);
+      // Ensure SFX and mic chimes use playAndRecord so they do not
+      // reset the platform audio session to playback-only and mute the mic.
+      player.setAudioContext(
+        AudioContext(
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playAndRecord,
+            options: {
+              AVAudioSessionOptions.defaultToSpeaker,
+              AVAudioSessionOptions.mixWithOthers,
+              AVAudioSessionOptions.allowBluetooth,
+              AVAudioSessionOptions.allowBluetoothA2DP,
+            },
+          ),
+          android: const AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            stayAwake: true,
+            contentType: AndroidContentType.speech,
+            usageType: AndroidUsageType.voiceCommunication,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          ),
+        ),
+      );
     } catch (_) {}
     return player;
   }
@@ -489,29 +511,6 @@ class LiveKitService extends ChangeNotifier {
               ),
             ];
 
-      // FIX (mic-not-working after promotion):
-      //
-      // Configure the platform AVAudioSession to the LiveKit
-      // `communication` preset BEFORE `room.connect`. LiveKit's
-      // `applyOptionsForConnect` reads the current `AudioSessionOptions`
-      // when the WebRTC engine spins up, so this must happen before the
-      // connect call. Without this, the iOS simulator's CoreAudio
-      // engine rejects the recording format with
-      // `AudioProcessingException(applyFailed): Audio engine returned
-      // error code: -4010`, which is the simulator-only symptom users
-      // see even though the code is otherwise correct. The fix is safe
-      // on real devices too — `communication` is the recommended
-      // preset for voice chat.
-      try {
-        // ignore: experimental_member_use
-        await AudioManager.instance.setAudioSessionOptions(
-          // ignore: experimental_member_use
-          AudioSessionOptions.communication(),
-        );
-        debugPrint('LiveKit audio session set to communication preset.');
-      } catch (audioOptsErr) {
-        debugPrint('setAudioSessionOptions not available or failed: $audioOptsErr');
-      }
 
       await room.connect(
         effectiveWsUrl,
@@ -641,12 +640,27 @@ class LiveKitService extends ChangeNotifier {
       if (!_isMicMuted) {
         final granted = await requestMicPermission();
         if (granted) {
-          await _room!.localParticipant?.setMicrophoneEnabled(true);
+          try {
+            final pub = await _room!.localParticipant?.setMicrophoneEnabled(true);
+            if (pub == null) {
+              _isMicMuted = true;
+            }
+          } catch (_) {
+            _isMicMuted = true;
+          }
         } else {
           _isMicMuted = true;
         }
       } else {
-        await _room!.localParticipant?.setMicrophoneEnabled(false);
+        try {
+          await _room!.localParticipant?.setMicrophoneEnabled(false);
+        } catch (_) {}
+      }
+      if (_isMicMuted && targetId != null && _speakers.containsKey(targetId)) {
+        _speakers[targetId] = _speakers[targetId]!.copyWith(
+          isMuted: true,
+          isSpeaking: false,
+        );
       }
     }
     notifyListeners();
@@ -722,24 +736,6 @@ class LiveKitService extends ChangeNotifier {
         await AudioManager.instance.setSpeakerOutputPreferred(true);
       } catch (_) {}
 
-      // FIX (mic-not-working after promotion):
-      //
-      // Apply LiveKit's `communication` audio session preset before
-      // asking the WebRTC engine to capture. Without this, the iOS
-      // simulator's CoreAudio engine rejects the recording format with
-      // `AudioProcessingException(applyFailed): -4010`, which is the
-      // simulator-only symptom users see even though the code is
-      // otherwise correct. The fix is safe on real devices too —
-      // `communication` is the recommended preset for voice chat.
-      try {
-        // ignore: experimental_member_use
-        await AudioManager.instance.setAudioSessionOptions(
-          // ignore: experimental_member_use
-          AudioSessionOptions.communication(),
-        );
-      } catch (audioOptsErr) {
-        debugPrint('setAudioSessionOptions not available or failed: $audioOptsErr');
-      }
 
       // Now ask LiveKit to publish the local microphone. Track the
       // return value so we can detect publish failures (e.g. JWT

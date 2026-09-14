@@ -748,6 +748,16 @@ class PodViewModel extends ChangeNotifier {
           _activePod!.id,
           isOnStage: true,
         );
+
+        if (!tokenResult.isOnStage) {
+          debugPrint(
+            'LiveKit token returned isOnStage=false after raise-hand approval. '
+            'User does not have speaker permissions in backend.',
+          );
+          _liveKitService.demoteToListener(_localUserId ?? '');
+          return;
+        }
+
         final liveKitWsUrl = LiveKitService.resolveWsUrl(customHost: tokenResult.serverUrl);
 
         await _liveKitService.connectToRoom(
@@ -765,8 +775,18 @@ class PodViewModel extends ChangeNotifier {
           iceServers: tokenResult.iceServers,
         );
 
-        // Now that we are connected with canPublish, enable the mic.
-        micLive = await _liveKitService.unmuteMic(_localUserId);
+        // Ensure microphone is unmuted and active
+        if (_liveKitService.isMicMuted) {
+          micLive = await _liveKitService.unmuteMic(_localUserId);
+        } else {
+          micLive = true;
+        }
+
+        if (!micLive) {
+          debugPrint('Microphone was not activated after promotion. Rolling back to listener.');
+          _liveKitService.demoteToListener(_localUserId ?? '');
+          return;
+        }
       } catch (promoteErr) {
         debugPrint('Failed to promote local user to speaker: $promoteErr');
         // Roll back the optimistic state so the UI matches reality.

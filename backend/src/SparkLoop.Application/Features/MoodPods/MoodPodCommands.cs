@@ -628,15 +628,18 @@ public class ModerateParticipantCommandHandler : IRequestHandler<ModeratePartici
     private readonly IAppDbContext _dbContext;
     private readonly ICurrentUserService _currentUserService;
     private readonly ICentrifugoService _centrifugoService;
+    private readonly ICurrentEnvironment _environment;
 
     public ModerateParticipantCommandHandler(
         IAppDbContext dbContext,
         ICurrentUserService currentUserService,
-        ICentrifugoService centrifugoService)
+        ICentrifugoService centrifugoService,
+        ICurrentEnvironment environment)
     {
         _dbContext = dbContext;
         _currentUserService = currentUserService;
         _centrifugoService = centrifugoService;
+        _environment = environment;
     }
 
     public async Task<bool> Handle(ModerateParticipantCommand request, CancellationToken cancellationToken)
@@ -645,7 +648,7 @@ public class ModerateParticipantCommandHandler : IRequestHandler<ModeratePartici
             .FirstOrDefaultAsync(p => p.Id == request.PodId, cancellationToken)
             ?? throw new NotFoundException("MoodPod", request.PodId);
 
-        var currentUserId = _currentUserService.UserId ?? Guid.Empty;
+        var currentUserId = CurrentUserGuard.Resolve(_currentUserService.UserId, _environment, CurrentUserGuard.AliceId, "moderate pod participant");
         var currentUsername = _currentUserService.Username ?? "moderator";
 
         pod.ModerateParticipant(
