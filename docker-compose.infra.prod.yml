@@ -14,7 +14,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-sparkuser}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sparkpassword123!}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - /mnt/data-vol/Sparkloop/Postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sparkuser} -d ${POSTGRES_DB:-sparkloop}"]
       interval: 10s
@@ -66,7 +66,7 @@ services:
     restart: unless-stopped
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "volatile-lru"]
     volumes:
-      - redisdata:/data
+      - /mnt/data-vol/Sparkloop/Redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -104,7 +104,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadminpassword123!}
     volumes:
-      - miniodata:/data
+      - /mnt/data-vol/Sparkloop/MinIo:/data
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 10s
@@ -115,11 +115,6 @@ services:
   # NOTE: LiveKit SFU & Coturn STUN/TURN media services are hosted on the
   # dedicated edge host (Oracle Cloud ARM64 stack in TURN-SFU/docker-compose.yml).
   # This isolates heavy WebRTC UDP audio traffic from the core homelab infrastructure.
-
-volumes:
-  pgdata:
-  redisdata:
-  miniodata:
 
 networks:
   default:
