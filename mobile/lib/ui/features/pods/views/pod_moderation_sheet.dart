@@ -659,22 +659,41 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
     final liveKit = context.watch<LiveKitService>();
     final isMod = podVm.isHost || podVm.isModerator;
 
-    final seen = <String>{};
+    // FIX (same-user, multiple-devices dedup): key the seen-set by
+    // userId AND `username.toLowerCase()` so a user joining from
+    // three devices still appears as a single participant row here
+    // too. Without this the moderator sheet shows three near-identical
+    // rows with different LiveKit identities, which is confusing and
+    // also lets the host try to moderate the wrong "duplicate".
+    final seenUserIds = <String>{};
+    final seenUsernames = <String>{};
     final onStage = <MapEntry<LiveKitSpeaker, _ParticipantRole>>[];
     final listeners = <MapEntry<LiveKitSpeaker, _ParticipantRole>>[];
 
+    bool isAlreadySeen(LiveKitSpeaker s) {
+      if (s.userId.isNotEmpty && seenUserIds.contains(s.userId)) return true;
+      final usernameKey = s.username.toLowerCase();
+      if (usernameKey.isNotEmpty && seenUsernames.contains(usernameKey)) return true;
+      return false;
+    }
+
+    void markSeen(LiveKitSpeaker s) {
+      if (s.userId.isNotEmpty) seenUserIds.add(s.userId);
+      if (s.username.isNotEmpty) seenUsernames.add(s.username.toLowerCase());
+    }
+
     void addOn(LiveKitSpeaker s, _ParticipantRole role) {
-      if (s.userId.isEmpty) return;
-      if (seen.add(s.userId)) {
-        onStage.add(MapEntry(s, role));
-      }
+      if (s.userId.isEmpty && s.username.isEmpty) return;
+      if (isAlreadySeen(s)) return;
+      markSeen(s);
+      onStage.add(MapEntry(s, role));
     }
 
     void addListen(LiveKitSpeaker s, _ParticipantRole role) {
-      if (s.userId.isEmpty) return;
-      if (seen.add(s.userId)) {
-        listeners.add(MapEntry(s, role));
-      }
+      if (s.userId.isEmpty && s.username.isEmpty) return;
+      if (isAlreadySeen(s)) return;
+      markSeen(s);
+      listeners.add(MapEntry(s, role));
     }
 
     // Host is always considered on-stage
@@ -690,10 +709,37 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
       _ParticipantRole.host,
     );
 
+    // Active moderators — on stage. Match by userId OR username because
+    // (after fix above) moderator ids may correlate with either a
+    // LiveKit identity or a persona username.
+    bool isModerator(LiveKitSpeaker s) {
+      if (pod.moderatorUserIds.contains(s.userId)) return true;
+      final u = s.username.toLowerCase();
+      return u.isNotEmpty && pod.moderatorUserIds.contains(u);
+    }
+
+    bool matchesHost(LiveKitSpeaker s) {
+      if (pod.hostUserId.isNotEmpty && s.userId == pod.hostUserId) return true;
+      if (pod.hostUsername.isNotEmpty &&
+          s.username.toLowerCase() == pod.hostUsername.toLowerCase()) {
+        return true;
+      }
+      return false;
+    }
+
+    bool isOnStageBySpeaker(LiveKitSpeaker p) {
+      return liveKit.speakers.any((sp) =>
+          (sp.userId.isNotEmpty && sp.userId == p.userId) ||
+          (sp.username.isNotEmpty &&
+              sp.username.toLowerCase() == p.username.toLowerCase()));
+    }
+
     // Active moderators — on stage
     for (final modId in pod.moderatorUserIds) {
       if (modId == pod.hostUserId) continue;
-      final match = liveKit.participants.where((p) => p.userId == modId).toList();
+      final match = liveKit.participants
+          .where((p) => p.userId == modId || p.username.toLowerCase() == modId.toLowerCase())
+          .toList();
       if (match.isNotEmpty) {
         addOn(match.first, _ParticipantRole.moderator);
       }
@@ -701,9 +747,9 @@ class _PodModerationSheetState extends State<PodModerationSheet> with SingleTick
 
     // Everyone else — on stage if they are speakers, otherwise listeners
     for (final p in liveKit.participants) {
-      if (p.userId == pod.hostUserId) continue;
-      if (pod.moderatorUserIds.contains(p.userId)) continue;
-      final isOnStage = liveKit.speakers.any((sp) => sp.userId == p.userId);
+      if (matchesHost(p)) continue;
+      if (isModerator(p)) continue;
+      final isOnStage = isOnStageBySpeaker(p);
       if (isOnStage) {
         addOn(p, _ParticipantRole.speaker);
       } else {

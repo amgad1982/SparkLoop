@@ -17,6 +17,7 @@ import '../../../core/widgets/glass_container.dart';
 import '../../auth/view_models/auth_view_model.dart';
 import '../view_models/pod_view_model.dart';
 import '../widgets/pod_audio_player_widget.dart';
+import '../widgets/speaker_dedup.dart';
 import 'create_pod_dialog.dart';
 import 'pod_bg_music_player.dart';
 import 'pod_moderation_sheet.dart';
@@ -819,6 +820,22 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     );
   }
 
+  /// Merge two `LiveKitSpeaker`s that refer to the same physical user but
+  /// arrived through different sources (e.g. host metadata vs a LiveKit
+  /// remote participant). Prefer non-empty values from the *incoming*
+  /// speaker for identity-bearing fields (userId/username/displayName/
+  /// avatarUrl) and OR the boolean states so "speaking" wins over
+  /// "idle" and "muted" wins over "unmuted".
+  static LiveKitSpeaker _mergeSpeaker(LiveKitSpeaker existing, LiveKitSpeaker incoming) =>
+      SpeakerDedup.merge(existing, incoming);
+
+  /// Collapse a stream of `LiveKitSpeaker` entries where each physical
+  /// user is referenced once via `userId` AND once via
+  /// `username.toLowerCase()` (the upsertSpeaker helper inserts both
+  /// aliases into the same Map) into a single entry per user.
+  static List<LiveKitSpeaker> _dedupSpeakerList(Iterable<LiveKitSpeaker> entries) =>
+      SpeakerDedup.dedup(entries);
+
   Widget _buildStageGrid(BuildContext context, MoodPodDto pod, LiveKitService liveKit, bool isArabic) {
     final podVm = context.read<PodViewModel>();
     final authVm = context.read<AuthViewModel>();
@@ -827,7 +844,47 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
     // 1. Pod Host is ALWAYS guaranteed to be a speaker on stage
     // 2. Active LiveKit / Centrifugo speakers
     // 3. Current user (if host, on stage, or open mic)
+    //
+    // FIX (same-user, multiple-devices dedup):
+    //
+    // LiveKit assigns `participant.identity` from the JWT `sub` claim.
+    // Our backend mints that with `userId`, so three devices of the same
+    // user should normally collapse to one row. In practice we have seen
+    // cases where a (re)connect yields a fresh identity OR a stale
+    // `_speakers` entry from a previous session lingers. To make the
+    // dedup robust we now key the map by both `userId` AND a
+    // normalized username, and we *merge* existing entries that resolve
+    // to the same physical user via either key. This guarantees that
+    // `Stage (N)` reflects the number of distinct speakers, not the
+    // number of LiveKit sessions.
     final Map<String, LiveKitSpeaker> speakersMap = {};
+    void upsertSpeaker(LiveKitSpeaker speaker) {
+      if (speaker.userId.isEmpty && speaker.username.isEmpty) return;
+      final usernameKey = speaker.username.toLowerCase();
+      // Already present under the userId key?
+      if (speaker.userId.isNotEmpty && speakersMap.containsKey(speaker.userId)) {
+        final existing = speakersMap[speaker.userId]!;
+        speakersMap[speaker.userId] = _mergeSpeaker(existing, speaker);
+        return;
+      }
+      // Already present under the username key?
+      if (usernameKey.isNotEmpty && speakersMap.containsKey(usernameKey)) {
+        final existing = speakersMap[usernameKey]!;
+        final merged = _mergeSpeaker(existing, speaker);
+        speakersMap[usernameKey] = merged;
+        if (speaker.userId.isNotEmpty) {
+          speakersMap[speaker.userId] = merged;
+        }
+        return;
+      }
+      // New entry — register under whichever keys we have.
+      if (speaker.userId.isNotEmpty) {
+        speakersMap[speaker.userId] = speaker;
+      }
+      if (usernameKey.isNotEmpty && !speakersMap.containsKey(usernameKey)) {
+        speakersMap[usernameKey] = speaker;
+      }
+    }
 
     // 1. Host is always on stage
     final hostSpeaker = LiveKitSpeaker(
@@ -838,62 +895,78 @@ class _PodRoomScreenState extends State<PodRoomScreen> {
       isSpeaking: false,
       isMuted: false,
     );
-    if (pod.hostUserId.isNotEmpty) {
-      speakersMap[pod.hostUserId] = hostSpeaker;
-    } else if (pod.hostUsername.isNotEmpty) {
-      speakersMap[pod.hostUsername.toLowerCase()] = hostSpeaker;
-    }
+    upsertSpeaker(hostSpeaker);
 
     // 2. Add all speakers from LiveKitService
     for (final s in liveKit.speakers) {
-      final key = s.userId.isNotEmpty ? s.userId : s.username.toLowerCase();
-      if (key.isNotEmpty) {
-        speakersMap[key] = s;
-      }
+      upsertSpeaker(s);
     }
 
     // 3. If current user is on stage, ensure local user entry is present
     final currentUserId = authVm.currentUser?.id ?? authVm.currentPersona.id;
     final currentUsername = authVm.currentUser?.username ?? authVm.currentPersona.username;
-    final localKey = currentUserId.isNotEmpty ? currentUserId : currentUsername.toLowerCase();
+    final currentDisplayName =
+        authVm.currentUser?.displayName ?? authVm.currentPersona.displayName;
+    final currentAvatarUrl =
+        authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl;
+    final localUsernameKey = currentUsername.toLowerCase();
 
     if (podVm.isHost || liveKit.isSpeaker || pod.allowOpenMic) {
-      if (!speakersMap.containsKey(localKey)) {
-        speakersMap[localKey] = LiveKitSpeaker(
-          userId: currentUserId,
-          username: currentUsername,
-          displayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
-          avatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
-          isSpeaking: false,
-          isMuted: liveKit.isMicMuted,
+      final alreadyOnStage = (currentUserId.isNotEmpty && speakersMap.containsKey(currentUserId)) ||
+          (localUsernameKey.isNotEmpty && speakersMap.containsKey(localUsernameKey));
+      if (!alreadyOnStage) {
+        upsertSpeaker(
+          LiveKitSpeaker(
+            userId: currentUserId,
+            username: currentUsername,
+            displayName: currentDisplayName,
+            avatarUrl: currentAvatarUrl,
+            isSpeaking: false,
+            isMuted: liveKit.isMicMuted,
+          ),
         );
       }
     }
 
-    final speakers = speakersMap.values.toList();
+    // De-duplicate entries that point to the same person via userId AND
+    // username (the upsertSpeaker helper left aliases in both keys;
+    // collapse them so we emit one row per physical speaker).
+    final speakers = _dedupSpeakerList(speakersMap.values);
 
     // 4. Build Audience / Listeners from all known participants not on stage
     final Map<String, LiveKitSpeaker> listenersMap = {};
     for (final p in liveKit.participants) {
-      final key = p.userId.isNotEmpty ? p.userId : p.username.toLowerCase();
-      if (key.isNotEmpty && !speakersMap.containsKey(key)) {
-        listenersMap[key] = p;
-      }
+      final usernameKey = p.username.toLowerCase();
+      final inSpeakers = (p.userId.isNotEmpty && speakersMap.containsKey(p.userId)) ||
+          (usernameKey.isNotEmpty && speakersMap.containsKey(usernameKey));
+      if (inSpeakers) continue;
+      // Same dedup logic for the audience bucket so a single user with
+      // three devices does not triple up as a listener either.
+      if (p.userId.isNotEmpty && listenersMap.containsKey(p.userId)) continue;
+      if (usernameKey.isNotEmpty && listenersMap.containsKey(usernameKey)) continue;
+      if (p.userId.isNotEmpty) listenersMap[p.userId] = p;
+      if (usernameKey.isNotEmpty) listenersMap[usernameKey] = p;
     }
 
     // If local user is NOT on stage, ensure local user is visible in listeners
-    if (!speakersMap.containsKey(localKey)) {
-      listenersMap[localKey] = LiveKitSpeaker(
+    final localInSpeakers = (currentUserId.isNotEmpty && speakersMap.containsKey(currentUserId)) ||
+        (localUsernameKey.isNotEmpty && speakersMap.containsKey(localUsernameKey));
+    final localInListeners = (currentUserId.isNotEmpty && listenersMap.containsKey(currentUserId)) ||
+        (localUsernameKey.isNotEmpty && listenersMap.containsKey(localUsernameKey));
+    if (!localInSpeakers && !localInListeners) {
+      final localEntry = LiveKitSpeaker(
         userId: currentUserId,
         username: currentUsername,
-        displayName: authVm.currentUser?.displayName ?? authVm.currentPersona.displayName,
-        avatarUrl: authVm.currentUser?.avatarUrl ?? authVm.currentPersona.avatarUrl,
+        displayName: currentDisplayName,
+        avatarUrl: currentAvatarUrl,
         isSpeaking: false,
         isMuted: true,
       );
+      if (currentUserId.isNotEmpty) listenersMap[currentUserId] = localEntry;
+      if (localUsernameKey.isNotEmpty) listenersMap[localUsernameKey] = localEntry;
     }
 
-    final listeners = listenersMap.values.toList();
+    final listeners = _dedupSpeakerList(listenersMap.values);
     final totalJoiners = speakers.length + listeners.length;
 
     // Combined items for compact horizontal strip

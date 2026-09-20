@@ -808,12 +808,16 @@ class PodViewModel extends ChangeNotifier {
           iceServers: tokenResult.iceServers,
         );
 
-        // Ensure microphone is unmuted and active
-        if (_liveKitService.isMicMuted) {
-          micLive = await _liveKitService.unmuteMic(_localUserId);
-        } else {
-          micLive = true;
-        }
+        // Ensure microphone is unmuted and that an actual LiveKit track
+        // is published. We unconditionally call unmuteMic() because
+        // after `connectToRoom(asSpeaker: true)` the local
+        // `_isMicMuted` flag is reset to `false` BUT the LiveKit
+        // participant has not yet published an audio track — only
+        // the JWT permission is in place. The previous code skipped
+        // unmuteMic() in that case and reported `micLive = true`,
+        // which made the rest of the flow (snackbar, STAGE_JOIN
+        // broadcast, optimistic UI) lie about the mic state.
+        micLive = await _liveKitService.unmuteMic(_localUserId);
 
         if (!micLive) {
           debugPrint('Microphone was not activated after promotion. Rolling back to listener.');

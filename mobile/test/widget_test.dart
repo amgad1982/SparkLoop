@@ -14,6 +14,7 @@ import 'package:sparkloop_mobile/data/services/api_service.dart';
 import 'package:sparkloop_mobile/data/services/centrifugo_service.dart';
 import 'package:sparkloop_mobile/data/services/livekit_service.dart';
 import 'package:sparkloop_mobile/data/services/sound_synth_service.dart';
+import 'package:sparkloop_mobile/ui/features/pods/widgets/speaker_dedup.dart';
 import 'package:sparkloop_mobile/data/services/storage_service.dart';
 import 'package:sparkloop_mobile/ui/core/widgets/app_network_image.dart';
 import 'package:sparkloop_mobile/ui/features/auth/view_models/auth_view_model.dart';
@@ -1164,6 +1165,99 @@ void main() {
       // default points at the WSS hostname so a fresh `LiveKitService()`
       // with no env override lands on TLS.
       expect(LiveKitService.defaultWsUrl.startsWith('wss://'), isTrue);
+    });
+
+    test('SpeakerDedup merges three LiveKit identities of the same physical user into one row', () {
+      // Realistic scenario seen in the bug screenshot: a single user
+      // (`amgad`) opens the same pod from web, mobile, and another
+      // device. Each device carries a *distinct* LiveKit identity
+      // (LiveKit assigns one per session) — but every device
+      // populates the *same* `username`/`displayName` from the JWT.
+      // The host gets a metrics panel with three near-identical
+      // rows that look like three people, when in fact they are one.
+      final web = LiveKitSpeaker(
+        userId: 'lk-aaaa-1111',
+        username: 'amgad',
+        displayName: 'Amgad',
+        avatarUrl: 'https://cdn/avatar.png',
+      );
+      final mobile = LiveKitSpeaker(
+        userId: 'lk-bbbb-2222',
+        username: 'amgad',
+        displayName: 'Amgad',
+        avatarUrl: 'https://cdn/avatar.png',
+      );
+      final desktop = LiveKitSpeaker(
+        userId: 'lk-cccc-3333',
+        username: 'amgad',
+        displayName: 'Amgad',
+        avatarUrl: 'https://cdn/avatar.png',
+      );
+
+      // A second event from the same web connection with a casing
+      // variant must NOT create a fourth row.
+      final refreshedWeb = LiveKitSpeaker(
+        userId: 'lk-aaaa-1111',
+        username: 'AMGAD',
+        displayName: 'Amgad (refreshed)',
+      );
+
+      final host = LiveKitSpeaker(
+        userId: 'host-1',
+        username: 'pod_host',
+        displayName: 'Pod Host',
+      );
+
+      final speakers = SpeakerDedup.dedup(<LiveKitSpeaker>[host, web, mobile, desktop, refreshedWeb]);
+
+      // Two distinct physical users: host + the multi-device amgad.
+      expect(speakers.length, 2, reason: 'three LiveKit identities of one user must dedup to one row');
+
+      // Verify the amgad row kept a usable userId and merged the
+      // refreshed displayName.
+      final amgad = speakers.firstWhere(
+        (s) => s.username.toLowerCase() == 'amgad',
+        orElse: () => const LiveKitSpeaker(userId: '', username: '', displayName: ''),
+      );
+      expect(amgad.userId, isNotEmpty);
+      expect(amgad.avatarUrl, 'https://cdn/avatar.png');
+    });
+
+    test('SpeakerDedup preserves order of first occurrence across the three users', () {
+      final a = LiveKitSpeaker(userId: 'u-a', username: 'alice', displayName: 'Alice');
+      final b = LiveKitSpeaker(userId: 'u-b', username: 'bob', displayName: 'Bob');
+      final c = LiveKitSpeaker(userId: 'u-c', username: 'carol', displayName: 'Carol');
+
+      final speakers = SpeakerDedup.dedup(<LiveKitSpeaker>[a, b, c]);
+
+      expect(speakers.map((s) => s.username).toList(), ['alice', 'bob', 'carol']);
+    });
+
+    test('SpeakerDedup correctly merges muting state across two LiveKit identities of the same user', () {
+      // Host sees the listener as muted in one event and unmuted in
+      // another (e.g. due to a network blip). The merge should report
+      // the user as "speaking" (true wins for `isSpeaking`) and as
+      // muted only when both sides agree.
+      final muted = LiveKitSpeaker(
+        userId: 'lk-aaaa',
+        username: 'amgad',
+        displayName: 'Amgad',
+        isMuted: true,
+        isSpeaking: false,
+      );
+      final live = LiveKitSpeaker(
+        userId: 'lk-bbbb',
+        username: 'amgad',
+        displayName: 'Amgad',
+        isMuted: false,
+        isSpeaking: true,
+      );
+
+      final speakers = SpeakerDedup.dedup(<LiveKitSpeaker>[muted, live]);
+
+      expect(speakers.length, 1);
+      expect(speakers.first.isSpeaking, isTrue);
+      expect(speakers.first.isMuted, isFalse);
     });
 
     test('CentrifugoService throws when constructed without a StorageService (Bug #4 safety)', () async {
