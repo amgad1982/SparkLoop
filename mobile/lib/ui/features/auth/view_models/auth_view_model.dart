@@ -53,7 +53,14 @@ class AuthViewModel extends ChangeNotifier {
       _currentUser = res.user;
       _currentPersona = Persona.fromUser(res.user);
       _centrifugoService?.connect(force: true);
+      // FIX (Bug #4 - "remote calls from the pod's host don't work on mobile"):
+      //
+      // We *also* call `refreshUserChannel()` so the private channel is
+      // subscribed even if the WS was already in `connected` state when the
+      // login completed (the `connect(force: true)` above would otherwise
+      // race with the existing connection).
       _centrifugoService?.subscribe('user:${res.user.id}');
+      _centrifugoService?.refreshUserChannel();
       _isLoading = false;
       notifyListeners();
       return true;
@@ -85,7 +92,9 @@ class AuthViewModel extends ChangeNotifier {
       _currentUser = res.user;
       _currentPersona = Persona.fromUser(res.user);
       _centrifugoService?.connect(force: true);
+      // FIX (Bug #4): see comment in `login` above.
       _centrifugoService?.subscribe('user:${res.user.id}');
+      _centrifugoService?.refreshUserChannel();
       _isLoading = false;
       notifyListeners();
       return true;
@@ -221,6 +230,10 @@ class AuthViewModel extends ChangeNotifier {
     _currentUser = null;
     _currentPersona = Persona.guest;
     _centrifugoService?.connect(force: true);
+    // FIX (Bug #4): after the storage-backed current user is cleared, the
+    // next Centrifugo connect must NOT re-subscribe the old user channel.
+    // `refreshUserChannel()` reads from storage and unsubscribes if needed.
+    _centrifugoService?.refreshUserChannel();
     notifyListeners();
   }
 

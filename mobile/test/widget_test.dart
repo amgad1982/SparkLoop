@@ -550,7 +550,7 @@ void main() {
       await storage.init();
 
       final api = ApiService(storage: storage);
-      final centrifugo = CentrifugoService(apiService: api);
+      final centrifugo = CentrifugoService(apiService: api, storage: storage);
       final liveKit = LiveKitService();
       final authRepo = AuthRepository(apiService: api, storageService: storage);
       final userRepo = UserRepository(apiService: api);
@@ -1121,6 +1121,63 @@ void main() {
       expect(find.byType(RepaintBoundary), findsWidgets);
       expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
       expect(find.byIcon(Icons.pause_rounded), findsNothing);
+    });
+
+    // ==========================================
+    // Smoke tests for the realtime bug fixes
+    // (see REALTIME_BUG_ANALYSIS.md)
+    // ==========================================
+
+    test('LiveKitService.resolveWsUrl upgrades ws:// to wss:// for public hostnames (Bug #2)', () {
+      // Public hostname with the buggy plain ws:// prefix -> must upgrade.
+      final upgraded = LiveKitService.resolveWsUrl(
+        customHost: 'ws://slooplive.mydev-lab.com',
+      );
+      expect(upgraded.startsWith('wss://'), isTrue,
+          reason: 'public ws:// hostname must be upgraded to wss:// so iOS ATS does not block it');
+
+      // Already-secure input is left alone.
+      final kept = LiveKitService.resolveWsUrl(
+        customHost: 'wss://slooplive.mydev-lab.com',
+      );
+      expect(kept, 'wss://slooplive.mydev-lab.com');
+
+      // Local development hosts stay on plain ws:// so the simulator
+      // loopback still works.
+      final localhost = LiveKitService.resolveWsUrl(
+        customHost: 'ws://localhost:7880',
+      );
+      expect(localhost, 'ws://localhost:7880');
+      final loopback = LiveKitService.resolveWsUrl(
+        customHost: 'ws://127.0.0.1:7880',
+      );
+      expect(loopback, 'ws://127.0.0.1:7880');
+      final lanIp = LiveKitService.resolveWsUrl(
+        customHost: 'ws://192.168.1.42:7880',
+      );
+      expect(lanIp, 'ws://192.168.1.42:7880');
+    });
+
+    test('LiveKitService.defaultWsUrl is now the secure WSS host (Bug #2 hardening)', () {
+      // The default URL used to be plain ws://92.4.162.183:7880 which silently
+      // broke every WebRTC session on a real iOS / iPadOS device. The new
+      // default points at the WSS hostname so a fresh `LiveKitService()`
+      // with no env override lands on TLS.
+      expect(LiveKitService.defaultWsUrl.startsWith('wss://'), isTrue);
+    });
+
+    test('CentrifugoService throws when constructed without a StorageService (Bug #4 safety)', () async {
+      // Constructing the service without a storage backend used to silently
+      // produce a half-working singleton whose user-channel auto-subscribe
+      // would NPE on first connect. We now fail-fast at construction.
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.init();
+      final api = ApiService(storage: storage);
+      expect(
+        () => CentrifugoService(apiService: api),
+        throwsStateError,
+      );
     });
   });
 }

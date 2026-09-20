@@ -84,25 +84,68 @@ class LiveKitService extends ChangeNotifier {
   static String get defaultWsUrl {
     const envUrl = String.fromEnvironment('LIVEKIT_URL', defaultValue: '');
     if (envUrl.isNotEmpty) return envUrl;
-    return 'ws://92.4.162.183:7880';
+    // FIX (Bug - "LiveKit default URL is plain ws:// on real device"):
+    //
+    // Production deploys serve LiveKit over `wss://slooplive.mydev-lab.com`.
+    // The previous default `ws://92.4.162.183:7880` only worked on the
+    // simulator's bridged network and silently broke every WebRTC session
+    // on a real iOS / iPadOS device because of App Transport Security.
+    // We default to the secure URL now; local dev passes `LIVEKIT_URL`
+    // via `--dart-define` to point at `ws://localhost:7880` or similar.
+    return 'wss://slooplive.mydev-lab.com';
   }
 
+  // FIX (Bug #2 - "remote calls from the pod's host don't work on mobile"):
+  //
+  // Before this change `resolveWsUrl` discarded any backend URL that
+  // mentioned `slooplive.mydev-lab.com` and substituted the plain-WS
+  // `defaultWsUrl`. Combined with the backend's own override of
+  // `wss://` -> `ws://92.4.162.183:7880`, this meant every WebRTC session
+  // from a real iOS device failed silently because iOS App Transport
+  // Security rejects plain-WS handshakes from a TLS-loaded app.
+  //
+  // We now:
+  //   1. Honor whatever the backend returns verbatim.
+  //   2. Auto-upgrade `ws://` -> `wss://` when the host is a public
+  //      hostname (so a misconfigured production deployment doesn't
+  //      silently break audio on iOS).
+  //   3. Keep the Android-emulator loopback rewrite (`10.0.2.2`) intact.
   static String resolveWsUrl({String? customHost}) {
-    if (customHost != null && customHost.isNotEmpty) {
-      if (customHost.contains('slooplive.mydev-lab.com')) {
-        return defaultWsUrl;
-      }
-      var host = customHost;
-      if (!kIsWeb && Platform.isAndroid) {
-        host = host
-            .replaceAll('ws://localhost:', 'ws://10.0.2.2:')
-            .replaceAll('ws://127.0.0.1:', 'ws://10.0.2.2:')
-            .replaceAll('http://localhost:', 'http://10.0.2.2:')
-            .replaceAll('http://127.0.0.1:', 'http://10.0.2.2:');
-      }
-      return host;
+    if (customHost == null || customHost.isEmpty) {
+      return defaultWsUrl;
     }
-    return defaultWsUrl;
+
+    var host = customHost;
+
+    // 1. Upgrade plain `ws://` to `wss://` for public hostnames so the
+    //    WebRTC handshake doesn't get blocked by ATS on real devices.
+    //    Localhost / 127.0.0.1 / raw IPs are kept as plain `ws://` to
+    //    stay compatible with local development setups.
+    if (host.startsWith('ws://') && !_isLocalDevelopmentHost(host)) {
+      host = 'wss://${host.substring('ws://'.length)}';
+    } else if (host.startsWith('http://') && !_isLocalDevelopmentHost(host)) {
+      host = 'wss://${host.substring('http://'.length)}';
+    }
+
+    // 2. Android emulator loopback rewrite.
+    if (!kIsWeb && Platform.isAndroid) {
+      host = host
+          .replaceAll('ws://localhost:', 'ws://10.0.2.2:')
+          .replaceAll('ws://127.0.0.1:', 'ws://10.0.2.2:')
+          .replaceAll('http://localhost:', 'http://10.0.2.2:')
+          .replaceAll('http://127.0.0.1:', 'http://10.0.2.2:');
+    }
+
+    return host;
+  }
+
+  static bool _isLocalDevelopmentHost(String url) {
+    final lower = url.toLowerCase();
+    return lower.contains('localhost') ||
+        lower.contains('127.0.0.1') ||
+        lower.contains('10.0.2.2') ||
+        lower.contains('192.168.') ||
+        lower.contains('10.0.');
   }
 
   AudioPlayer? _audioPlayer;

@@ -51,7 +51,10 @@ void main() async {
   await storageService.init();
 
   final apiService = ApiService(storage: storageService);
-  final centrifugoService = CentrifugoService(apiService: apiService);
+  final centrifugoService = CentrifugoService(
+    apiService: apiService,
+    storage: storageService,
+  );
   final liveKitService = LiveKitService();
   final djRadioService = DjRadioService();
 

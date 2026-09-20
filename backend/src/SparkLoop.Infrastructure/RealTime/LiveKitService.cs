@@ -21,11 +21,23 @@ public class LiveKitService : ILiveKitService
     {
         _configuration = configuration;
         _logger = logger;
-        _serverUrl = configuration["LiveKit:ServerUrl"] ?? "ws://92.4.162.183:7880";
-        if (_serverUrl.Contains("slooplive.mydev-lab.com", StringComparison.OrdinalIgnoreCase))
-        {
-            _serverUrl = "ws://92.4.162.183:7880";
-        }
+        // FIX (Bug #3 - "remote calls from the pod's host don't work on mobile"):
+        //
+        // Before this change the LiveKit service silently overrode the configured
+        // secure hostname (`wss://slooplive.mydev-lab.com`) back to the raw IP
+        // `ws://92.4.162.183:7880`. Any client that received this URL — web or
+        // mobile — had to work around the missing TLS. The web app did so via a
+        // browser-side auto-upgrade in `usePodVoiceEngine.ts`; the Flutter app
+        // did not, which made every WebRTC connection from a real iOS / iPadOS
+        // device fail and silently dropped every remote host action
+        // (open mic, remote mute, kick from stage, etc.).
+        //
+        // We now honor whatever is configured. In production deployments the
+        // `LiveKit:ServerUrl` value is `wss://slooplive.mydev-lab.com`, and
+        // clients receive a TLS URL they can use directly. Local development
+        // still works because the dev override sets `ws://localhost:7880` or
+        // the raw IP.
+        _serverUrl = configuration["LiveKit:ServerUrl"] ?? "ws://localhost:7880";
         _apiKey = configuration["LiveKit:ApiKey"] ?? "sparkloop_livekit_key";
         _apiSecret = configuration["LiveKit:ApiSecret"] ?? "sparkloop_livekit_secret_2026_super_secure_32chars";
     }

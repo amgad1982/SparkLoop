@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SparkLoop.Application.Interfaces;
 using SparkLoop.Domain.Events;
@@ -353,11 +354,16 @@ public class MoodPodSettingsUpdatedEventHandler : INotificationHandler<MoodPodSe
 public class MoodPodModerationActionEventHandler : INotificationHandler<MoodPodModerationActionEvent>
 {
     private readonly ICentrifugoService _centrifugoService;
+    private readonly IAppDbContext _dbContext;
     private readonly ILogger<MoodPodModerationActionEventHandler> _logger;
 
-    public MoodPodModerationActionEventHandler(ICentrifugoService centrifugoService, ILogger<MoodPodModerationActionEventHandler> logger)
+    public MoodPodModerationActionEventHandler(
+        ICentrifugoService centrifugoService,
+        IAppDbContext dbContext,
+        ILogger<MoodPodModerationActionEventHandler> logger)
     {
         _centrifugoService = centrifugoService;
+        _dbContext = dbContext;
         _logger = logger;
     }
 
@@ -367,6 +373,36 @@ public class MoodPodModerationActionEventHandler : INotificationHandler<MoodPodM
         var userChannel = $"user:{notification.TargetUserId}";
         _logger.LogInformation("Broadcasting MoodPodModerationActionEvent ({Action}) to {Channel} & {UserChannel}", notification.Action, channel, userChannel);
 
+        // FIX (Bug #6 - "promoted user's display name and avatar missing"):
+        //
+        // The previous payload only emitted `targetUsername`. The Flutter mobile
+        // client (`pod_view_model.dart` lines 399–400) reads `targetDisplayName`
+        // and `targetAvatarUrl` from the same event to render the participant
+        // card after a `promote_speaker`. Without those keys the new speaker
+        // appeared with an empty display name and no avatar.
+        //
+        // We now look up the target user from the DbContext and include their
+        // display name + avatar in the broadcast. Falls back gracefully when
+        // the user can't be found (deleted account, race condition).
+        string? targetDisplayName = null;
+        string? targetAvatarUrl = null;
+        try
+        {
+            var target = await _dbContext.Users
+                .Where(u => u.Id == notification.TargetUserId)
+                .Select(u => new { u.DisplayName, u.AvatarUrl })
+                .FirstOrDefaultAsync(cancellationToken);
+            if (target is not null)
+            {
+                targetDisplayName = target.DisplayName;
+                targetAvatarUrl = target.AvatarUrl;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load target user display/avatar for moderation event.");
+        }
+
         var payload = new
         {
             type = "MODERATION_ACTION",
@@ -374,6 +410,8 @@ public class MoodPodModerationActionEventHandler : INotificationHandler<MoodPodM
             action = notification.Action,
             targetUserId = notification.TargetUserId,
             targetUsername = notification.TargetUsername,
+            targetDisplayName,
+            targetAvatarUrl,
             moderatorUserId = notification.ModeratorUserId,
             moderatorUsername = notification.ModeratorUsername,
             reason = notification.Reason,

@@ -472,9 +472,30 @@ class PodViewModel extends ChangeNotifier {
       _centrifugoService.subscribe('pod:${podId.toLowerCase()}');
       _startMessageSync(podId);
 
-      final isSpeakerRole = _isHost || (_activePod?.allowOpenMic == true);
+      // FIX (Bug #1 - "moderator's mic doesn't work in pod_room_screen"):
+      //
+      // Before this change `isSpeakerRole` was computed as
+      //     _isHost || (_activePod?.allowOpenMic == true)
+      // which meant every user that was not the pod host — including
+      // moderators promoted via `promote_moderator` — joined as a
+      // listener, even though the backend grants them `canPublishAudio`.
+      // Downstream consequences:
+      //   * `_liveKitService.connectToRoom(..., asSpeaker: false)` set
+      //     `_isSpeaker = false` and `_isMicMuted = true`.
+      //   * The `if (asSpeaker && !_isMicMuted)` branch in `connectToRoom`
+      //     was skipped, so `setMicrophoneEnabled(true)` was never called.
+      //   * The mic toggle button saw `isSpeaker == false` and immediately
+      //     returned `MicToggleResult.notSpeaker` ("Raise your hand" snackbar)
+      //     even though the user was already a speaker.
+      //
+      // We now include `_isModerator` so a moderator can speak on entry,
+      // matching the backend's `isOnStage` predicate in
+      // `GetPodVoiceTokenQuery`:
+      //   isOnStage = isHost || isModerator || (AllowOpenMic && request.IsOnStage) || IsApprovedSpeaker
+      final isSpeakerRole =
+          _isHost || _isModerator || (_activePod?.allowOpenMic == true);
 
-      // Immediately place local speaker on stage if they have a speaker role (host or open-mic),
+      // Immediately place local speaker on stage if they have a speaker role (host, moderator, or open-mic),
       // ensuring their avatar appears on the speakers stage with zero delay.
       final localSpeaker = LiveKitSpeaker(
         userId: currentUserId,
@@ -487,9 +508,21 @@ class PodViewModel extends ChangeNotifier {
       _liveKitService.upsertParticipant(localSpeaker, isOnStage: isSpeakerRole);
 
       try {
+        // FIX (Bug #5 - "join as listener loses audio if backend predicate tightens"):
+        //
+        // Before this change we hard-coded `isOnStage: true` when fetching
+        // the LiveKit token, regardless of whether the local user actually
+        // had a speaker role. That worked today only because the backend's
+        // `isOnStage` predicate also accepts host/moderator/approved-speaker
+        // independently of `request.IsOnStage`. If anyone tightens that
+        // predicate, every Flutter user would silently lose audio because
+        // they would ask for an elevated JWT while joining as a listener.
+        //
+        // We now pass the real `isSpeakerRole` value so the backend sees
+        // an honest view of what role the client thinks it has.
         final tokenResult = await _podRepository.getLiveKitToken(
           podId,
-          isOnStage: true,
+          isOnStage: isSpeakerRole,
           inviteCode: inviteCode,
         );
 
@@ -791,12 +824,21 @@ class PodViewModel extends ChangeNotifier {
         debugPrint('Failed to promote local user to speaker: $promoteErr');
         // Roll back the optimistic state so the UI matches reality.
         _liveKitService.demoteToListener(_localUserId ?? '');
+        micLive = false;
       } finally {
         _isPromotionInFlight = false;
       }
 
-      // Broadcast STAGE_JOIN to all peers in the pod.
-      if (_activePod != null && _localUserId != null) {
+      // FIX (Bug #7 - "mobile broadcast lies about stage state"):
+      //
+      // Before this change `STAGE_JOIN` was broadcast unconditionally with
+      // `isOnStage: true` even when the LiveKit reconnect (and therefore
+      // `micLive`) had failed. Other peers would then think the listener
+      // successfully joined the stage even though they hadn't — leading to
+      // ghost speakers on the host's UI.
+      //
+      // We now only broadcast when we *know* the mic is live.
+      if (micLive && _activePod != null && _localUserId != null) {
         try {
           await _podRepository.sendSignal(
             _activePod!.id,
@@ -807,13 +849,15 @@ class PodViewModel extends ChangeNotifier {
               'displayName': _localDisplayName ?? '',
               'avatarUrl': _localAvatarUrl,
               'isOnStage': true,
-              'isMuted': !micLive,
+              'isMuted': false,
               'isSpeaking': false,
             },
           );
         } catch (signalErr) {
           debugPrint('Failed to broadcast STAGE_JOIN after promotion: $signalErr');
         }
+      } else if (!micLive) {
+        debugPrint('Skipping STAGE_JOIN broadcast because mic is not live.');
       } else {
         debugPrint('Cannot broadcast STAGE_JOIN: _activePod or _localUserId is null.');
       }

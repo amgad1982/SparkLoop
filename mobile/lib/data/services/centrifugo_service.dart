@@ -6,6 +6,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:web_socket_channel/io.dart';
 import 'api_service.dart';
 import 'notification_service.dart';
+import 'storage_service.dart';
 
 class CentrifugoEvent {
   final String channel;
@@ -25,7 +26,11 @@ class CentrifugoService extends ChangeNotifier {
   }
 
   final ApiService _apiService;
-  final String _wsUrl;
+  // Late-bound so the constructor can throw when storage is omitted instead
+  // of silently producing an unusable service that crashes on first connect.
+  // ignore: prefer_initializing_formals
+  final StorageService _storage;
+  late final String _wsUrl;
 
   WebSocketChannel? _channel;
   StreamSubscription? _subscription;
@@ -43,8 +48,31 @@ class CentrifugoService extends ChangeNotifier {
   final Set<String> _serverSubscribedChannels = {};
   int _messageId = 1;
 
-  CentrifugoService({required this._apiService, String? wsUrl})
-      : _wsUrl = wsUrl ?? defaultWsUrl;
+  // FIX (Bug #4 - "remote calls from the pod's host don't work on mobile"):
+  //
+  // The web app auto-subscribes `user:{userId}` after every successful
+  // connection (see `frontend/src/hooks/useCentrifugo.ts` line 114). The
+  // previous mobile implementation relied on `AuthViewModel._init` doing
+  // that subscribe, but that only fires when the user was already
+  // authenticated at app start. For the common flow (open the app →
+  // see the guest feed → log in), the singleton was constructed before
+  // the user id was known and `user:{userId}` was never subscribed.
+  // Result: every private-channel push (POD_INVITATION, MODERATION_ACTION
+  // targeting the user, DJ notifications) was dropped.
+  //
+  // We now read the current user id from storage at every connect /
+  // reconnect and queue the user channel subscription so it goes out
+  // before any feature-specific subscribe (which previously raced it).
+  String? _lastKnownUserId;
+
+  // ignore: prefer_initializing_formals
+  CentrifugoService({required ApiService apiService, StorageService? storage, String? wsUrl})
+      // ignore: prefer_initializing_formals
+      : _apiService = apiService,
+        // ignore: prefer_initializing_formals
+        _storage = storage ?? (throw StateError('CentrifugoService requires a StorageService')) {
+    _wsUrl = wsUrl ?? defaultWsUrl;
+  }
 
   bool _isConnecting = false;
 
@@ -131,6 +159,17 @@ class CentrifugoService extends ChangeNotifier {
       };
       _send(connectPayload);
 
+      // FIX (Bug #4 - "remote calls from the pod's host don't work on mobile"):
+      //
+      // Queue any pending channel subscriptions *before* sending the
+      // `connect` command so that the existing handshake-confirmation loop
+      // (see the `_isConnected = true` branch below) picks them up. We
+      // don't subscribe directly here — sending `subscribe` before the
+      // server has confirmed `connect` is racy. Centrifugo clears its
+      // server-side subscription state on every disconnect, so we rely on
+      // the handshake handler to replay the channel list.
+      _autoSubscribeUserChannel();
+
       // Start ping timer every 25 seconds
       _pingTimer?.cancel();
       _pingTimer = Timer.periodic(const Duration(seconds: 25), (_) {
@@ -143,6 +182,54 @@ class CentrifugoService extends ChangeNotifier {
       _onDisconnect();
     } finally {
       _isConnecting = false;
+    }
+  }
+
+  /// FIX (Bug #4): read the currently-authenticated user id from local
+  /// storage and queue a subscribe to `user:{userId}` so we receive private
+  /// channel pushes (POD_INVITATION, MODERATION_ACTION targeting this user,
+  /// DJ notifications, etc.). No-op for guests.
+  void _autoSubscribeUserChannel() {
+    try {
+      final user = _storage.getCurrentUser();
+      final userId = user?.id;
+      if (userId == null || userId.isEmpty) {
+        _lastKnownUserId = null;
+        return;
+      }
+      if (_lastKnownUserId == userId && _activeChannels.contains('user:$userId')) {
+        // Already queued — avoid double-subscribe after the very first connect.
+        return;
+      }
+      _lastKnownUserId = userId;
+      // `subscribe()` is idempotent and lower-cases internally.
+      subscribe('user:$userId');
+      debugPrint('Centrifugo auto-subscribed user channel: user:$userId');
+    } catch (e) {
+      debugPrint('Centrifugo auto-subscribe user channel failed: $e');
+    }
+  }
+
+  /// FIX (Bug #4): expose a public hook for the auth layer to call after a
+  /// successful login / logout so we re-evaluate the user channel
+  /// subscription without waiting for a full reconnect cycle.
+  void refreshUserChannel() {
+    _autoSubscribeUserChannel();
+    if (_isConnected) {
+      final user = _storage.getCurrentUser();
+      final userId = user?.id;
+      if (userId == null || userId.isEmpty) {
+        // User logged out — drop the stale user channel if we had one.
+        if (_lastKnownUserId != null) {
+          unsubscribe('user:$_lastKnownUserId');
+          _lastKnownUserId = null;
+        }
+        return;
+      }
+      // Force the subscribe path even if the id didn't change since the
+      // last call (handles a fresh WS that lost server-side state).
+      _lastKnownUserId = null;
+      _autoSubscribeUserChannel();
     }
   }
 
